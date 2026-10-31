@@ -37,6 +37,21 @@ if (!is_dir($configDir)) {
 
 define('CONFIG_DIR', $configDir);
 
+/**
+ * 老部署的配置可能还在 data/ 下：首次请求时复制到 config/，只做一次。
+ * 复制而不是移动，原文件保留，出问题还能退回去。
+ */
+if (CONFIG_DIR !== STORAGE_DIR) {
+    foreach (['auth-config.php', 'auth-state.json', 'auth-throttle.json'] as $configFile) {
+        $target = CONFIG_DIR . $configFile;
+        $legacy = STORAGE_DIR . $configFile;
+        if (!is_file($target) && is_file($legacy)) {
+            @copy($legacy, $target);
+            @chmod($target, 0644);
+        }
+    }
+}
+
 date_default_timezone_set(getenv('TZ') ?: 'Asia/Shanghai');
 
 /**
