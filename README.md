@@ -217,7 +217,7 @@ docker compose logs -f     # 跟踪日志
 | --- | --- | --- |
 | `./data` | `/var/www/html/data` | 账簿清单 `events.json`、礼金密文 `gifts_<id>.json`、文件锁；**最需要备份的目录** |
 | `./config` | `/var/www/html/config` | 访问保护配置与运行状态：`auth-config.php`、`auth-state.json`、`auth-throttle.json`；重建容器不丢 |
-| `./www`（可选） | `/var/www/html` | 把网页文件放这里可覆盖镜像内容，改完刷新即生效，不用重建镜像 |
+| `./www`（可选） | `/var/www/html` | 网页文件（仓库里的 `www/`）；挂上后改页面刷新即生效，不用重建镜像 |
 
 > 首次启动如果 `./config` 是空的，程序会自动把旧位置（`./data` 里）的认证配置复制过来，不需要手工搬。
 
@@ -307,11 +307,12 @@ server {
 
 ### 只挂载网页目录（改样式不用重建镜像）
 
-把仓库里的网页文件放到宿主机目录，比如 `/volume1/docker/gift-book/www`，然后在 compose 里加一行：
+仓库里的 `www/` 就是网页文件目录。把它挂到宿主机，比如 `/volume1/docker/gift-book/www`，compose 里加一行：
 
 ```yaml
     volumes:
       - ./data:/var/www/html/data
+      - ./config:/var/www/html/config
       - ./www:/var/www/html          # 覆盖镜像里的页面
 ```
 
@@ -399,18 +400,20 @@ git push origin v2026.11.01-3
 
 ```
 .
-├── index.html            # 单文件前端（含全部界面逻辑）
-├── static/
-│   ├── base.css          # 样式底座
-│   ├── refined.css       # 双主题与版式
-│   ├── ledger-crypto.js  # 自研加密（OpenSSL 兼容）
-│   ├── voices.js         # 中文音色清单
-│   └── xlsx-lite.js      # 自研 XLSX 写出
-├── events.php            # 账簿接口
-├── gifts.php             # 礼金接口
-├── auth.php              # 可选访问保护 + 防爆破
-├── ping.php              # 连通性探测
-├── config.php            # 数据目录与 JSON 响应封装
+├── www/                  # 网页文件（整目录挂到 /var/www/html）
+│   ├── index.html        # 单文件前端（含全部界面逻辑）
+│   ├── static/
+│   │   ├── base.css      # 样式底座
+│   │   ├── refined.css   # 双主题与版式
+│   │   ├── ledger-crypto.js  # 自研加密（OpenSSL 兼容）
+│   │   ├── voices.js     # 中文音色清单
+│   │   └── xlsx-lite.js  # 自研 XLSX 写出
+│   ├── events.php        # 账簿接口
+│   ├── gifts.php         # 礼金接口
+│   ├── auth.php          # 可选访问保护 + 防爆破
+│   ├── ping.php          # 连通性探测
+│   ├── config.php        # 数据目录与 JSON 响应封装
+│   └── .htaccess         # 目录保护 / 缓存 / 压缩
 ├── data/                 # 账簿数据（默认拒绝直接访问）
 ├── config/               # 访问保护配置与状态（默认拒绝直接访问）
 ├── Dockerfile

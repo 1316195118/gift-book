@@ -55,6 +55,27 @@ if (CONFIG_DIR !== STORAGE_DIR) {
 date_default_timezone_set(getenv('TZ') ?: 'Asia/Shanghai');
 
 /**
+ * 写接口的同源校验：带 Origin 头的跨站请求直接拒绝。
+ * 同源请求、curl、老浏览器（不带 Origin）照常放行，不影响正常使用。
+ */
+function requireSameOrigin() {
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (!in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
+        return;
+    }
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if ($origin === '' || $origin === 'null') {
+        return;
+    }
+    $originHost = parse_url($origin, PHP_URL_HOST);
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $hostOnly = preg_replace('/:\d+$/', '', $host);
+    if (!is_string($originHost) || $originHost === '' || strcasecmp($originHost, $hostOnly) !== 0) {
+        jsonResponse(['success' => false, 'message' => '跨站请求已被拒绝'], 403);
+    }
+}
+
+/**
  * 输出 JSON 并结束请求。
  *
  * @param array $payload 响应体

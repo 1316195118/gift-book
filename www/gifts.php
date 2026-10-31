@@ -2,6 +2,7 @@
 require_once 'config.php';
 require_once 'auth.php';
 requireAuth();
+requireSameOrigin();
 
 function giftsApiId($name, $body, $label) {
     foreach ([$_GET, $_POST, $body] as $source) {

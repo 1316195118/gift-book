@@ -1,0 +1,46 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # 数据与配置目录一律拒绝直接访问（文件系统里读得到，HTTP 读不到）
+    RewriteRule ^data/ - [F,L]
+    RewriteRule ^config/ - [F,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # 页面与接口不缓存，改版立即生效
+    <FilesMatch "\.(html|php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header unset Last-Modified
+        Header unset ETag
+    </FilesMatch>
+
+    # 静态资源带 ?v=构建号，可以放心长期缓存
+    <FilesMatch "\.(css|js|svg|png|jpg|jpeg|webp|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # 基础安全头
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+<IfModule mod_deflate.c>
+    # 文本类资源压缩传输：单文件前端 260KB 压到约 60KB
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/json application/xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresDefault "access plus 1 hour"
+</IfModule>

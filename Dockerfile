@@ -1,12 +1,14 @@
 # 电子礼簿 · 单容器镜像（PHP 8.2 + Apache）
+# 网页文件都在 www/ 里，构建时整体拷进 /var/www/html
 # 不装任何额外系统包，构建只要几秒；UTF-8 由 glibc 的 C.UTF-8 保证。
 FROM php:8.2-apache
 
-# rewrite：让 .htaccess 生效（data/ 目录靠它拒绝直接访问）
-# headers：让 .htaccess 里的 no-store 头真正下发
-RUN a2enmod rewrite headers \
+# rewrite：让 .htaccess 生效（data/、config/ 目录靠它拒绝直接访问）
+# headers / expires / deflate：静态资源缓存 + 压缩，页面加载更快
+RUN a2enmod rewrite headers expires deflate \
  && sed -ri 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf \
- && printf 'expose_php = Off\n' > /usr/local/etc/php/conf.d/hardening.ini
+ && printf 'expose_php = Off\nServerTokens Prod\nServerSignature Off\n' > /usr/local/etc/php/conf.d/hardening.ini \
+ && printf 'opcache.enable=1\nopcache.memory_consumption=64\nopcache.interned_strings_buffer=8\nopcache.max_accelerated_files=10000\nopcache.validate_timestamps=1\nopcache.revalidate_freq=2\nrealpath_cache_size=4096K\nrealpath_cache_ttl=600\n' > /usr/local/etc/php/conf.d/opcache.ini
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -15,8 +17,10 @@ ENV LANG=C.UTF-8 \
 
 WORKDIR /var/www/html
 
-# 应用本体打进镜像；想改页面就挂载 ./www 覆盖它
-COPY . /var/www/html/
+# 只拷 www/：网页文件与接口都在里面
+COPY www/ /var/www/html/
+# 入口脚本放 webroot 之外，整目录挂载也不会被盖掉
+COPY entrypoint.sh /usr/local/bin/gift-book-entrypoint
 
 # 统一权限：拷贝进来的文件可能是 770 或带 ACL，www-data 会读不到 .htaccess
 RUN mkdir -p /var/www/html/data /var/www/html/config \
@@ -24,11 +28,8 @@ RUN mkdir -p /var/www/html/data /var/www/html/config \
  && chmod -R a+rX /var/www/html \
  && chown -R www-data:www-data /var/www/html/data /var/www/html/config \
  && chmod 775 /var/www/html/data /var/www/html/config \
- && cp /var/www/html/entrypoint.sh /usr/local/bin/gift-book-entrypoint \
  && chmod +x /usr/local/bin/gift-book-entrypoint
 
 EXPOSE 80
 
-# 启动时按 PUID / PGID 对齐属主，再拉起 Apache
-# 入口脚本放在 webroot 之外：即使把 ./www 挂到 /var/www/html 也不会失效
 ENTRYPOINT ["/usr/local/bin/gift-book-entrypoint"]

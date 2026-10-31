@@ -2,6 +2,7 @@
 require_once 'config.php';
 require_once 'auth.php';
 requireAuth();
+requireSameOrigin();
 
 function eventsApiId($body) {
     foreach ([$_GET, $_POST, $body] as $source) {
@@ -159,10 +160,31 @@ function eventsApiValidate(&$body, $existing = []) {
     if (array_key_exists('name', $body) && !eventsApiName($body['name'])) {
         jsonResponse(['success' => false, 'message' => '名称不能为空且最多120个Unicode字符'], 400);
     }
-    // passwordHash 允许为空：表示这本账簿不设管理密码
-    if (array_key_exists('passwordHash', $body) && (!is_string($body['passwordHash']) ||
-        strlen($body['passwordHash']) > 8 * 1024 * 1024)) {
-        jsonResponse(['success' => false, 'message' => '无效的密码摘要'], 400);
+    // passwordHash 允许为空：表示这本账簿不设管理密码；有值必须是 64 位十六进制 SHA-256
+    if (array_key_exists('passwordHash', $body)) {
+        $hash = $body['passwordHash'];
+        if (!is_string($hash) || ($hash !== '' && !preg_match('/\A[a-f0-9]{64}\z/', $hash))) {
+            jsonResponse(['success' => false, 'message' => '无效的密码摘要'], 400);
+        }
+    }
+    // 其余文本字段限长，避免客户端塞进超大字符串把 events.json 撑爆
+    $textLimits = ['voiceName' => 160, 'template' => 120, 'location' => 200, 'note' => 4000, 'coverStyle' => 32];
+    foreach ($textLimits as $field => $limit) {
+        if (!array_key_exists($field, $body) || $body[$field] === null) {
+            continue;
+        }
+        $value = $body[$field];
+        if (!is_string($value) || strlen($value) > $limit * 3 || !preg_match('//u', $value)) {
+            jsonResponse(['success' => false, 'message' => '字段内容无效：' . $field], 400);
+        }
+    }
+    if (array_key_exists('theme', $body) && $body['theme'] !== null
+        && !in_array($body['theme'], ['theme-festive', 'theme-solemn'], true)) {
+        jsonResponse(['success' => false, 'message' => '无效的主题'], 400);
+    }
+    if (array_key_exists('category', $body) && $body['category'] !== null
+        && !in_array($body['category'], ['red', 'white'], true)) {
+        jsonResponse(['success' => false, 'message' => '无效的分类'], 400);
     }
     foreach (['coverImage', 'qrcode'] as $field) {
         if (array_key_exists($field, $body) && !eventsApiImage($body[$field])) {

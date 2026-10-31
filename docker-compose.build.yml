@@ -18,7 +18,7 @@ services:
     volumes:
       - ./data:/var/www/html/data
       - ./config:/var/www/html/config
-      # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
+      # 仓库里的 www/ 就是网页文件；想改页面不改镜像时，打开这行
       # - ./www:/var/www/html
 
     ports:
