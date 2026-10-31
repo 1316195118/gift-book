@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-0225">
+<html lang="zh-CN" data-build="20261101-0240">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261101-0225"></script>
-    <script src="./static/ledger-crypto.js?v=20261101-0225"></script>
-    <script src="./static/voices.js?v=20261101-0225"></script>
+    <script src="./static/xlsx-lite.js?v=20261101-0240"></script>
+    <script src="./static/ledger-crypto.js?v=20261101-0240"></script>
+    <script src="./static/voices.js?v=20261101-0240"></script>
     <style>
       :root,
       .theme-festive {
@@ -824,8 +824,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261101-0225" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261101-0225" />
+    <link rel="stylesheet" href="./static/base.css?v=20261101-0240" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261101-0240" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -3942,10 +3942,21 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-3";
+        const APP_VERSION = "2026.11.01-4";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.01-4", date: "2026-11-01", build: "0240",
+            notes: [
+              { t: "opt", text: "网页文件统一收进 www/ 目录，仓库结构与挂载一一对应" },
+              { t: "opt", text: "开启 gzip 压缩：首页从 257KB 降到 65KB，加载更快" },
+              { t: "opt", text: "静态资源长缓存 + PHP opcache，二次打开几乎瞬时" },
+              { t: "sec", text: "写接口增加同源校验，跨站伪造请求直接 403" },
+              { t: "sec", text: "账簿字段加长度与枚举校验，密码摘要必须是 64 位 SHA-256" },
+              { t: "sec", text: "data/ 与 config/ 目录禁止任何外部直接访问" },
+            ],
+          },
           {
             version: "2026.11.01-3", date: "2026-11-01", build: "0225",
             notes: [
