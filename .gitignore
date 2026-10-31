@@ -1,0 +1,21 @@
+# 运行期数据（账簿、礼金、访问保护状态）：只保留目录本身
+data/*
+!data/.gitkeep
+!data/.htaccess
+
+# 访问保护密钥（PBKDF2 盐 / HMAC secret），绝不入库
+auth-config.php
+data/auth-config.php
+data/auth-state.json
+ACCESS_PASSWORD.txt
+
+# 本地环境
+.env
+.env.local
+
+# 编辑器 / 系统垃圾
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

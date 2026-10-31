@@ -1,0 +1,16 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^data/ - [F,L]
+</IfModule>
+
+# 页面与接口每次都取最新版本，避免改版后仍看到旧界面
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header unset Last-Modified
+        Header unset ETag
+    </FilesMatch>
+</IfModule>

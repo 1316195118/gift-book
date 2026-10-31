@@ -1,0 +1,46 @@
+services:
+  gift-book:
+    # 镜像名带作者命名空间；本地没有时会按下面的 build 现场构建（约 15 秒）
+    image: 1316195118/gift-book:latest
+    build: .
+    container_name: gift-book
+    # 桥接网络即可；本项目不依赖局域网组播
+    network_mode: "bridge"
+
+    environment:
+      # 容器内 www-data 的 UID/GID，与宿主机对齐，挂出来的 data/ 才不会变成 root 所有
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # 时区：影响账簿记录与导出的时间
+      - TZ=${TZ:-Asia/Shanghai}
+      # UTF-8 环境，中文不会乱码（镜像内已固定，这里显式声明一次）
+      - LANG=C.UTF-8
+      # 数据目录，与下面的 volumes 保持一致
+      - GIFTBOOK_DATA_DIR=/var/www/html/data/
+
+    volumes:
+      # 账簿数据：唯一需要备份的目录，容器重建不丢
+      - ./data:/var/www/html/data
+      # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
+      # - ./www:/var/www/html
+
+    ports:
+      # 宿主机端口:容器端口，改端口只改左边的 ${PORT}
+      - "${PORT:-8099}:80"
+
+    # 资源上限（Compose V2 直接生效），不想要就整段删掉
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 80) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # 开机自启；手动 docker compose stop 之后不会自己爬起来
+    restart: unless-stopped
