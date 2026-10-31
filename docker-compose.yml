@@ -15,10 +15,13 @@ services:
       - LANG=C.UTF-8
       # 数据目录，与下面的 volumes 保持一致
       - GIFTBOOK_DATA_DIR=/var/www/html/data/
+      - GIFTBOOK_CONFIG_DIR=/var/www/html/config/
 
     volumes:
-      # 账簿数据：唯一需要备份的目录，容器重建不丢
+      # 账簿数据（events.json / gifts_*.json）：最需要备份的目录
       - ./data:/var/www/html/data
+      # 访问保护配置与运行状态（auth-config.php / auth-state.json / auth-throttle.json）
+      - ./config:/var/www/html/config
 
     ports:
       # 宿主机端口:容器端口

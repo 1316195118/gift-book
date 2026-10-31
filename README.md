@@ -103,7 +103,7 @@
 
 ```
 ghcr.io/1316195118/gift-book:latest
-ghcr.io/1316195118/gift-book:v2026.11.01-2
+ghcr.io/1316195118/gift-book:v2026.11.01-3
 ```
 
 ### 前置要求
@@ -140,8 +140,10 @@ services:
       - GIFTBOOK_DATA_DIR=/var/www/html/data/
 
     volumes:
-      # 账簿数据：唯一需要备份的目录，容器重建不丢
+      # 账簿数据（events.json / gifts_*.json）
       - ./data:/var/www/html/data
+      # 访问保护配置与状态（auth-config.php / auth-state.json / auth-throttle.json）
+      - ./config:/var/www/html/config
 
     ports:
       # 宿主机端口:容器端口
@@ -213,11 +215,15 @@ docker compose logs -f     # 跟踪日志
 
 | 宿主机路径 | 容器路径 | 说明 |
 | --- | --- | --- |
-| `./data` | `/var/www/html/data` | 账簿清单 `events.json`、礼金密文 `gifts_<id>.json`、访问保护配置；**唯一需要备份的目录** |
+| `./data` | `/var/www/html/data` | 账簿清单 `events.json`、礼金密文 `gifts_<id>.json`、文件锁；**最需要备份的目录** |
+| `./config` | `/var/www/html/config` | 访问保护配置与运行状态：`auth-config.php`、`auth-state.json`、`auth-throttle.json`；重建容器不丢 |
+| `./www`（可选） | `/var/www/html` | 把网页文件放这里可覆盖镜像内容，改完刷新即生效，不用重建镜像 |
+
+> 首次启动如果 `./config` 是空的，程序会自动把旧位置（`./data` 里）的认证配置复制过来，不需要手工搬。
 
 ```bash
 # 备份（建议每次办完事备一份）
-tar czf gift-book-$(date +%F).tgz data/
+tar czf gift-book-$(date +%F).tgz data/ config/
 
 # 恢复
 tar xzf gift-book-2026-11-01.tgz
@@ -234,7 +240,7 @@ docker compose pull     # 拉最新镜像
 docker compose up -d    # 重建容器
 ```
 
-想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.01-2`。
+想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.01-3`。
 
 ### 环境变量
 
@@ -246,6 +252,7 @@ docker compose up -d    # 重建容器
 | `PGID` | `1000` | 同上，用户组；用 `id -g` 查 |
 | `LANG` | `C.UTF-8` | UTF-8 环境，保证中文不乱码 |
 | `GIFTBOOK_DATA_DIR` | `/var/www/html/data/` | 容器内数据目录，改这里要同步改 volumes |
+| `GIFTBOOK_CONFIG_DIR` | `/var/www/html/config/` | 容器内配置目录（访问保护相关），改这里要同步改 volumes |
 
 > **为什么要有 PUID/PGID？** 容器默认以 root 跑的话，挂出来的 `data/` 会变成 root 所有，宿主机上普通账号删不掉、备份工具也读不了。启动脚本会把 `www-data` 改成你指定的 UID/GID，再 `chown` 数据目录。
 
@@ -330,7 +337,7 @@ docker compose -f docker-compose.build.yml up -d --build
 | 中文显示成方块 | 浏览器缺中文字体，与容器无关；给系统装 Noto Sans CJK 即可 |
 | 时间不对 | 改 `.env` 里的 `TZ`，`docker compose up -d` 生效 |
 | 上传封面失败 | 反向代理的 `client_max_body_size` 太小，调到 20MB |
-| 忘记访问密码 | 停容器，删 `data/auth-config.php` 与 `data/auth-state.json`，重启后重新设置 |
+| 忘记访问密码 | 停容器，删 `config/auth-config.php` 与 `config/auth-state.json`（旧部署在 `data/` 下），重启后重新设置 |
 | 想换端口 | 改 `.env` 的 `PORT`，`docker compose up -d` |
 | `pull access denied for 1316195118/gift-book` | 镜像还没发布到公共仓库，且当前目录没有源码 → 把仓库文件放进项目目录再部署，或先 `docker build -t 1316195118/gift-book:latest .` |
 | `Forbidden ... unable to read htaccess file` | 宿主机文件带 ACL/770 权限被拷进镜像；本仓库 Dockerfile 已统一 `chmod -R a+rX`，更新到最新版重建即可 |
@@ -339,7 +346,7 @@ docker compose -f docker-compose.build.yml up -d --build
 
 | 项目 | 做法 |
 | --- | --- |
-| 存放位置 | 只有 `data/` 一个目录：`events.json`、`gifts_<id>.json` |
+| 存放位置 | `data/`（账簿 `events.json`、`gifts_<id>.json`）+ `config/`（访问保护配置与状态） |
 | 礼金内容 | 用管理密码派生的密钥做 **AES-256-CBC** 加密，密文格式与 OpenSSL 兼容，历史数据可直接解开 |
 | 无密码账簿 | 用空密码的 SHA-256 作为哨兵值，功能不受影响 |
 | 目录保护 | `.htaccess` 里 `Options -Indexes` + `data/` 直接 403，列不出文件 |
@@ -366,7 +373,7 @@ docker compose -f docker-compose.build.yml up -d --build
 
 ## 版本检查与升级
 
-- 页面右上角的版本号（`v2026.11.01-2`）点开就是更新说明，顶部有「检查更新」。
+- 页面右上角的版本号（`v2026.11.01-3`）点开就是更新说明，顶部有「检查更新」。
 - 它会读取本仓库的最新 Release，比当前版本新就给出「前往下载」。
 - 内网部署连不上 GitHub 时会提示「暂时连不上 GitHub（内网部署可忽略）」，不影响使用。
 - 升级方式：`git pull && docker compose up -d --build`，数据目录不受影响。
@@ -374,8 +381,8 @@ docker compose -f docker-compose.build.yml up -d --build
 发布新版本时打 tag 即可：
 
 ```bash
-git tag -a v2026.11.01-2 -m "v2026.11.01-2"
-git push origin v2026.11.01-2
+git tag -a v2026.11.01-3 -m "v2026.11.01-3"
+git push origin v2026.11.01-3
 ```
 
 ---
@@ -404,7 +411,8 @@ git push origin v2026.11.01-2
 ├── auth.php              # 可选访问保护 + 防爆破
 ├── ping.php              # 连通性探测
 ├── config.php            # 数据目录与 JSON 响应封装
-├── data/                 # 运行期数据（默认拒绝直接访问）
+├── data/                 # 账簿数据（默认拒绝直接访问）
+├── config/               # 访问保护配置与状态（默认拒绝直接访问）
 ├── Dockerfile
 └── docker-compose.yml
 ```

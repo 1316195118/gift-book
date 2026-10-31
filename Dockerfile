@@ -9,7 +9,9 @@ RUN a2enmod rewrite headers \
  && printf 'expose_php = Off\n' > /usr/local/etc/php/conf.d/hardening.ini
 
 ENV LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+    LC_ALL=C.UTF-8 \
+    GIFTBOOK_DATA_DIR=/var/www/html/data/ \
+    GIFTBOOK_CONFIG_DIR=/var/www/html/config/
 
 WORKDIR /var/www/html
 
@@ -17,11 +19,11 @@ WORKDIR /var/www/html
 COPY . /var/www/html/
 
 # 统一权限：拷贝进来的文件可能是 770 或带 ACL，www-data 会读不到 .htaccess
-RUN mkdir -p /var/www/html/data \
+RUN mkdir -p /var/www/html/data /var/www/html/config \
  && chown -R root:root /var/www/html \
  && chmod -R a+rX /var/www/html \
- && chown -R www-data:www-data /var/www/html/data \
- && chmod 775 /var/www/html/data \
+ && chown -R www-data:www-data /var/www/html/data /var/www/html/config \
+ && chmod 775 /var/www/html/data /var/www/html/config \
  && cp /var/www/html/entrypoint.sh /usr/local/bin/gift-book-entrypoint \
  && chmod +x /usr/local/bin/gift-book-entrypoint
 

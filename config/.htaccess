@@ -1,0 +1,2 @@
+# 配置目录只给 PHP 内部读，禁止任何外部直接访问
+Require all denied

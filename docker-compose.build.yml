@@ -13,9 +13,11 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
       - LANG=C.UTF-8
       - GIFTBOOK_DATA_DIR=/var/www/html/data/
+      - GIFTBOOK_CONFIG_DIR=/var/www/html/config/
 
     volumes:
       - ./data:/var/www/html/data
+      - ./config:/var/www/html/config
       # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
       # - ./www:/var/www/html
 

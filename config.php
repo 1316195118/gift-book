@@ -19,6 +19,24 @@ if (!is_dir($dataDir)) {
 
 define('STORAGE_DIR', $dataDir);
 
+/**
+ * 配置目录：访问保护相关的配置与运行状态（auth-config.php / auth-state.json / auth-throttle.json）。
+ * 默认与数据同目录；容器部署时单独挂一个 config/ 出来，升级重建都不会丢。
+ * 可用环境变量 GIFTBOOK_CONFIG_DIR 指定，例如 /var/www/html/config/。
+ */
+$configDir = getenv('GIFTBOOK_CONFIG_DIR');
+if (!is_string($configDir) || $configDir === '') {
+    $configDir = $dataDir;
+}
+if (substr($configDir, -1) !== '/') {
+    $configDir .= '/';
+}
+if (!is_dir($configDir)) {
+    @mkdir($configDir, 0775, true);
+}
+
+define('CONFIG_DIR', $configDir);
+
 date_default_timezone_set(getenv('TZ') ?: 'Asia/Shanghai');
 
 /**

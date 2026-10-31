@@ -6,6 +6,9 @@ data/*
 # 访问保护密钥（PBKDF2 盐 / HMAC secret），绝不入库
 auth-config.php
 data/auth-config.php
+config/*
+!config/.gitkeep
+!config/.htaccess
 data/auth-state.json
 ACCESS_PASSWORD.txt
 

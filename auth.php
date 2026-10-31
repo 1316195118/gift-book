@@ -5,19 +5,39 @@ require_once 'config.php';
  * 可选访问保护：
  * - 默认关闭（本地自用直接进入）
  * - 开启后使用 PBKDF2-SHA256 校验访问密码，签发 HMAC 签名的 HttpOnly Cookie
- * - 状态保存在 data/auth-state.json；不存在时回退到 data/auth-config.php
+ * - 配置与状态保存在 config/ 目录（auth-config.php / auth-state.json），
+ *   旧部署里若还在 data/ 下，会自动迁移过去
  */
+
+/** 把旧位置（数据目录）里的配置文件搬到配置目录，只搬一次。 */
+function authMigrateLegacy($name) {
+    $target = CONFIG_DIR . $name;
+    $legacy = STORAGE_DIR . $name;
+    if (CONFIG_DIR !== STORAGE_DIR && !is_file($target) && is_file($legacy)) {
+        @copy($legacy, $target);
+    }
+    return $target;
+}
 
 function authConfig() {
     static $config = null;
     if ($config !== null) {
         return $config;
     }
-    $path = __DIR__ . '/data/auth-config.php';
-    if (!is_file($path)) {
-        $path = dirname(__DIR__) . '/auth-config.php';
+    $candidates = [
+        authMigrateLegacy('auth-config.php'),
+        CONFIG_DIR . 'auth-config.php',
+        STORAGE_DIR . 'auth-config.php',
+        dirname(__DIR__) . '/auth-config.php',
+    ];
+    $path = null;
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate)) {
+            $path = $candidate;
+            break;
+        }
     }
-    if (!is_file($path)) {
+    if ($path === null) {
         return null;
     }
     $loaded = include $path;
@@ -26,7 +46,7 @@ function authConfig() {
 }
 
 function authStatePath() {
-    return __DIR__ . '/data/auth-state.json';
+    return authMigrateLegacy('auth-state.json');
 }
 
 function authState() {
@@ -68,10 +88,10 @@ function authSaveState($state) {
 
 /**
  * 登录防爆破：同一 IP 连续失败达到阈值后临时锁定，锁定时间指数增长。
- * 记录写在 data/auth-throttle.json（与访问保护状态同目录），不参与 Git。
+ * 记录写在配置目录的 auth-throttle.json（与访问保护状态同目录），不参与 Git。
  */
 function authThrottlePath() {
-    return dirname(authStatePath()) . '/auth-throttle.json';
+    return authMigrateLegacy('auth-throttle.json');
 }
 
 function authClientIp() {

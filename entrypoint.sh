@@ -6,6 +6,7 @@ set -e
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 DATA_DIR="${GIFTBOOK_DATA_DIR:-/var/www/html/data}"
+CONFIG_DIR="${GIFTBOOK_CONFIG_DIR:-/var/www/html/config}"
 
 if [ "$(id -u)" = "0" ]; then
   if [ "$(id -g www-data)" != "$PGID" ]; then
@@ -14,9 +15,9 @@ if [ "$(id -u)" = "0" ]; then
   if [ "$(id -u www-data)" != "$PUID" ]; then
     usermod -o -u "$PUID" www-data 2>/dev/null || true
   fi
-  mkdir -p "$DATA_DIR"
-  chown -R www-data:www-data "$DATA_DIR" 2>/dev/null || true
-  chmod 775 "$DATA_DIR" 2>/dev/null || true
+  mkdir -p "$DATA_DIR" "$CONFIG_DIR"
+  chown -R www-data:www-data "$DATA_DIR" "$CONFIG_DIR" 2>/dev/null || true
+  chmod 775 "$DATA_DIR" "$CONFIG_DIR" 2>/dev/null || true
 fi
 
 exec apache2-foreground
