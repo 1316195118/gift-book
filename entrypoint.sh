@@ -18,6 +18,10 @@ if [ "$(id -u)" = "0" ]; then
   mkdir -p "$DATA_DIR" "$CONFIG_DIR"
   chown -R www-data:www-data "$DATA_DIR" "$CONFIG_DIR" 2>/dev/null || true
   chmod 775 "$DATA_DIR" "$CONFIG_DIR" 2>/dev/null || true
+  # config/ 是挂载目录，镜像里的 .htaccess 会被盖住，这里补一个防止配置被直接下载
+  if [ ! -f "$CONFIG_DIR/.htaccess" ]; then
+    printf 'Require all denied\n' > "$CONFIG_DIR/.htaccess" 2>/dev/null || true
+  fi
 fi
 
 exec apache2-foreground

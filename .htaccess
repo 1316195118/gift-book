@@ -3,6 +3,7 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule ^data/ - [F,L]
+    RewriteRule ^config/ - [F,L]
 </IfModule>
 
 # 页面与接口每次都取最新版本，避免改版后仍看到旧界面
