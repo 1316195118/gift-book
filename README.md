@@ -345,6 +345,8 @@ docker compose up -d
 | 上传封面失败 | 反向代理的 `client_max_body_size` 太小，调到 20MB |
 | 忘记访问密码 | 停容器，删 `data/auth-config.php` 与 `data/auth-state.json`，重启后重新设置 |
 | 想换端口 | 改 `.env` 的 `PORT`，`docker compose up -d` |
+| `pull access denied for 1316195118/gift-book` | 镜像还没发布到公共仓库，且当前目录没有源码 → 把仓库文件放进项目目录再部署，或先 `docker build -t 1316195118/gift-book:latest .` |
+| `Forbidden ... unable to read htaccess file` | 宿主机文件带 ACL/770 权限被拷进镜像；本仓库 Dockerfile 已统一 `chmod -R a+rX`，更新到最新版重建即可 |
 
 ## 数据与安全
 
