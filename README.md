@@ -14,7 +14,7 @@
 
 [功能亮点](#功能亮点) · [界面预览](#界面预览) · [Docker 部署](#docker-部署) · [数据与安全](#数据与安全) · [常见问题](#常见问题) · [免责声明](#免责声明)
 
-<img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-ledger.jpg" alt="记账页" width="100%">
+<img src="docs/shot-ledger.jpg" alt="记账页" width="100%">
 
 </div>
 
@@ -72,27 +72,27 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-home.jpg" alt="首页"><br><sub>首页：红 / 白分类，最近账簿</sub></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-templates.jpg" alt="模板页"><br><sub>模板页：每个场景一套自绘封面</sub></td>
+    <td width="50%"><img src="docs/shot-home.jpg" alt="首页"><br><sub>首页：红 / 白分类，最近账簿</sub></td>
+    <td width="50%"><img src="docs/shot-templates.jpg" alt="模板页"><br><sub>模板页：每个场景一套自绘封面</sub></td>
   </tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-setup.jpg" alt="创建页"><br><sub>创建页：封面实时预览，9 款样式可选</sub></td>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-ledger-white.jpg" alt="白事记账页"><br><sub>白事：同一套布局，只换风格</sub></td>
+    <td><img src="docs/shot-setup.jpg" alt="创建页"><br><sub>创建页：封面实时预览，9 款样式可选</sub></td>
+    <td><img src="docs/shot-ledger-white.jpg" alt="白事记账页"><br><sub>白事：同一套布局，只换风格</sub></td>
   </tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-export.jpg" alt="导出"><br><sub>导出：Excel 明细 / PDF 礼簿</sub></td>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-stats.jpg" alt="统计"><br><sub>统计：搜索、排序、分页</sub></td>
+    <td><img src="docs/shot-export.jpg" alt="导出"><br><sub>导出：Excel 明细 / PDF 礼簿</sub></td>
+    <td><img src="docs/shot-stats.jpg" alt="统计"><br><sub>统计：搜索、排序、分页</sub></td>
   </tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-offline.jpg" alt="断网提示"><br><sub>断网：右下角提示 + 本机加密暂存</sub></td>
-    <td><img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-changelog.jpg" alt="版本检查"><br><sub>版本检查：对比 GitHub 最新发布</sub></td>
+    <td><img src="docs/shot-offline.jpg" alt="断网提示"><br><sub>断网：右下角提示 + 本机加密暂存</sub></td>
+    <td><img src="docs/shot-changelog.jpg" alt="版本检查"><br><sub>版本检查：对比 GitHub 最新发布</sub></td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-mobile-home.jpg" alt="手机首页" height="420">
+  <img src="docs/shot-mobile-home.jpg" alt="手机首页" height="420">
   &nbsp;&nbsp;
-  <img src="https://raw.githubusercontent.com/1316195118/gift-book/main/docs/shot-mobile-ledger.jpg" alt="手机记账页" height="420">
+  <img src="docs/shot-mobile-ledger.jpg" alt="手机记账页" height="420">
 </p>
 
 ---
