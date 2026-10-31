@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-0240">
+<html lang="zh-CN" data-build="20261101-0305">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -1721,7 +1721,7 @@
               await handleRecordOffline(giftRecord, giftData);
               return;
             }
-            showAlert("错误", error && error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。");
+            showAlert("错误", escapeHtml(error && error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
           }
         }
 
@@ -2233,7 +2233,7 @@
         function showQrModal() {
           const qr = currentEvent?.qrcode || localStorage.getItem("giftbook_qr_" + (currentEvent?.id || ""));
           const content = qr
-            ? `<img src="${qr}" class="qr-thumb" alt="收款码" />
+            ? `<img src="${escapeHtml(qr)}" class="qr-thumb" alt="收款码" />
                <p class="text-xs text-gray-500 text-center">宾客扫码即可付款</p>
                <input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`
             : `<div class="qr-empty">还没有上传收款码<br/>支持微信 / 支付宝收款码图片</div>
@@ -2626,7 +2626,7 @@
                 
                 <!-- START: 修改姓名区域 -->
                 <div id="name-display-area" class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                    <div><strong>姓名:</strong> <span class="text-lg ml-2">${g.name}</span></div>
+                    <div><strong>姓名:</strong> <span class="text-lg ml-2">${escapeHtml(g.name)}</span></div>
                     <button id="btn-correct-name" class="text-sm text-blue-600 hover:underline px-2 py-1">纠错</button>
                 </div>
                 <!-- END: 修改姓名区域 -->
@@ -2635,7 +2635,7 @@
                 <div id="amount-display-area" class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
                     <div>
                         <p><strong>金额:</strong> <span class="font-bold themed-text text-lg ml-2">${formatCurrency(g.amount)}</span></p>
-                        <p class="text-sm text-gray-500 mt-1"><strong>类型:</strong> ${g.type}</p>
+                        <p class="text-sm text-gray-500 mt-1"><strong>类型:</strong> ${escapeHtml(g.type)}</p>
                     </div>
                     <button id="btn-modify-amount" class="text-sm text-blue-600 hover:underline px-2 py-1">修改</button>
                 </div>
@@ -2647,7 +2647,7 @@
                         <strong>备注:</strong>
                         <button id="btn-edit-remarks" class="text-sm text-blue-600 hover:underline px-2 py-1">修改</button>
                     </div>
-                    <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${g.remarks || "（无备注）"}</p>
+                    <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${g.remarks ? escapeHtml(g.remarks) : "（无备注）"}</p>
                 </div>
                 <!-- END: 修改备注区域 -->
                 
@@ -2676,8 +2676,11 @@
             modalContent = detailsHtml;
           }
 
-          // 3. 显示弹窗
-          showModal(`${g.name} 的礼金详情 ${hasHistory ? '<p class="text-sm text-orange-600 font-normal">(警告：此宾客数据存在修改，请自行验证合法性！)</p>' : ""}`, modalContent, [
+          // 3. 显示弹窗（标题用纯文本；改动警告放在内容里，避免被当成纯文字显示）
+          const historyWarning = hasHistory
+            ? `<div class="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">警告：此宾客数据存在修改，请自行核验合法性。</div>`
+            : "";
+          showModal(`${g.name} 的礼金详情`, historyWarning + modalContent, [
             { text: "关闭", class: "themed-button-secondary border px-4 py-2 rounded" },
           ]);
 
@@ -2701,7 +2704,7 @@
                         <li class="relative pl-6 pb-4">
                             <div class="absolute w-3 h-3 bg-gray-400 rounded-full -left-[7px] top-1 border-2 border-white"></div>
                             <div class="text-sm text-gray-500">${new Date(record.timestamp).toLocaleString("zh-CN")}</div>
-                            <div class="font-medium text-gray-800 mt-1">${record.changeLog}</div>
+                            <div class="font-medium text-gray-800 mt-1">${escapeHtml(record.changeLog)}</div>
                             ${
                               index === reversedHistory.length - 1
                                 ? `<button class="btn-view-original mt-2 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-700" data-history-index="0">查看最原始记录</button>`
@@ -2795,7 +2798,7 @@
             editHtml = `
                     <div class="themed-edit-area">
                         <label>纠错姓名</label>
-                        <input type="text" id="inline-edit-name" value="${g.name}" class="w-full p-2 border rounded themed-ring mb-2">
+                        <input type="text" id="inline-edit-name" value="${escapeHtml(g.name)}" class="w-full p-2 border rounded themed-ring mb-2">
                         <div class="flex justify-end space-x-2">${cancelBtnHtml}${saveBtnHtml}</div>
                     </div>`;
             saveHandler = async () => {
@@ -2841,7 +2844,7 @@
             editHtml = `
                     <div class="themed-edit-area">
                         <label>修改备注</label>
-                        <textarea id="inline-edit-remarks" class="w-full p-2 border rounded themed-ring mb-2" rows="3">${g.remarks || ""}</textarea>
+                        <textarea id="inline-edit-remarks" class="w-full p-2 border rounded themed-ring mb-2" rows="3">${escapeHtml(g.remarks || "")}</textarea>
                         <div class="flex justify-end space-x-2">${cancelBtnHtml}${saveBtnHtml}</div>
                     </div>`;
             saveHandler = async () => {
@@ -2945,7 +2948,7 @@
           const remarksContainer = document.getElementById("remarks-container");
           remarksContainer.innerHTML = `
       <label for="remarks-textarea" class="block font-bold">修改备注:</label>
-      <textarea id="remarks-textarea" class="w-full p-2 border rounded themed-ring mt-1" rows="3" placeholder="按 Ctrl + Enter 可快速保存">${giftObject.data.remarks || ""}</textarea>
+      <textarea id="remarks-textarea" class="w-full p-2 border rounded themed-ring mt-1" rows="3" placeholder="按 Ctrl + Enter 可快速保存">${escapeHtml(giftObject.data.remarks || "")}</textarea>
       <div class="mt-2 text-right">
         <button id="save-remarks-btn" class="themed-button-primary px-3 py-1 rounded">保存</button>
       </div>`;
@@ -3408,7 +3411,7 @@
           if (amountTerm !== null) criteria.push(`金额 ${formatCurrency(amountTerm)}`);
 
           if (results.length === 0) {
-            return showAlert("查找结果", `没有找到${criteria.join("、")}的记录。`);
+            return showAlert("查找结果", escapeHtml(`没有找到${criteria.join("、")}的记录。`));
           }
 
           const resultsHtml = results
@@ -3447,7 +3450,7 @@
     <div class="space-y-4 text-left">
         <div>
             <label for="edit-event-name-input" class="block text-sm font-medium text-gray-700">事项名称</label>
-            <input type="text" id="edit-event-name-input" class="w-full mt-1 p-2 border rounded themed-ring" value="${currentEvent.name}">
+            <input type="text" id="edit-event-name-input" class="w-full mt-1 p-2 border rounded themed-ring" value="${escapeHtml(currentEvent.name)}">
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
@@ -3470,11 +3473,11 @@
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <label class="block text-sm font-medium text-gray-700">宴请地点</label>
-                <input type="text" id="edit-event-location" class="w-full mt-1 p-2 border rounded themed-ring" value="${currentEvent.location || ""}" placeholder="选填">
+                <input type="text" id="edit-event-location" class="w-full mt-1 p-2 border rounded themed-ring" value="${escapeHtml(currentEvent.location || "")}" placeholder="选填">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">账簿备注</label>
-                <input type="text" id="edit-event-note" class="w-full mt-1 p-2 border rounded themed-ring" value="${currentEvent.note || ""}" placeholder="选填">
+                <input type="text" id="edit-event-note" class="w-full mt-1 p-2 border rounded themed-ring" value="${escapeHtml(currentEvent.note || "")}" placeholder="选填">
             </div>
         </div>
         <div>
@@ -3493,7 +3496,7 @@
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">礼簿封面图</label>
-            <img id="edit-cover-preview" src="${currentEvent.coverImage || ""}" alt="封面预览" class="my-2 rounded-lg ${!currentEvent.coverImage ? "hidden" : ""} max-w-full h-auto max-h-48 object-contain">
+            <img id="edit-cover-preview" src="${escapeHtml(currentEvent.coverImage || "")}" alt="封面预览" class="my-2 rounded-lg ${!currentEvent.coverImage ? "hidden" : ""} max-w-full h-auto max-h-48 object-contain">
             <input type="file" id="edit-cover-image-upload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300"/>
             ${currentEvent.coverImage ? '<button id="remove-cover-btn" class="mt-2 text-sm text-red-600 hover:underline">删除当前礼簿封面图</button>' : ""}
             <p class="text-xs text-gray-500 mt-2">尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。</p>
@@ -3611,7 +3614,7 @@
         async function deleteCurrentEvent() {
           if (!currentEvent) return;
 
-          const content = `<p>此操作将永久删除事项 “<strong>${currentEvent.name}</strong>” 及其所有礼金记录，且无法恢复。</p>
+          const content = `<p>此操作将永久删除事项 “<strong>${escapeHtml(currentEvent.name)}</strong>” 及其所有礼金记录，且无法恢复。</p>
        ${eventHasPassword(currentEvent) ? `<p class="mt-4">请输入管理密码以确认：</p>
        <input type="password" id="delete-confirm-password" class="w-full p-2 border rounded mt-2 themed-ring">` : `<p class="mt-4">该账簿未设置管理密码，确认后立即删除。</p>`}`;
 
@@ -3634,7 +3637,7 @@
                   // 删除事项本身
                   await apiRequest(`events.php?id=${currentEvent.id}`, 'DELETE');
 
-                  showAlert("成功", `事项 “${currentEvent.name}” 已被成功删除。`, () => {
+                  showAlert("成功", escapeHtml(`事项 “${currentEvent.name}” 已被成功删除。`), () => {
                     currentEvent = null;
                     currentPassword = null;
                     gifts = [];
@@ -3942,10 +3945,19 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-4";
+        const APP_VERSION = "2026.11.01-5";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.01-5", date: "2026-11-01", build: "0305",
+            notes: [
+              { t: "sec", text: "修复安全隐患：宾客姓名/备注带引号时可能被当成标签执行，现在全部按原文显示" },
+              { t: "sec", text: "纠错、改金额、改备注的输入框，以及账簿名、地点、备注等表单统一做转义" },
+              { t: "fix", text: "有修改记录的宾客，详情弹窗标题里会把一段警告文案当普通文字显示，现已改为独立提示条" },
+              { t: "opt", text: "统计、查询结果、删除确认等提示文案同样按纯文本渲染，杜绝二次注入" },
+            ],
+          },
           {
             version: "2026.11.01-4", date: "2026-11-01", build: "0240",
             notes: [

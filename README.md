@@ -413,11 +413,15 @@ git push origin v2026.11.01-4
 │   ├── auth.php          # 可选访问保护 + 防爆破
 │   ├── ping.php          # 连通性探测
 │   ├── config.php        # 数据目录与 JSON 响应封装
+│   ├── build.json        # 构建号（用于前端缓存串）
 │   └── .htaccess         # 目录保护 / 缓存 / 压缩
 ├── data/                 # 账簿数据（默认拒绝直接访问）
 ├── config/               # 访问保护配置与状态（默认拒绝直接访问）
+├── docs/                 # README 用的截图
+├── entrypoint.sh         # 容器启动脚本（UID 重映射、目录权限）
 ├── Dockerfile
-└── docker-compose.yml
+├── docker-compose.yml        # 直接用 GHCR 镜像
+└── docker-compose.build.yml  # 从源码本地构建
 ```
 
 ---
