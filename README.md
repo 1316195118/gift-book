@@ -167,6 +167,19 @@ services:
     restart: unless-stopped
 ```
 
+### ⚠️ 用 NAS 的「Compose 面板」时注意
+
+绿联 / 群晖的 Compose 面板如果**只让你粘贴一段 YAML**，那份文件所在目录里是没有源码的：`build: .` 找不到 `Dockerfile`，Compose 就退回「拉镜像」，于是报 `pull access denied for 1316195118/gift-book`。
+
+这个镜像目前**还没有发布到公共镜像仓库**，所以面板里有两条正确路径：
+
+| 做法 | 说明 |
+| --- | --- |
+| **A. 先把源码放进项目目录**（推荐） | 把仓库解压（或 `git clone`）到面板指定的项目目录，例如 `/volume1/docker/gift-book`，确保该目录下有 `Dockerfile`、`index.html`、`static/`，再点部署 |
+| **B. 纯命令行** | SSH 到 NAS，`cd` 到源码目录后 `docker compose up -d --build`，行为与面板一致 |
+
+只贴 YAML、不给源码目录，一定会失败——这不是 compose 写错，而是缺构建上下文。
+
 ### 2. 配置环境变量（可选）
 
 ```bash
