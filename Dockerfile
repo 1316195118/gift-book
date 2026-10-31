@@ -16,7 +16,10 @@ WORKDIR /var/www/html
 # 应用本体打进镜像；想改页面就挂载 ./www 覆盖它
 COPY . /var/www/html/
 
+# 统一权限：拷贝进来的文件可能是 770 或带 ACL，www-data 会读不到 .htaccess
 RUN mkdir -p /var/www/html/data \
+ && chown -R root:root /var/www/html \
+ && chmod -R a+rX /var/www/html \
  && chown -R www-data:www-data /var/www/html/data \
  && chmod 775 /var/www/html/data \
  && chmod +x /var/www/html/entrypoint.sh
