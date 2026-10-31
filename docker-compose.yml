@@ -1,10 +1,8 @@
+# 直接拉公共镜像部署：不需要源码，NAS 的 Compose 面板里贴这一段即可
 services:
   gift-book:
-    # 镜像名带作者命名空间；本地没有时会按下面的 build 现场构建（约 15 秒）
-    image: 1316195118/gift-book:latest
-    build: .
+    image: ghcr.io/1316195118/gift-book:latest
     container_name: gift-book
-    # 桥接网络即可；本项目不依赖局域网组播
     network_mode: "bridge"
 
     environment:
@@ -13,7 +11,7 @@ services:
       - PGID=${PGID:-1000}
       # 时区：影响账簿记录与导出的时间
       - TZ=${TZ:-Asia/Shanghai}
-      # UTF-8 环境，中文不会乱码（镜像内已固定，这里显式声明一次）
+      # UTF-8 环境，中文不会乱码
       - LANG=C.UTF-8
       # 数据目录，与下面的 volumes 保持一致
       - GIFTBOOK_DATA_DIR=/var/www/html/data/
@@ -21,14 +19,11 @@ services:
     volumes:
       # 账簿数据：唯一需要备份的目录，容器重建不丢
       - ./data:/var/www/html/data
-      # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
-      # - ./www:/var/www/html
 
     ports:
-      # 宿主机端口:容器端口，改端口只改左边的 ${PORT}
+      # 宿主机端口:容器端口
       - "${PORT:-8099}:80"
 
-    # 资源上限（Compose V2 直接生效），不想要就整段删掉
     deploy:
       resources:
         limits:

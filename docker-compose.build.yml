@@ -1,0 +1,38 @@
+# 从源码构建（改过代码、或想自己打包时用）
+# 用法：docker compose -f docker-compose.build.yml up -d --build
+services:
+  gift-book:
+    build: .
+    image: 1316195118/gift-book:latest
+    container_name: gift-book
+    network_mode: "bridge"
+
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Asia/Shanghai}
+      - LANG=C.UTF-8
+      - GIFTBOOK_DATA_DIR=/var/www/html/data/
+
+    volumes:
+      - ./data:/var/www/html/data
+      # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
+      # - ./www:/var/www/html
+
+    ports:
+      - "${PORT:-8099}:80"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 80) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    restart: unless-stopped

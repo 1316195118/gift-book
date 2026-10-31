@@ -22,9 +22,11 @@ RUN mkdir -p /var/www/html/data \
  && chmod -R a+rX /var/www/html \
  && chown -R www-data:www-data /var/www/html/data \
  && chmod 775 /var/www/html/data \
- && chmod +x /var/www/html/entrypoint.sh
+ && cp /var/www/html/entrypoint.sh /usr/local/bin/gift-book-entrypoint \
+ && chmod +x /usr/local/bin/gift-book-entrypoint
 
 EXPOSE 80
 
 # 启动时按 PUID / PGID 对齐属主，再拉起 Apache
-ENTRYPOINT ["/var/www/html/entrypoint.sh"]
+# 入口脚本放在 webroot 之外：即使把 ./www 挂到 /var/www/html 也不会失效
+ENTRYPOINT ["/usr/local/bin/gift-book-entrypoint"]

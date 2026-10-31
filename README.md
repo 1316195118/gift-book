@@ -99,7 +99,12 @@
 
 ## Docker 部署
 
-推荐用 Docker Compose 部署，三条命令就能跑起来；下面同时给出 compose 全文与参数说明。
+镜像已发布在 GitHub 容器仓库（GHCR），**拉取不需要登录**，也不需要有源码：
+
+```
+ghcr.io/1316195118/gift-book:latest
+ghcr.io/1316195118/gift-book:v2026.11.01-2
+```
 
 ### 前置要求
 
@@ -107,25 +112,20 @@
 - 一台能长期开机的机器：NAS、小主机、树莓派、云服务器都行
 - 默认占用 `8099` 端口，可按需修改
 
-### 1. 获取代码
+### 1. 准备 `docker-compose.yml`
 
 ```bash
-git clone https://github.com/1316195118/gift-book.git
-cd gift-book
+mkdir gift-book && cd gift-book
+vi docker-compose.yml
 ```
 
-仓库里已经带好 `Dockerfile`、`docker-compose.yml` 与网页文件，**开箱即用，不用改**。
-
-如果只想手抄一个 `docker-compose.yml`（不克隆仓库），记得把 `Dockerfile` 和网页文件也放到同目录，否则 `build: .` 没有构建上下文。仓库自带的 compose 长这样：
+把下面这段贴进去：
 
 ```yaml
 services:
   gift-book:
-    # 镜像名带作者命名空间；本地没有时会按下面的 build 现场构建（约 15 秒）
-    image: 1316195118/gift-book:latest
-    build: .
+    image: ghcr.io/1316195118/gift-book:latest
     container_name: gift-book
-    # 桥接网络即可；本项目不依赖局域网组播
     network_mode: "bridge"
 
     environment:
@@ -142,14 +142,11 @@ services:
     volumes:
       # 账簿数据：唯一需要备份的目录，容器重建不丢
       - ./data:/var/www/html/data
-      # 想直接改页面（不重建镜像）时打开这行，把仓库文件放到 ./www
-      # - ./www:/var/www/html
 
     ports:
-      # 宿主机端口:容器端口，改端口只改左边的 ${PORT}
+      # 宿主机端口:容器端口
       - "${PORT:-8099}:80"
 
-    # 资源上限（Compose V2 直接生效），不想要就整段删掉
     deploy:
       resources:
         limits:
@@ -167,18 +164,7 @@ services:
     restart: unless-stopped
 ```
 
-### ⚠️ 用 NAS 的「Compose 面板」时注意
-
-绿联 / 群晖的 Compose 面板如果**只让你粘贴一段 YAML**，那份文件所在目录里是没有源码的：`build: .` 找不到 `Dockerfile`，Compose 就退回「拉镜像」，于是报 `pull access denied for 1316195118/gift-book`。
-
-这个镜像目前**还没有发布到公共镜像仓库**，所以面板里有两条正确路径：
-
-| 做法 | 说明 |
-| --- | --- |
-| **A. 先把源码放进项目目录**（推荐） | 把仓库解压（或 `git clone`）到面板指定的项目目录，例如 `/volume1/docker/gift-book`，确保该目录下有 `Dockerfile`、`index.html`、`static/`，再点部署 |
-| **B. 纯命令行** | SSH 到 NAS，`cd` 到源码目录后 `docker compose up -d --build`，行为与面板一致 |
-
-只贴 YAML、不给源码目录，一定会失败——这不是 compose 写错，而是缺构建上下文。
+> **NAS 的 Compose 面板**（绿联 / 群晖）：直接把上面这段贴进去即可，面板会自己把镜像拉下来，**不需要源码目录**。
 
 ### 2. 配置环境变量（可选）
 
@@ -202,10 +188,10 @@ PGID=1000
 ### 3. 启动服务
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-首次会用仓库里的 `Dockerfile` 构建镜像并打上 `1316195118/gift-book:latest` 标签，约 15 秒；之后重启都是秒起。
+首次从 GHCR 拉镜像（约 176MB），之后秒起。
 
 ```bash
 docker compose ps          # 看状态，healthy 即正常
@@ -244,12 +230,11 @@ tar xzf gift-book-2026-11-01.tgz
 ### 6. 升级
 
 ```bash
-cd gift-book
-git pull
-docker compose up -d --build
+docker compose pull     # 拉最新镜像
+docker compose up -d    # 重建容器
 ```
 
-只更新页面、不动镜像时，也可以只覆盖 `index.html` 与 `static/`，刷新浏览器即生效（页面已禁用缓存，并带构建号自愈）。
+想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.01-2`。
 
 ### 环境变量
 
@@ -268,12 +253,12 @@ docker compose up -d --build
 
 | 命令 | 作用 |
 | --- | --- |
-| `docker compose up -d --build` | 构建并后台启动 |
+| `docker compose up -d` | 后台启动 |
+| `docker compose pull` | 拉最新镜像 |
 | `docker compose ps` | 查看容器与健康状态 |
 | `docker compose logs -f --tail=50` | 跟踪日志 |
 | `docker compose restart` | 重启 |
 | `docker compose down` | 停止并删除容器（`data/` 不受影响） |
-| `docker compose down -v` | 连匿名卷一起删（**不会删 `./data`**，这是 bind mount） |
 | `docker exec -it gift-book sh` | 进容器排查 |
 
 ### 反向代理 / HTTPS
@@ -315,21 +300,23 @@ server {
 
 ### 只挂载网页目录（改样式不用重建镜像）
 
-先把仓库文件放到宿主机目录，比如 `/volume1/docker/gift-book/www`，然后：
+把仓库里的网页文件放到宿主机目录，比如 `/volume1/docker/gift-book/www`，然后在 compose 里加一行：
 
 ```yaml
     volumes:
-      - /volume1/docker/gift-book/www:/var/www/html
-      - /volume1/docker/gift-book/data:/var/www/html/data
+      - ./data:/var/www/html/data
+      - ./www:/var/www/html          # 覆盖镜像里的页面
 ```
 
-改完 `index.html` 刷新页面即可生效，不用 `docker compose build`。
+改完 `index.html` 刷新浏览器即生效（页面已禁用缓存），不用重新 pull 镜像。
+入口脚本放在 `/usr/local/bin`，所以整目录挂载不会影响容器启动。
 
-### 手动构建镜像
+### 从源码构建镜像
 
 ```bash
-docker build -t 1316195118/gift-book:latest .
-docker compose up -d
+git clone https://github.com/1316195118/gift-book.git
+cd gift-book
+docker compose -f docker-compose.build.yml up -d --build
 ```
 
 ---
