@@ -603,7 +603,8 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 @media (max-width: 900px) {
   .home-inner { padding: 24px; }
   #choice-grid { grid-template-columns: 1fr; }
-  .home-side { display: none; }
+  .home-side { padding: 20px 22px; border-radius: 17px; gap: 12px; }
+  .home-side-steps { gap: 10px; }
   #template-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
   #recent-events .recent-item { flex-basis: 300px; padding: 18px 16px; }
   #recent-events .rn { font-size: 18px; }
@@ -638,6 +639,12 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #home-main-card .choice-title { font-size: 31px; }
   #home-main-card .choice-desc { font-size: 12px; }
   #home-card-count { top: 18px; right: 18px; font-size: 11px; }
+  .home-side { padding: 18px; gap: 10px; }
+  .home-side-steps { gap: 9px; }
+  .home-side-steps span { padding: 4px 5px; font-size: 10px; }
+  .home-side-steps b { font-size: 13px; }
+  .home-side-steps small { font-size: 11px; line-height: 1.55; }
+  .home-side-help { font-size: 12px; }
   .section-head { margin-top: 29px; }
   .section-head h2 { font-size: 21px; }
   .section-note { font-size: 11px; }
