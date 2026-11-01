@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-1040">
+<html lang="zh-CN" data-build="20261101-1130">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -235,6 +235,25 @@
       .themed-button-secondary:hover {
         background-color: var(--link-hover-bg);
       }
+
+      /* 单条礼金删除：低调的红字按钮，避免误触 */
+      .gift-delete-btn {
+        flex: none;
+        min-height: 32px;
+        padding: 5px 12px;
+        font-size: 12.5px;
+        line-height: 1.4;
+        border-radius: 999px;
+        border: 1px solid #f0c9c9;
+        background: #fff6f6;
+        color: #c0392b;
+        transition: .18s;
+        white-space: nowrap;
+      }
+
+      .gift-delete-btn:hover { background: #fdeaea; border-color: #e6a9a9; }
+      .gift-delete-btn:active { transform: translateY(1px); }
+      .theme-solemn .gift-delete-btn { background: #fff; border-color: #e3c9c9; color: #b4453a; }
 
       .themed-ring:focus {
         --tw-ring-color: var(--primary-ring-color) !important;
@@ -746,6 +765,9 @@
       .modal-btn-ghost:hover { background: #f8f3ea; }
       .modal-btn-primary { padding: 9px 22px; border-radius: 8px; background: var(--primary-color); color: #fff; font-size: 14px; font-weight: 600; }
       .modal-btn-primary:hover { background: var(--primary-color-hover); }
+      .modal-btn-danger { padding: 9px 22px; border-radius: 8px; background: #c0392b; color: #fff; font-size: 14px; font-weight: 600; }
+      .modal-btn-danger:hover { background: #a93226; }
+      .modal-danger-tip { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px solid #f2cccc; color: #a5342a; font-size: 13.5px; line-height: 1.6; }
       .recent-item { position: relative; overflow: hidden; }
       .recent-item::after { content: "囍"; position: absolute; right: -8px; bottom: -20px; font-family: "Songti SC","STSong",serif; font-size: 76px; line-height: 1; color: rgba(179,38,30,.06); pointer-events: none; }
       .recent-item.white::after { content: "奠"; color: rgba(55,65,81,.06); }
@@ -2668,8 +2690,9 @@
                 </div>
                 <!-- END: 修改备注区域 -->
                 
-                <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
-                    最新录入/修改时间: ${new Date(g.timestamp).toLocaleString("zh-CN")}
+                <div class="mt-auto pt-4 border-t flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-xs text-gray-400">最新录入/修改时间: ${new Date(g.timestamp).toLocaleString("zh-CN")}</div>
+                    <button id="btn-delete-gift" type="button" class="gift-delete-btn">删除这条记录</button>
                 </div>
             </div>`;
 
@@ -2956,6 +2979,78 @@
             console.error("保存失败", error);
             showAlert("系统错误", "保存修改记录时失败。");
           }
+        }
+
+        /**
+         * 删除单条礼金记录前的二次确认。
+         * 有没有管理密码都要先确认一次——删除不可恢复，不能一次误点就没了。
+         * @returns {Promise<boolean>} 是否确认删除
+         */
+        function confirmDeleteGift(label) {
+          return new Promise((resolve) => {
+            const needPassword = eventHasPassword(currentEvent);
+            const content = `
+              <div class="modal-danger-tip">
+                <span aria-hidden="true">⚠️</span>
+                <span>即将删除「${escapeHtml(label)}」的礼金记录。<br>删除后无法恢复，也不会留下修改历史。</span>
+              </div>
+              ${needPassword ? '<label class="block text-sm text-gray-600 mt-3" for="delete-gift-password">请输入管理密码以继续</label><input type="password" id="delete-gift-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password">' : ""}`;
+            showModal("删除确认", content, [
+              { text: "取消", class: "modal-btn-ghost", handler: () => resolve({ ok: false, reason: "cancel" }) },
+              {
+                text: "确认删除",
+                class: "modal-btn-danger",
+                handler: () => {
+                  if (!needPassword) return resolve({ ok: true });
+                  const value = document.getElementById("delete-gift-password")?.value || "";
+                  if (hashPassword(value) !== currentEvent.passwordHash) return resolve({ ok: false, reason: "password" });
+                  resolve({ ok: true });
+                },
+              },
+            ]);
+            if (needPassword) setTimeout(() => document.getElementById("delete-gift-password")?.focus(), 60);
+          });
+        }
+
+        /**
+         * 删除单条礼金记录。
+         * 与「修改」不同，删除不可恢复、也不会进入修改历史，所以要求二次确认（有密码时还要验密码）。
+         * @param {number} giftIndex - 礼金索引
+         */
+        async function deleteGiftRecord(giftIndex) {
+          const giftObject = gifts[giftIndex];
+          if (!giftObject) return;
+          if (isLedgerLocked) return showAlert("账簿已锁定", "请先解锁账簿后再删除记录。");
+          if (giftObject.pending) {
+            return showAlert("无法删除", "这条记录还在本机暂存、尚未上传，等网络恢复同步完成后再删除。");
+          }
+          const label = giftObject.data?.name || "这条记录";
+          const answer = await confirmDeleteGift(label);
+          if (!answer.ok) {
+            if (answer.reason === "password") {
+              return showAlert("密码错误", "管理密码不正确，记录未删除。", () => showGiftDetailsModal(giftIndex));
+            }
+            // 只是取消：回到刚才的详情，不打扰用户
+            return showGiftDetailsModal(giftIndex);
+          }
+          try {
+            await apiRequest(
+              `gifts.php?eventId=${encodeURIComponent(currentEvent.id)}&id=${encodeURIComponent(giftObject.id)}`,
+              "DELETE"
+            );
+          } catch (error) {
+            if (error && error.code === "NETWORK") {
+              return showAlert("网络中断", "删除需要连接服务器，请等网络恢复后再试。", () => showGiftDetailsModal(giftIndex));
+            }
+            return showAlert("删除失败", escapeHtml(error && error.message ? error.message : "请稍后重试。"), () => showGiftDetailsModal(giftIndex));
+          }
+          gifts.splice(giftIndex, 1);
+          closeModal();
+          const totalPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1;
+          if (currentPage > totalPages) currentPage = totalPages;
+          render();
+          syncEventTotal();
+          showAlert("已删除", `「${escapeHtml(label)}」的礼金记录已删除。`);
         }
 
         /**
@@ -3962,10 +4057,19 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-6";
+        const APP_VERSION = "2026.11.01-7";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.01-7", date: "2026-11-01", build: "1130",
+            notes: [
+              { t: "feat", text: "记错的整条礼金现在可以删掉了：点开记录，底部有「删除这条记录」" },
+              { t: "sec", text: "删除不可恢复，所以一定先二次确认；账簿设了管理密码的，还要再输一次密码" },
+              { t: "opt", text: "删除后总额、人数、页码和首页金额会自动同步，不用手动改" },
+              { t: "opt", text: "取消删除会回到刚才的记录详情，不会打断操作" },
+            ],
+          },
           {
             version: "2026.11.01-6", date: "2026-11-01", build: "1040",
             notes: [
@@ -4752,6 +4856,7 @@
             if (e.target.id === "btn-correct-name") enableInlineEdit(giftIndex, "name");
             if (e.target.id === "btn-modify-amount") enableInlineEdit(giftIndex, "amount");
             if (e.target.id === "btn-edit-remarks") enableInlineEdit(giftIndex, "remarks");
+            if (e.target.id === "btn-delete-gift") deleteGiftRecord(giftIndex);
           };
           // 全局事件
           window.addEventListener("click", () => dom.eventDropdown.classList.add("hidden"));
@@ -4976,6 +5081,8 @@
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (info) {
             if (!info || !info.build || info.build === current) return;
+            // 已经在用这个构建号打开过就别再跳，避免刷不出缓存时来回重载
+            if (location.search.indexOf("v=" + encodeURIComponent(info.build)) !== -1) return;
             var key = "giftbook_build_reload";
             try {
               if (sessionStorage.getItem(key) === info.build) return;
