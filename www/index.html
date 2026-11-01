@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-0305">
+<html lang="zh-CN" data-build="20261101-1040">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -1492,8 +1492,25 @@
          * 处理创建新事项的表单提交事件。
          * @param {Event} e - 表单提交事件。
          */
+        let createEventPending = false;
         async function handleCreateEventSubmit(e) {
           e.preventDefault();
+          // 连点/回车重复提交：第一次请求还没回来之前，后面的直接忽略，
+          // 否则会一次建出好几本空账簿。
+          if (createEventPending) return;
+          createEventPending = true;
+          const submitBtn = document.querySelector(".setup-submit");
+          const submitBtnText = submitBtn ? submitBtn.textContent : "";
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "创建中…"; }
+          try {
+          return await doCreateEvent();
+          } finally {
+            createEventPending = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = submitBtnText; }
+          }
+        }
+
+        async function doCreateEvent() {
           const name = dom.eventNameInput.value.trim();
           const startDateTime = `${dom.startDateInput.value}T${dom.startTimeInput.value}`;
           const endDateTime = `${dom.endDateInput.value}T${dom.endTimeInput.value}`;
@@ -3945,10 +3962,17 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-5";
+        const APP_VERSION = "2026.11.01-6";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.01-6", date: "2026-11-01", build: "1040",
+            notes: [
+              { t: "fix", text: "连点「保存并进入记账」会一次创建出好几本空账簿，现在按钮进入「创建中…」并禁用，只会建一本" },
+              { t: "opt", text: "创建请求进行中时忽略重复提交，网络慢的时候也不会重复建账" },
+            ],
+          },
           {
             version: "2026.11.01-5", date: "2026-11-01", build: "0305",
             notes: [
