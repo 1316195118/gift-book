@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-1130">
+<html lang="zh-CN" data-build="20261101-1155">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -236,24 +236,6 @@
         background-color: var(--link-hover-bg);
       }
 
-      /* 单条礼金删除：低调的红字按钮，避免误触 */
-      .gift-delete-btn {
-        flex: none;
-        min-height: 32px;
-        padding: 5px 12px;
-        font-size: 12.5px;
-        line-height: 1.4;
-        border-radius: 999px;
-        border: 1px solid #f0c9c9;
-        background: #fff6f6;
-        color: #c0392b;
-        transition: .18s;
-        white-space: nowrap;
-      }
-
-      .gift-delete-btn:hover { background: #fdeaea; border-color: #e6a9a9; }
-      .gift-delete-btn:active { transform: translateY(1px); }
-      .theme-solemn .gift-delete-btn { background: #fff; border-color: #e3c9c9; color: #b4453a; }
 
       .themed-ring:focus {
         --tw-ring-color: var(--primary-ring-color) !important;
@@ -1840,6 +1822,10 @@
               const displayName = String(gift.data.name ?? "");
               nameCell.innerHTML = `<div class="name${displayName.length > 4 ? " scale" : ""}">${escapeHtml(displayName)}</div>${statusIndicators}`;
               nameCell.dataset.giftIndex = giftIndex;
+              // 鼠标悬停就能看到最后一次改动的时间，不用点进详情
+              nameCell.title = isModified
+                ? `${displayName} · 已修改 ${gift.data.history.length} 次，最后一次 ${new Date(gift.data.timestamp).toLocaleString("zh-CN")}`
+                : `${displayName} · 录入于 ${new Date(gift.data.timestamp).toLocaleString("zh-CN")}`;
             }
             nameRow.appendChild(nameCell);
 
@@ -2690,9 +2676,11 @@
                 </div>
                 <!-- END: 修改备注区域 -->
                 
-                <div class="mt-auto pt-4 border-t flex flex-wrap items-center justify-between gap-2">
-                    <div class="text-xs text-gray-400">最新录入/修改时间: ${new Date(g.timestamp).toLocaleString("zh-CN")}</div>
-                    <button id="btn-delete-gift" type="button" class="gift-delete-btn">删除这条记录</button>
+                <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
+                    <div>${hasHistory
+                      ? `已修改 ${g.history.length} 次 · 最后一次 ${new Date(g.timestamp).toLocaleString("zh-CN")}`
+                      : `录入时间 ${new Date(g.timestamp).toLocaleString("zh-CN")}`}</div>
+                    <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
                 </div>
             </div>`;
 
@@ -2979,78 +2967,6 @@
             console.error("保存失败", error);
             showAlert("系统错误", "保存修改记录时失败。");
           }
-        }
-
-        /**
-         * 删除单条礼金记录前的二次确认。
-         * 有没有管理密码都要先确认一次——删除不可恢复，不能一次误点就没了。
-         * @returns {Promise<boolean>} 是否确认删除
-         */
-        function confirmDeleteGift(label) {
-          return new Promise((resolve) => {
-            const needPassword = eventHasPassword(currentEvent);
-            const content = `
-              <div class="modal-danger-tip">
-                <span aria-hidden="true">⚠️</span>
-                <span>即将删除「${escapeHtml(label)}」的礼金记录。<br>删除后无法恢复，也不会留下修改历史。</span>
-              </div>
-              ${needPassword ? '<label class="block text-sm text-gray-600 mt-3" for="delete-gift-password">请输入管理密码以继续</label><input type="password" id="delete-gift-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password">' : ""}`;
-            showModal("删除确认", content, [
-              { text: "取消", class: "modal-btn-ghost", handler: () => resolve({ ok: false, reason: "cancel" }) },
-              {
-                text: "确认删除",
-                class: "modal-btn-danger",
-                handler: () => {
-                  if (!needPassword) return resolve({ ok: true });
-                  const value = document.getElementById("delete-gift-password")?.value || "";
-                  if (hashPassword(value) !== currentEvent.passwordHash) return resolve({ ok: false, reason: "password" });
-                  resolve({ ok: true });
-                },
-              },
-            ]);
-            if (needPassword) setTimeout(() => document.getElementById("delete-gift-password")?.focus(), 60);
-          });
-        }
-
-        /**
-         * 删除单条礼金记录。
-         * 与「修改」不同，删除不可恢复、也不会进入修改历史，所以要求二次确认（有密码时还要验密码）。
-         * @param {number} giftIndex - 礼金索引
-         */
-        async function deleteGiftRecord(giftIndex) {
-          const giftObject = gifts[giftIndex];
-          if (!giftObject) return;
-          if (isLedgerLocked) return showAlert("账簿已锁定", "请先解锁账簿后再删除记录。");
-          if (giftObject.pending) {
-            return showAlert("无法删除", "这条记录还在本机暂存、尚未上传，等网络恢复同步完成后再删除。");
-          }
-          const label = giftObject.data?.name || "这条记录";
-          const answer = await confirmDeleteGift(label);
-          if (!answer.ok) {
-            if (answer.reason === "password") {
-              return showAlert("密码错误", "管理密码不正确，记录未删除。", () => showGiftDetailsModal(giftIndex));
-            }
-            // 只是取消：回到刚才的详情，不打扰用户
-            return showGiftDetailsModal(giftIndex);
-          }
-          try {
-            await apiRequest(
-              `gifts.php?eventId=${encodeURIComponent(currentEvent.id)}&id=${encodeURIComponent(giftObject.id)}`,
-              "DELETE"
-            );
-          } catch (error) {
-            if (error && error.code === "NETWORK") {
-              return showAlert("网络中断", "删除需要连接服务器，请等网络恢复后再试。", () => showGiftDetailsModal(giftIndex));
-            }
-            return showAlert("删除失败", escapeHtml(error && error.message ? error.message : "请稍后重试。"), () => showGiftDetailsModal(giftIndex));
-          }
-          gifts.splice(giftIndex, 1);
-          closeModal();
-          const totalPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1;
-          if (currentPage > totalPages) currentPage = totalPages;
-          render();
-          syncEventTotal();
-          showAlert("已删除", `「${escapeHtml(label)}」的礼金记录已删除。`);
         }
 
         /**
@@ -3725,31 +3641,40 @@
          */
         async function deleteCurrentEvent() {
           if (!currentEvent) return;
+          const hasPassword = eventHasPassword(currentEvent);
+          const content = `
+            <div class="modal-danger-tip">
+              <span aria-hidden="true">⚠️</span>
+              <span>即将删除账簿「${escapeHtml(currentEvent.name)}」<b>及其全部礼金记录</b>，删除后无法恢复。<br>单条礼金记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。</span>
+            </div>
+            ${hasPassword
+              ? '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-password">请输入管理密码以继续</label><input type="password" id="delete-confirm-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password">'
+              : '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-text">该账簿没有管理密码，请输入「确认」两个字以继续</label><input type="text" id="delete-confirm-text" class="w-full p-2 border rounded themed-ring mt-1" placeholder="确认" autocomplete="off">'}
+            <div class="access-error hidden mt-2" id="delete-confirm-error" role="alert"></div>`;
 
-          const content = `<p>此操作将永久删除事项 “<strong>${escapeHtml(currentEvent.name)}</strong>” 及其所有礼金记录，且无法恢复。</p>
-       ${eventHasPassword(currentEvent) ? `<p class="mt-4">请输入管理密码以确认：</p>
-       <input type="password" id="delete-confirm-password" class="w-full p-2 border rounded mt-2 themed-ring">` : `<p class="mt-4">该账簿未设置管理密码，确认后立即删除。</p>`}`;
-
-          showModal(`删除确认`, content, [
-            { text: "取消", class: "themed-button-secondary border px-4 py-2 rounded" },
+          showModal("删除账簿", content, [
+            { text: "取消", class: "modal-btn-ghost" },
             {
               text: "确认删除",
-              class: "themed-button-primary  text-white px-4 py-2 rounded", // 使用更醒目的红色按钮
+              class: "modal-btn-danger",
+              keepOpen: true,
               handler: async () => {
-                if (eventHasPassword(currentEvent)) {
-                  const passwordInput = document.getElementById("delete-confirm-password")?.value || "";
-                  if (hashPassword(passwordInput) !== currentEvent.passwordHash) {
-                    return showAlert("错误", "管理密码错误，删除操作已取消。");
-                  }
+                const errorEl = document.getElementById("delete-confirm-error");
+                const fail = (message) => {
+                  if (errorEl) { errorEl.textContent = message; errorEl.classList.remove("hidden"); }
+                };
+                if (hasPassword) {
+                  const value = document.getElementById("delete-confirm-password")?.value || "";
+                  if (hashPassword(value) !== currentEvent.passwordHash) return fail("管理密码不正确，账簿未删除。");
+                } else {
+                  const value = (document.getElementById("delete-confirm-text")?.value || "").trim();
+                  if (value !== "确认") return fail("请输入「确认」两个字后再删除。");
                 }
                 try {
-                  // 删除所有关联的礼金记录
                   await apiRequest(`gifts.php?eventId=${currentEvent.id}`, 'DELETE');
-
-                  // 删除事项本身
                   await apiRequest(`events.php?id=${currentEvent.id}`, 'DELETE');
-
-                  showAlert("成功", escapeHtml(`事项 “${currentEvent.name}” 已被成功删除。`), () => {
+                  closeModal();
+                  showAlert("成功", escapeHtml(`账簿 “${currentEvent.name}” 及其礼金记录已删除。`), () => {
                     currentEvent = null;
                     currentPassword = null;
                     gifts = [];
@@ -3759,12 +3684,12 @@
                   });
                 } catch (error) {
                   console.error("删除事项时发生错误:", error);
-                  showAlert("删除失败", "删除过程中发生错误。");
+                  fail("删除失败，请稍后重试。");
                 }
               },
             },
           ]);
-          setTimeout(() => document.getElementById("delete-confirm-password")?.focus(), 50);
+          setTimeout(() => (document.getElementById("delete-confirm-password") || document.getElementById("delete-confirm-text"))?.focus(), 60);
         }
 
         // --- 工具与辅助函数 ---
@@ -4057,10 +3982,18 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-7";
+        const APP_VERSION = "2026.11.01-8";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.01-8", date: "2026-11-01", build: "1155",
+            notes: [
+              { t: "fix", text: "已录入的礼金不再支持删除，只能修改——账目始终对得上，不会出现「少了一笔却想不起是谁」" },
+              { t: "feat", text: "每条记录的修改都留时间痕迹：详情里显示「已修改 N 次 · 最后一次 什么时候」，礼簿里鼠标停一下也能看到" },
+              { t: "sec", text: "删除整本账簿更谨慎了：没设管理密码的，必须手动输入「确认」两个字；设了密码的要输密码，输错留在弹窗里重试" },
+            ],
+          },
           {
             version: "2026.11.01-7", date: "2026-11-01", build: "1130",
             notes: [
@@ -4856,7 +4789,6 @@
             if (e.target.id === "btn-correct-name") enableInlineEdit(giftIndex, "name");
             if (e.target.id === "btn-modify-amount") enableInlineEdit(giftIndex, "amount");
             if (e.target.id === "btn-edit-remarks") enableInlineEdit(giftIndex, "remarks");
-            if (e.target.id === "btn-delete-gift") deleteGiftRecord(giftIndex);
           };
           // 全局事件
           window.addEventListener("click", () => dom.eventDropdown.classList.add("hidden"));
