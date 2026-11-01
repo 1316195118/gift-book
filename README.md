@@ -105,7 +105,7 @@
 
 ```
 ghcr.io/1316195118/gift-book:latest
-ghcr.io/1316195118/gift-book:v2026.11.01-4
+ghcr.io/1316195118/gift-book:v2026.11.02-1
 ```
 
 ### 前置要求
@@ -242,7 +242,7 @@ docker compose pull     # 拉最新镜像
 docker compose up -d    # 重建容器
 ```
 
-想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.01-4`。
+想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.02-1`。
 
 ### 环境变量
 
@@ -350,13 +350,13 @@ docker compose -f docker-compose.build.yml up -d --build
 | 项目 | 做法 |
 | --- | --- |
 | 存放位置 | `data/`（账簿 `events.json`、`gifts_<id>.json`）+ `config/`（访问保护配置与状态） |
-| 礼金内容 | 用管理密码派生的密钥做 **AES-256-CBC** 加密，密文格式与 OpenSSL 兼容，历史数据可直接解开 |
+| 礼金内容 | 用管理密码派生的密钥做 **AES-256-CBC** 加密，密文格式与 OpenSSL 兼容，历史数据可直接解开；接口与落盘不再保留姓名/金额/送礼人的明文副本 |
 | 无密码账簿 | 用空密码的 SHA-256 作为哨兵值，功能不受影响 |
 | 目录保护 | `.htaccess` 里 `Options -Indexes` + `data/` 直接 403，列不出文件 |
 | 防误删 | 单条礼金不提供删除，只能修改并留痕；删整本账簿时，无密码的要手打「确认」两个字，有密码的要输密码 |
 | 访问保护（可选） | 整站密码，PBKDF2-SHA256（21 万次）+ HMAC 签名 HttpOnly Cookie，7 天有效 |
 | 防爆破 | 同一 IP 连错 5 次锁定，锁定时长 1→2→4→8→16→30 分钟递增 |
-| 浏览器端 | 联网时**不缓存任何礼金数据**；只有断网待补传的密文会暂存在本机 |
+| 浏览器端 | 联网时**不缓存任何礼金数据**；断网待补传队列也只保存密文，不额外保存姓名和金额 |
 | 遥测 | 无。除了你自己点「检查更新」会请求一次 GitHub API，页面不向外发任何请求 |
 
 ---
@@ -377,7 +377,7 @@ docker compose -f docker-compose.build.yml up -d --build
 
 ## 版本检查与升级
 
-- 页面右上角的版本号（`v2026.11.01-4`）点开就是更新说明，顶部有「检查更新」。
+- 页面右上角的版本号（`v2026.11.02-1`）点开就是更新说明，顶部有「检查更新」。
 - 它会读取本仓库的最新 Release，比当前版本新就给出「前往下载」。
 - 内网部署连不上 GitHub 时会提示「暂时连不上 GitHub（内网部署可忽略）」，不影响使用。
 - 升级方式：`git pull && docker compose up -d --build`，数据目录不受影响。
@@ -385,8 +385,8 @@ docker compose -f docker-compose.build.yml up -d --build
 发布新版本时打 tag 即可：
 
 ```bash
-git tag -a v2026.11.01-4 -m "v2026.11.01-4"
-git push origin v2026.11.01-4
+git tag -a v2026.11.02-1 -m "v2026.11.02-1"
+git push origin v2026.11.02-1
 ```
 
 ---
@@ -421,6 +421,8 @@ git push origin v2026.11.01-4
 ├── data/                 # 账簿数据（默认拒绝直接访问）
 ├── config/               # 访问保护配置与状态（默认拒绝直接访问）
 ├── docs/                 # README 用的截图
+├── tools/
+│   └── migrate-private-gifts.php  # 旧礼金明文清理（默认 dry-run）
 ├── entrypoint.sh         # 容器启动脚本（UID 重映射、目录权限）
 ├── Dockerfile
 ├── docker-compose.yml        # 直接用 GHCR 镜像
@@ -430,6 +432,29 @@ git push origin v2026.11.01-4
 ---
 
 ## 常见问题
+
+### 旧礼金记录的明文元数据清理
+
+新版本只把礼金明细保存在 `encryptedContent` 中，接口也只返回这份密文；旧 `gifts_*.json` 可能还保留姓名、金额与送礼人的明文副本。更新代码后，先在容器内预演迁移：
+
+```bash
+docker exec gift-book php /usr/local/lib/gift-book/migrate-private-gifts.php
+```
+
+确认待清理记录数后再执行：
+
+```bash
+docker exec gift-book php /usr/local/lib/gift-book/migrate-private-gifts.php --apply
+```
+
+`--apply` 会先在 `data/` 下创建权限为私有的迁移备份，再从有有效 `encryptedContent` 的记录中移除重复明文字段；密文、账簿 ID 和礼金 ID 保持不变。没有有效密文的记录会跳过并计数，避免删除无法恢复的数据。建议先另行备份整个 `data/` 目录。
+
+非 Docker 部署可以直接在源码目录执行；脚本会自动读取 `www/config.php`：
+
+```bash
+php tools/migrate-private-gifts.php
+php tools/migrate-private-gifts.php --apply
+```
 
 **Q：一定要 Docker 吗？**
 不用。任何 PHP 8+ 的 Web 服务都能跑，把文件丢进去、给 `data/` 写权限即可。

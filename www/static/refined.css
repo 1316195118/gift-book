@@ -1,5 +1,7 @@
 /* One visual system shared by the two occasion themes. No photographic covers. */
 :root, .theme-festive {
+  --font-ui: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-display: "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", "SimSun", serif;
   --accent: #a92f32; --accent-hover: #8f2529; --accent-soft: #faf0ed;
   --ink: #352e2a; --muted: #756a62; --line: #e7dfd6; --surface: #fffdf9;
   --paper: #f6f2eb; --gold: #b79866; --shadow: 0 12px 38px rgba(65,42,29,.06);
@@ -29,7 +31,7 @@ html { background: #f6efe2; }
 html:has(body.theme-solemn) { background: #eceef1; }
 html:has(body.home-mode) { background: #f6efe2; }
 html:has(body.home-mode.solemn-mode) { background: #eceef1; }
-body { margin: 0; color: var(--ink); background: var(--paper); font-family: "Microsoft YaHei", "PingFang SC", sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; color: var(--ink); background: var(--paper); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
 /* body 上还有 Tailwind 的 bg-gray-100，此处覆盖，避免内容变长后底部露出灰边 */
 body.bg-gray-100 { background-color: var(--paper); }
 
@@ -228,9 +230,9 @@ input::placeholder, textarea::placeholder { color: #96928d; }
 #cat-switch .cat-btn { color: var(--muted); }
 #cat-switch .cat-btn.active { background: var(--accent); color: #fff; box-shadow: 0 3px 9px rgba(40,30,20,.08); }
 .home-hero { padding: 50px 0 32px; }
-#home-title { font-size: clamp(29px,3.4vw,42px); color: var(--ink); font-weight: 500; letter-spacing: .055em; }
+#home-title { font-family: var(--font-display); font-size: clamp(29px,3.4vw,42px); color: var(--ink); font-weight: 500; letter-spacing: .055em; text-wrap: balance; }
 #home-eyebrow, #tpl-eyebrow { color: var(--gold); font-size: 12px; letter-spacing: .35em; }
-#home-sub, #tpl-sub { color: var(--muted); font-size: 14px; line-height: 1.85; max-width: 660px; margin: 0 auto; letter-spacing: .025em; }
+#home-sub, #tpl-sub { color: var(--muted); font-size: 14px; line-height: 1.75; max-width: 660px; margin: 0 auto; letter-spacing: .015em; text-wrap: balance; }
 #choice-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(290px,1fr); gap: 20px; max-width: none; align-items: stretch; }
 #home-main-card { min-height: 232px; padding: 28px 32px; border-radius: 20px; background: linear-gradient(115deg,#94272a,#b3413f); box-shadow: 0 16px 34px rgba(123,44,36,.13); }
 .home-side { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px 26px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
@@ -252,12 +254,13 @@ input::placeholder, textarea::placeholder { color: #96928d; }
 .section-head { margin: 38px auto 16px; max-width: none; align-items: center; gap: 12px; }
 .section-head h2 { color: var(--ink); font-size: 22px; font-weight: 500; }
 .section-note { color: var(--muted); font-size: 12px; }
-#recent-events { grid-template-columns: repeat(3,minmax(0,1fr)); max-width: none; gap: 16px; }
-#recent-events .recent-item { min-height: 150px; padding: 21px; border-radius: 16px; background: linear-gradient(125deg,var(--surface) 40%,var(--accent-soft)); border: 1px solid var(--line); box-shadow: none; gap: 22px; text-align: left; }
+#recent-events { display: flex; flex-wrap: wrap; justify-content: center; max-width: none; gap: 16px; }
+#recent-events .recent-item { flex: 1 1 320px; max-width: 360px; min-height: 150px; padding: 21px; border-radius: 16px; background: linear-gradient(125deg,var(--surface) 40%,var(--accent-soft)); border: 1px solid var(--line); box-shadow: none; gap: 22px; text-align: left; }
+#recent-events .recent-empty { flex: 1 1 100%; width: 100%; grid-column: auto; }
 #recent-events .recent-item:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: var(--shadow); }
 #recent-events .recent-item::after { font-size: 100px; color: var(--accent); opacity: .045; right: 12px; bottom: -15px; }
 .recent-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-#recent-events .rn { flex: 1; min-width: 0; font-family: "KaiTi","STKaiti","Kaiti SC","Songti SC","SimSun",serif; display: block; font-size: 19px; line-height: 1.45; color: var(--accent); font-weight: 700; letter-spacing: .01em; overflow: visible; -webkit-line-clamp: unset; word-break: break-word; overflow-wrap: anywhere; }
+#recent-events .rn { flex: 1; min-width: 0; font-family: var(--font-display); display: block; font-size: 19px; line-height: 1.45; color: var(--accent); font-weight: 600; letter-spacing: .01em; overflow: visible; -webkit-line-clamp: unset; word-break: break-word; overflow-wrap: anywhere; }
 #recent-events .recent-item.white .rn { color: var(--ink); }
 #recent-events .rn::after { content: ""; display: block; width: 30px; height: 1px; margin-top: 6px; border-radius: 1px; background: linear-gradient(90deg, var(--gold), transparent); }
 .ledger-no { flex: none; margin-top: 3px; font-family: Georgia,"Times New Roman",serif; font-size: 11px; line-height: 1; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--primary-border-color); border-radius: 999px; padding: 4px 8px; white-space: nowrap; }
@@ -602,8 +605,7 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #choice-grid { grid-template-columns: 1fr; }
   .home-side { display: none; }
   #template-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
-  #recent-events { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  #recent-events .recent-item { padding: 18px 16px; }
+  #recent-events .recent-item { flex-basis: 300px; padding: 18px 16px; }
   #recent-events .rn { font-size: 18px; }
   .ledger-no { font-size: 10px; padding: 3px 6px; }
   .rm-amount { font-size: 17px; }
@@ -629,8 +631,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #home-help-btn, #cat-switch .cat-btn { min-height: 38px; padding: 7px 11px; font-size: 12px; }
   .home-brand .seal { width: 34px; height: 34px; }
   .home-hero { padding: 35px 0 26px; }
-  #home-title { font-size: 29px; line-height: 1.45; letter-spacing: .02em; }
-  #home-sub, #tpl-sub { font-size: 12px; line-height: 1.9; }
+  #home-title { font-size: 29px; line-height: 1.35; letter-spacing: .02em; }
+  #home-sub { max-width: min(100%, 340px); font-size: 13px; line-height: 1.65; letter-spacing: 0; text-wrap: balance; }
+  #tpl-sub { font-size: 13px; line-height: 1.7; letter-spacing: 0; text-wrap: balance; }
   #home-main-card { min-height: 194px; padding: 24px; border-radius: 17px; }
   #home-main-card .choice-title { font-size: 31px; }
   #home-main-card .choice-desc { font-size: 12px; }
@@ -638,8 +641,8 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .section-head { margin-top: 29px; }
   .section-head h2 { font-size: 21px; }
   .section-note { font-size: 11px; }
-  #recent-events { gap: 12px; grid-template-columns: 1fr; }
-  #recent-events .recent-item { min-height: 132px; padding: 18px 20px; gap: 16px; }
+  #recent-events { gap: 12px; }
+  #recent-events .recent-item { flex-basis: 100%; max-width: none; min-height: 132px; padding: 18px 20px; gap: 16px; }
   #recent-events .rn { font-size: 19px; }
   .ledger-no { font-size: 11px; padding: 4px 8px; }
   .rm-amount { font-size: 18px; }

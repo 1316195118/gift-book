@@ -58,6 +58,24 @@ function giftsApiRead($filename) {
     return $records;
 }
 
+/**
+ * Gift details live inside encryptedContent. Never return legacy duplicated
+ * plaintext metadata to API callers; old files are cleaned by the CLI migration.
+ */
+function giftsApiPublicRecord($record) {
+    if (!is_array($record)) {
+        return $record;
+    }
+    // 只返回协议内字段，旧版本遗留的姓名、金额、送礼人、图片等字段一律不下发。
+    $public = [];
+    foreach (['id', 'eventId', 'encryptedContent', 'createdAt', 'updatedAt'] as $field) {
+        if (array_key_exists($field, $record)) {
+            $public[$field] = $record[$field];
+        }
+    }
+    return $public;
+}
+
 function giftsApiWrite($filename, $records) {
     $encoded = json_encode($records, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     if ($encoded === false) {
@@ -97,93 +115,14 @@ function giftsApiBody($required) {
     return (array) $decoded;
 }
 
-function giftsApiName($value) {
-    if (!is_string($value) || strlen($value) > 480 || !preg_match('//u', $value) ||
-        !preg_match('/(*UCP)\S/u', $value)) {
-        return false;
-    }
-    $length = function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') :
-        count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY));
-    return $length <= 120;
-}
-
-function giftsApiAmount($value) {
-    if ((!is_int($value) && !is_float($value) && !is_string($value)) || !is_numeric($value)) {
-        jsonResponse(['success' => false, 'message' => '无效的金额'], 400);
-    }
-    $number = $value + 0;
-    if (!is_finite($number) || $number < 0 || $number > 999999999999) {
-        jsonResponse(['success' => false, 'message' => '金额超出允许范围'], 400);
-    }
-    $text = is_string($value) ? trim($value) : json_encode($value, JSON_PRESERVE_ZERO_FRACTION);
-    $parts = preg_split('/[eE]/', $text);
-    $mantissa = $parts[0];
-    $exponent = isset($parts[1]) ? (int) $parts[1] : 0;
-    $point = strpos($mantissa, '.');
-    $fractionLength = $point === false ? 0 : strlen($mantissa) - $point - 1;
-    $digits = str_replace(['+', '-', '.'], '', $mantissa);
-    $significant = rtrim($digits, '0');
-    // 按十进制位数检查，避免浮点误差容忍值放过第三位小数。
-    if ($significant !== '' && $fractionLength - (strlen($digits) - strlen($significant)) - $exponent > 2) {
-        jsonResponse(['success' => false, 'message' => '金额最多保留两位小数'], 400);
-    }
-    return $number;
-}
-
-function giftsApiDate($value) {
-    if (!is_string($value) || !preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}\z/', $value)) {
-        return false;
-    }
-    $date = DateTime::createFromFormat('!Y-m-d\TH:i', $value);
-    $errors = DateTime::getLastErrors();
-    return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0)) &&
-        $date->format('Y-m-d\TH:i') === $value;
-}
-
-function giftsApiTimestamp($value) {
-    if (!is_string($value) ||
-        !preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]{1,6})?)?(Z|[+-][0-9]{2}:[0-9]{2})?\z/', $value)) {
-        return false;
-    }
-    try {
-        new DateTimeImmutable($value);
-        return true;
-    } catch (Throwable $error) {
-        return false;
-    }
-}
-
-function giftsApiImage($value) {
-    if ($value === '') {
-        return true;
-    }
-    if (!is_string($value) || strlen($value) > 5 * 1024 * 1024 ||
-        !preg_match('~\Adata:image/[A-Za-z0-9.+-]+;base64,~', $value, $header)) {
-        return false;
-    }
-    $decoded = base64_decode(substr($value, strlen($header[0])), true);
-    return $decoded !== false && $decoded !== '';
-}
-
-function giftsApiValidate(&$body) {
-    foreach (['name', 'giverName'] as $field) {
-        if (array_key_exists($field, $body) && !giftsApiName($body[$field])) {
-            jsonResponse(['success' => false, 'message' => '姓名不能为空且最多120个Unicode字符'], 400);
-        }
-    }
-    if (array_key_exists('amount', $body)) {
-        $body['amount'] = giftsApiAmount($body['amount']);
-    }
-    if (array_key_exists('timestamp', $body) && !giftsApiTimestamp($body['timestamp'])) {
-        jsonResponse(['success' => false, 'message' => '时间必须是有效的ISO 8601格式'], 400);
-    }
-    if (array_key_exists('image', $body) && !giftsApiImage($body['image'])) {
-        jsonResponse(['success' => false, 'message' => '图片必须为不超过5MB的图片data URL'], 400);
-    }
+function giftsApiValidate($body) {
     if (array_key_exists('encryptedContent', $body)) {
         $payload = $body['encryptedContent'];
         if (!is_string($payload) && !is_object($payload) && !is_array($payload)) {
             jsonResponse(['success' => false, 'message' => '无效的加密内容'], 400);
+        }
+        if (is_string($payload) && $payload === '') {
+            jsonResponse(['success' => false, 'message' => '加密内容不能为空'], 400);
         }
         $encoded = is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($encoded === false || strlen($encoded) > 8 * 1024 * 1024) {
@@ -216,21 +155,25 @@ if ($method === 'POST') {
     }
 }
 $gifts = giftsApiRead($giftFile);
-$fields = ['name', 'amount', 'giverName', 'encryptedContent', 'timestamp', 'image'];
+$fields = ['encryptedContent'];
 
 switch ($method) {
     case 'GET':
         if ($giftId !== null) {
             if (isset($gifts[$giftId])) {
-                jsonResponse(['success' => true, 'data' => $gifts[$giftId]]);
+                jsonResponse(['success' => true, 'data' => giftsApiPublicRecord($gifts[$giftId])]);
             }
             jsonResponse(['success' => false, 'message' => '礼物不存在'], 404);
         }
-        jsonResponse(['success' => true, 'data' => $gifts]);
+        $publicGifts = [];
+        foreach ($gifts as $id => $gift) {
+            $publicGifts[$id] = giftsApiPublicRecord($gift);
+        }
+        jsonResponse(['success' => true, 'data' => $publicGifts]);
         break;
 
     case 'POST':
-        if (!isset($jsonBody['name'], $jsonBody['amount'], $jsonBody['giverName'], $jsonBody['encryptedContent'])) {
+        if (!isset($jsonBody['encryptedContent'])) {
             jsonResponse(['success' => false, 'message' => '缺少必要参数'], 400);
         }
         giftsApiValidate($jsonBody);
@@ -244,28 +187,23 @@ switch ($method) {
         $newGift = [
             'id' => $newGiftId,
             'eventId' => $eventId,
-            'name' => $jsonBody['name'],
-            'amount' => $jsonBody['amount'],
-            'giverName' => $jsonBody['giverName'],
             'encryptedContent' => $jsonBody['encryptedContent'],
             'createdAt' => date('Y-m-d H:i:s'),
             'updatedAt' => date('Y-m-d H:i:s')
         ];
-        foreach (['timestamp', 'image'] as $field) {
-            if (array_key_exists($field, $jsonBody)) {
-                $newGift[$field] = $jsonBody[$field];
-            }
-        }
         $gifts[$newGiftId] = $newGift;
         if (!giftsApiWrite($giftFile, $gifts)) {
             jsonResponse(['success' => false, 'message' => '保存失败'], 500);
         }
-        jsonResponse(['success' => true, 'data' => $newGift]);
+        jsonResponse(['success' => true, 'data' => giftsApiPublicRecord($newGift)]);
         break;
 
     case 'PUT':
         if (!isset($gifts[$giftId])) {
             jsonResponse(['success' => false, 'message' => '礼物不存在'], 404);
+        }
+        if (!isset($jsonBody['encryptedContent'])) {
+            jsonResponse(['success' => false, 'message' => '缺少加密内容'], 400);
         }
         giftsApiValidate($jsonBody);
         foreach ($fields as $field) {
@@ -273,11 +211,15 @@ switch ($method) {
                 $gifts[$giftId][$field] = $jsonBody[$field];
             }
         }
+        // Updating an old encrypted record also clears any duplicated plaintext fields.
+        foreach (['name', 'amount', 'giverName'] as $field) {
+            unset($gifts[$giftId][$field]);
+        }
         $gifts[$giftId]['updatedAt'] = date('Y-m-d H:i:s');
         if (!giftsApiWrite($giftFile, $gifts)) {
             jsonResponse(['success' => false, 'message' => '保存失败'], 500);
         }
-        jsonResponse(['success' => true, 'data' => $gifts[$giftId]]);
+        jsonResponse(['success' => true, 'data' => giftsApiPublicRecord($gifts[$giftId])]);
         break;
 
     case 'DELETE':

@@ -21,6 +21,9 @@ WORKDIR /var/www/html
 COPY www/ /var/www/html/
 # 入口脚本放 webroot 之外，整目录挂载也不会被盖掉
 COPY entrypoint.sh /usr/local/bin/gift-book-entrypoint
+# 旧礼金元数据迁移工具只从 CLI 运行，不放进可被 Web 访问的目录。
+RUN mkdir -p /usr/local/lib/gift-book
+COPY tools/migrate-private-gifts.php /usr/local/lib/gift-book/migrate-private-gifts.php
 
 # 统一权限：拷贝进来的文件可能是 770 或带 ACL，www-data 会读不到 .htaccess
 RUN mkdir -p /var/www/html/data /var/www/html/config \

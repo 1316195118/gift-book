@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261101-1155">
+<html lang="zh-CN" data-build="20261102-0302">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261101-0240"></script>
-    <script src="./static/ledger-crypto.js?v=20261101-0240"></script>
-    <script src="./static/voices.js?v=20261101-0240"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-0302"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-0302"></script>
+    <script src="./static/voices.js?v=20261102-0302"></script>
     <style>
       :root,
       .theme-festive {
@@ -66,7 +66,7 @@
       }
 
       body {
-        font-family: "Inter", "Microsoft YaHei", sans-serif;
+        font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
       }
 
       .gift-book-frame {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261101-0240" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261101-0240" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-0302" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-0302" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1716,15 +1716,13 @@
             const fullGiftData = { ...giftData, timestamp: new Date().toISOString() };
             const encryptedContent = encryptData(fullGiftData, currentPassword);
             
-            // 准备要发送的数据
+            // 只发送密文；断网暂存也沿用同一个对象，不把姓名/金额带到本机队列。
             giftRecord = {
               eventId: currentEvent.id,
-              name: giftData.name,
-              amount: giftData.amount,
-              giverName: giftData.name, // 与name保持一致
               encryptedContent: encryptedContent
             };
             
+            // 姓名、金额、备注等只进入客户端密文，不再重复发送明文副本。
             await apiRequest('gifts.php', 'POST', giftRecord);
 
             closeModal();
@@ -1950,12 +1948,12 @@
 
         const CATEGORY_TEXT = {
           red: {
-            eyebrow: "传统礼俗 · 数字留痕", title: "今日何喜，敬请择类", sub: "红事添喜。择一场景，像用纸质礼簿般，即可开始登记、统计与打印。",
+            eyebrow: "传统礼俗 · 数字留痕", title: "今日何喜，敬请择类", sub: "选择红事场景，登记礼金、汇总账簿并打印明细。",
             kicker: "喜 事", cardTitle: "红事", cardDesc: "婚嫁 · 寿诞 · 满月 · 乔迁 · 升学", go: "进入红事模板 →",
             tplEyebrow: "红 事", theme: "theme-festive",
           },
           white: {
-            eyebrow: "慎终追远 · 肃穆致哀", title: "白事登记，敬请择类", sub: "丧仪 · 追思 · 周年 · 迁坟，庄重记录每一份心意。",
+            eyebrow: "慎终追远 · 肃穆致哀", title: "白事登记，敬请择类", sub: "按白事礼俗逐笔登记，清晰汇总每份心意。",
             kicker: "白 事", cardTitle: "白事", cardDesc: "丧仪 · 追思 · 周年 · 迁坟", go: "进入白事模板 →",
             tplEyebrow: "白 事", theme: "theme-solemn",
           },
@@ -2034,7 +2032,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。礼金详情采用 AES 加密，但姓名、金额汇总等元数据并非全部加密，请仅在可信网络使用。</div><div class="help-build">前端构建 2026-10-31 23:10 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 03:02 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -2044,6 +2042,7 @@
           dom.mainScreen.classList.add("hidden");
           dom.templateScreen.classList.add("hidden");
           dom.homeScreen.classList.remove("hidden");
+          dom.homeScreen.scrollTop = 0;
           syncShell();
           applyHomeCategory();
           loadEvents();
@@ -2944,12 +2943,7 @@
           // 4. 加密并保存到服务器
           try {
             const encryptedContent = encryptData(updatedData, currentPassword);
-            await apiRequest(`gifts.php?eventId=${currentEvent.id}&id=${giftObject.id}`, 'PUT', {
-              name: updatedData.name,
-              amount: updatedData.amount,
-              giverName: updatedData.giverName || updatedData.name,
-              encryptedContent,
-            });
+            await apiRequest(`gifts.php?eventId=${currentEvent.id}&id=${giftObject.id}`, 'PUT', { encryptedContent });
 
             // 5. 更新内存和 UI
             gifts[giftIndex].data = updatedData;
@@ -2991,12 +2985,7 @@
             const updatedGiftData = { ...giftObject.data, remarks: newRemarks };
             const encryptedContent = encryptData(updatedGiftData, currentPassword);
             try {
-              await apiRequest(`gifts.php?eventId=${currentEvent.id}&id=${giftObject.id}`, 'PUT', {
-                name: updatedGiftData.name,
-                amount: updatedGiftData.amount,
-                giverName: updatedGiftData.giverName || updatedGiftData.name,
-                encryptedContent,
-              });
+              await apiRequest(`gifts.php?eventId=${currentEvent.id}&id=${giftObject.id}`, 'PUT', { encryptedContent });
               gifts[giftIndex].data.remarks = newRemarks; // 同步更新内存中的数据
               render(); // 重新渲染以更新备注星号
               closeModal();
@@ -3982,10 +3971,19 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.01-8";
+        const APP_VERSION = "2026.11.02-1";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.02-1", date: "2026-11-02", build: "0302",
+            notes: [
+              { t: "sec", text: "礼金接口只保存和返回加密内容：姓名、金额、送礼人不再以明文写入 gifts_*.json，也不再通过 API 返回" },
+              { t: "sec", text: "新增旧数据清理工具，默认只预演；加 --apply 才写入，并先在 data/ 下生成私有备份" },
+              { t: "sec", text: "断网暂存队列也只保留密文，本机不再额外保存姓名和金额明文" },
+              { t: "opt", text: "首页字体、标题与说明排版更统一；最近账簿改为居中自适应卡片，窄屏不再出现多余空白" },
+            ],
+          },
           {
             version: "2026.11.01-8", date: "2026-11-01", build: "1155",
             notes: [
@@ -4373,8 +4371,29 @@
 
         function readQueue() {
           try {
-            const list = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
-            return Array.isArray(list) ? list.filter((item) => item && item.eventId && item.encryptedContent) : [];
+            const raw = localStorage.getItem(QUEUE_KEY);
+            if (!raw) return [];
+            const list = JSON.parse(raw);
+            if (!Array.isArray(list)) return [];
+            const clean = [];
+            list.forEach((item, index) => {
+              if (!item || !item.eventId || typeof item.encryptedContent !== "string" || !item.encryptedContent) return;
+              clean.push({
+                qid: item.qid ? String(item.qid) : `legacy-${index}-${item.queuedAt || ""}`,
+                eventId: String(item.eventId),
+                encryptedContent: item.encryptedContent,
+                queuedAt: item.queuedAt || new Date().toISOString(),
+              });
+            });
+            // 旧版本可能把姓名/金额一起写进队列；读到时顺手清掉，只保留密文。
+            const encoded = JSON.stringify(clean);
+            if (encoded !== raw) {
+              try {
+                if (clean.length) localStorage.setItem(QUEUE_KEY, encoded);
+                else localStorage.removeItem(QUEUE_KEY);
+              } catch (e) { /* 隐私模式写入失败时仍返回内存中的干净队列 */ }
+            }
+            return clean;
           } catch (e) {
             return [];
           }
@@ -4396,7 +4415,12 @@
 
         function enqueueGift(record) {
           const list = readQueue();
-          const item = { ...record, qid: `q${Date.now()}${Math.random().toString(36).slice(2, 6)}`, queuedAt: new Date().toISOString() };
+          const item = {
+            qid: `q${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+            eventId: String(record.eventId),
+            encryptedContent: record.encryptedContent,
+            queuedAt: new Date().toISOString(),
+          };
           list.push(item);
           writeQueue(list);
           return item;
@@ -4455,24 +4479,24 @@
           updateAmountChinesePreview();
 
           const probes = await probeAllLinks();
-          showOfflineToast(probes, item);
+          showOfflineToast(probes, item, giftData);
         }
 
         let offlineToastTimer = null;
-        let lastOfflineItem = null;
+        let lastOfflinePreview = null;
 
         /** 右下角悬浮提示：说明哪条链路断了、已暂存哪一笔，带关闭按钮。 */
-        function showOfflineToast(probes, item) {
+        function showOfflineToast(probes, item, giftData) {
           const toast = document.getElementById("offline-toast");
           if (!toast) return;
-          lastOfflineItem = item || lastOfflineItem;
+          if (giftData) lastOfflinePreview = { name: giftData.name, amount: giftData.amount };
           const failed = probes.filter((p) => !p.result.ok).map((p) => p.target.label);
           const text = document.getElementById("offline-toast-text");
           const links = document.getElementById("offline-toast-links");
           const pending = item ? queueFor(item.eventId).length : readQueue().length;
 
           if (text) {
-            const who = item ? `「${escapeHtml(item.name)} ¥${item.amount}」` : "本次记录";
+            const who = lastOfflinePreview ? `「${escapeHtml(lastOfflinePreview.name)} ¥${lastOfflinePreview.amount}」` : "本次记录";
             text.innerHTML = `${failed.length ? `无法连接：<strong>${failed.join("、")}</strong>。` : "刚才的请求超时了。"}${who}已加密暂存在本机（共 ${pending} 条），网络恢复后会自动补传。`;
           }
           if (links) {
@@ -4517,11 +4541,19 @@
             paintQueueChip();
             return showAlert("暂无待同步", "所有礼金都已写入 NAS。");
           }
-          const rows = list.map((item) => `<tr>
-              <td>${escapeHtml(item.name)}</td>
-              <td class="num">¥${item.amount}</td>
+          const rows = list.map((item) => {
+            const data = decryptData(item.encryptedContent, currentPassword) || {};
+            const amount = Number(data.amount);
+            const name = data.name ? escapeHtml(data.name) : "（密文记录）";
+            const amountText = Number.isFinite(amount)
+              ? `¥${amount.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : "—";
+            return `<tr>
+              <td>${name}</td>
+              <td class="num">${amountText}</td>
               <td class="num">${new Date(item.queuedAt).toLocaleTimeString("zh-CN", { hour12: false })}</td>
-            </tr>`).join("");
+            </tr>`;
+          }).join("");
           showModal("待同步礼金", `
             <p class="offline-lead">以下 ${list.length} 条只保存在本浏览器，尚未写入 NAS。</p>
             <table class="net-detail-table">
@@ -4555,9 +4587,6 @@
             try {
               await apiRequest("gifts.php", "POST", {
                 eventId: item.eventId,
-                name: item.name,
-                amount: item.amount,
-                giverName: item.name,
                 encryptedContent: item.encryptedContent,
               });
               writeQueue(readQueue().filter((x) => x.qid !== item.qid));
