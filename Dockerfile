@@ -7,7 +7,7 @@ FROM php:8.2-apache
 # headers / expires / deflate：静态资源缓存 + 压缩，页面加载更快
 RUN a2enmod rewrite headers expires deflate \
  && sed -ri 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf \
- && printf 'expose_php = Off\nServerTokens Prod\nServerSignature Off\n' > /usr/local/etc/php/conf.d/hardening.ini \
+ && printf 'expose_php = Off\nServerTokens Prod\nServerSignature Off\npost_max_size = 16M\nupload_max_filesize = 16M\n' > /usr/local/etc/php/conf.d/hardening.ini \
  && printf 'opcache.enable=1\nopcache.memory_consumption=64\nopcache.interned_strings_buffer=8\nopcache.max_accelerated_files=10000\nopcache.validate_timestamps=1\nopcache.revalidate_freq=2\nrealpath_cache_size=4096K\nrealpath_cache_ttl=600\n' > /usr/local/etc/php/conf.d/opcache.ini
 
 ENV LANG=C.UTF-8 \

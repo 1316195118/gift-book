@@ -105,7 +105,7 @@
 
 ```
 ghcr.io/1316195118/gift-book:latest
-ghcr.io/1316195118/gift-book:v2026.11.02-1
+ghcr.io/1316195118/gift-book:v2026.11.02-2
 ```
 
 ### 前置要求
@@ -242,7 +242,7 @@ docker compose pull     # 拉最新镜像
 docker compose up -d    # 重建容器
 ```
 
-想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.02-1`。
+想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.02-2`。
 
 ### 环境变量
 
@@ -303,7 +303,7 @@ server {
 ### 已有 PHP 环境（宝塔 / 群晖 Web Station）
 
 1. 把仓库里的 `index.html`、`static/`、`*.php`、`.htaccess` 放进站点根目录。
-2. PHP 需 **8.0+**，开启 `json`、`openssl`。
+2. PHP 需 **8.0+**，开启 `json`、`openssl`；建议把 `post_max_size` 调到 `16M`，否则接近 8MB 的密文或 5MB 封面会在 PHP 层先被截断。
 3. 确保 `data/` 可写（`chmod 775`，属主为 Web 用户）。
 4. 不要覆盖 `config.php` 里改过的数据目录。
 
@@ -377,7 +377,7 @@ docker compose -f docker-compose.build.yml up -d --build
 
 ## 版本检查与升级
 
-- 页面右上角的版本号（`v2026.11.02-1`）点开就是更新说明，顶部有「检查更新」。
+- 页面右上角的版本号（`v2026.11.02-2`）点开就是更新说明，顶部有「检查更新」。
 - 它会读取本仓库的最新 Release，比当前版本新就给出「前往下载」。
 - 内网部署连不上 GitHub 时会提示「暂时连不上 GitHub（内网部署可忽略）」，不影响使用。
 - 升级方式：`git pull && docker compose up -d --build`，数据目录不受影响。
@@ -385,8 +385,8 @@ docker compose -f docker-compose.build.yml up -d --build
 发布新版本时打 tag 即可：
 
 ```bash
-git tag -a v2026.11.02-1 -m "v2026.11.02-1"
-git push origin v2026.11.02-1
+git tag -a v2026.11.02-2 -m "v2026.11.02-2"
+git push origin v2026.11.02-2
 ```
 
 ---

@@ -64,8 +64,12 @@ function requireSameOrigin() {
         return;
     }
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if ($origin === '' || $origin === 'null') {
+    if ($origin === '') {
         return;
+    }
+    // 沙箱 iframe / 跨站跳转会发送 Origin: null；写接口不能把它当作同源。
+    if ($origin === 'null') {
+        jsonResponse(['success' => false, 'message' => '跨站请求已被拒绝'], 403);
     }
     $originHost = parse_url($origin, PHP_URL_HOST);
     $host = $_SERVER['HTTP_HOST'] ?? '';

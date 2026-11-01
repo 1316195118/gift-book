@@ -76,6 +76,17 @@ function giftsApiPublicRecord($record) {
     return $public;
 }
 
+function giftsApiCipherLooksUsable($value) {
+    if (!is_string($value) || $value === '') {
+        return false;
+    }
+    $raw = base64_decode($value, true);
+    return $raw !== false
+        && strlen($raw) >= 32
+        && substr($raw, 0, 8) === 'Salted__'
+        && (strlen($raw) - 16) % 16 === 0;
+}
+
 function giftsApiWrite($filename, $records) {
     $encoded = json_encode($records, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     if ($encoded === false) {
@@ -118,15 +129,14 @@ function giftsApiBody($required) {
 function giftsApiValidate($body) {
     if (array_key_exists('encryptedContent', $body)) {
         $payload = $body['encryptedContent'];
-        if (!is_string($payload) && !is_object($payload) && !is_array($payload)) {
+        if (!is_string($payload)) {
             jsonResponse(['success' => false, 'message' => '无效的加密内容'], 400);
         }
-        if (is_string($payload) && $payload === '') {
-            jsonResponse(['success' => false, 'message' => '加密内容不能为空'], 400);
-        }
-        $encoded = is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($encoded === false || strlen($encoded) > 8 * 1024 * 1024) {
+        if (strlen($payload) > 8 * 1024 * 1024) {
             jsonResponse(['success' => false, 'message' => '加密内容不能超过8MB'], 400);
+        }
+        if (!giftsApiCipherLooksUsable($payload)) {
+            jsonResponse(['success' => false, 'message' => '无效的加密内容'], 400);
         }
     }
 }
@@ -143,6 +153,14 @@ if ($eventId === null) {
 $giftId = giftsApiId('id', $jsonBody, '礼物ID');
 if ($method === 'PUT' && $giftId === null) {
     jsonResponse(['success' => false, 'message' => '缺少礼物ID'], 400);
+}
+$requestId = null;
+if ($method === 'POST' && array_key_exists('requestId', $jsonBody)) {
+    $candidate = $jsonBody['requestId'];
+    if (!is_string($candidate) || !preg_match('/\A[A-Za-z0-9_-]{8,64}\z/', $candidate)) {
+        jsonResponse(['success' => false, 'message' => '无效的请求ID'], 400);
+    }
+    $requestId = $candidate;
 }
 $giftFile = 'gifts_' . $eventId . '.json';
 
@@ -177,6 +195,14 @@ switch ($method) {
             jsonResponse(['success' => false, 'message' => '缺少必要参数'], 400);
         }
         giftsApiValidate($jsonBody);
+        // 同一笔礼金在超时/断网后重试时复用 requestId，服务端只落一次。
+        if ($requestId !== null) {
+            foreach ($gifts as $existing) {
+                if (is_array($existing) && ($existing['requestId'] ?? null) === $requestId) {
+                    jsonResponse(['success' => true, 'data' => giftsApiPublicRecord($existing), 'duplicate' => true]);
+                }
+            }
+        }
         try {
             do {
                 $newGiftId = bin2hex(random_bytes(12));
@@ -191,6 +217,9 @@ switch ($method) {
             'createdAt' => date('Y-m-d H:i:s'),
             'updatedAt' => date('Y-m-d H:i:s')
         ];
+        if ($requestId !== null) {
+            $newGift['requestId'] = $requestId;
+        }
         $gifts[$newGiftId] = $newGift;
         if (!giftsApiWrite($giftFile, $gifts)) {
             jsonResponse(['success' => false, 'message' => '保存失败'], 500);

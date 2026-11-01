@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-0307">
+<html lang="zh-CN" data-build="20261102-0322">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-0307"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-0307"></script>
-    <script src="./static/voices.js?v=20261102-0307"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-0322"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-0322"></script>
+    <script src="./static/voices.js?v=20261102-0322"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-0307" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-0307" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-0322" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-0322" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1372,6 +1372,14 @@
           }
         };
         const hashPassword = (password) => LedgerCrypto.sha256(password);
+        const newRequestId = () => {
+          try {
+            if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+              return globalThis.crypto.randomUUID();
+            }
+          } catch (e) { /* 局域网 http 下可能不可用 */ }
+          return `g-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+        };
         // 未设管理密码的账簿统一用这个内部密钥做 AES 会话/载荷加密，避免空密钥
         const NO_PASSWORD_KEY = "giftbook-local-nopass";
         // 旧版后端不接受空字符串，用「空密码的 SHA-256」表示这本账簿没有密码
@@ -1719,7 +1727,8 @@
             // 只发送密文；断网暂存也沿用同一个对象，不把姓名/金额带到本机队列。
             giftRecord = {
               eventId: currentEvent.id,
-              encryptedContent: encryptedContent
+              encryptedContent: encryptedContent,
+              requestId: newRequestId()
             };
             
             // 姓名、金额、备注等只进入客户端密文，不再重复发送明文副本。
@@ -2032,7 +2041,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 03:07 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 03:22 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3971,10 +3980,19 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.02-1";
+        const APP_VERSION = "2026.11.02-2";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.02-2", date: "2026-11-02", build: "0322",
+            notes: [
+              { t: "fix", text: "同一笔礼金在断网、超时后重试时复用请求 ID，服务端只保存一次，避免重复礼金" },
+              { t: "fix", text: "提高 PHP 请求体上限到 16MB，避免 8MB 密文或 5MB 封面在 PHP 层被截断后出现异常响应" },
+              { t: "fix", text: "服务端校验密文格式，异常或截断的载荷直接拒绝，不再写入无法解密的礼金记录" },
+              { t: "sec", text: "拒绝 Origin: null 的跨站写请求，减少沙箱页面伪造录入或删除操作的风险" },
+            ],
+          },
           {
             version: "2026.11.02-1", date: "2026-11-02", build: "0307",
             notes: [
@@ -4378,12 +4396,14 @@
             const clean = [];
             list.forEach((item, index) => {
               if (!item || !item.eventId || typeof item.encryptedContent !== "string" || !item.encryptedContent) return;
-              clean.push({
+              const cleanItem = {
                 qid: item.qid ? String(item.qid) : `legacy-${index}-${item.queuedAt || ""}`,
                 eventId: String(item.eventId),
                 encryptedContent: item.encryptedContent,
                 queuedAt: item.queuedAt || new Date().toISOString(),
-              });
+              };
+              if (item.requestId) cleanItem.requestId = String(item.requestId);
+              clean.push(cleanItem);
             });
             // 旧版本可能把姓名/金额一起写进队列；读到时顺手清掉，只保留密文。
             const encoded = JSON.stringify(clean);
@@ -4421,6 +4441,7 @@
             encryptedContent: record.encryptedContent,
             queuedAt: new Date().toISOString(),
           };
+          if (record.requestId) item.requestId = String(record.requestId);
           list.push(item);
           writeQueue(list);
           return item;
@@ -4585,10 +4606,12 @@
           let rejected = 0;
           for (const item of list) {
             try {
-              await apiRequest("gifts.php", "POST", {
+              const payload = {
                 eventId: item.eventId,
                 encryptedContent: item.encryptedContent,
-              });
+              };
+              if (item.requestId) payload.requestId = item.requestId;
+              await apiRequest("gifts.php", "POST", payload);
               writeQueue(readQueue().filter((x) => x.qid !== item.qid));
               sent += 1;
             } catch (err) {
