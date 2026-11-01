@@ -15,6 +15,11 @@ This project has two live deployments. After any code upload or release, update 
 ## NAS
 
 - Host: `10.10.10.253`, Gift Book port `8099`
+- SSH admin user: `test` (sudo required); never store its password in the repository.
+- Webroot bind mount: `/volume1/docker/gift-book/www`
+- Data/config: `/volume1/docker/gift-book/data` and `/volume1/docker/gift-book/config`
+- Compose file: `/volume1/Compose/gift-book/docker-compose.yaml`
+- Update both the bind-mounted `www/` files and the Docker image; rebuilding only the image is not enough, and updating only `www/` leaves the old PHP limits in place.
 - This is a separate deployment from PVE and must also be updated after a release.
 
 ## Verification
