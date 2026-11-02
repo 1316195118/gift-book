@@ -215,6 +215,9 @@ function eventsApiValidate(&$body, $existing = []) {
         && (!is_string($body['coverStyle']) || !preg_match('/\A[a-z0-9-]{0,32}\z/', $body['coverStyle']))) {
         jsonResponse(['success' => false, 'message' => '无效的封面样式'], 400);
     }
+    if (array_key_exists('voiceEnabled', $body) && $body['voiceEnabled'] !== null && !is_bool($body['voiceEnabled'])) {
+        jsonResponse(['success' => false, 'message' => '无效的语音播报开关'], 400);
+    }
     if (array_key_exists('minSpeechAmount', $body)) {
         $body['minSpeechAmount'] = eventsApiAmount($body['minSpeechAmount'], 999999999999, true);
     }
@@ -259,7 +262,7 @@ if (($method === 'PUT' || $method === 'DELETE') && $eventId === null) {
 // 所有存储读取、校验和提交均处于同一个锁的生命周期内。
 eventsApiLock($method);
 $events = eventsApiRead('events.json');
-$extraFields = ['theme', 'voiceName', 'coverImage', 'startDateTime', 'endDateTime', 'minSpeechAmount', 'qrcode', 'template', 'category', 'location', 'note', 'totalAmount', 'coverStyle'];
+$extraFields = ['theme', 'voiceName', 'voiceEnabled', 'coverImage', 'startDateTime', 'endDateTime', 'minSpeechAmount', 'qrcode', 'template', 'category', 'location', 'note', 'totalAmount', 'coverStyle'];
 
 switch ($method) {
     case 'GET':

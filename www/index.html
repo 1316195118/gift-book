@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1600">
+<html lang="zh-CN" data-build="20261102-1610">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1600"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1600"></script>
-    <script src="./static/voices.js?v=20261102-1600"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1610"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1610"></script>
+    <script src="./static/voices.js?v=20261102-1610"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1600" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1600" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1610" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1610" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1084,19 +1084,6 @@
               <button id="submit-gift-btn" type="submit" class="themed-button-primary">确认录入</button>
               <p class="entry-hint">回车核对并确认 · Shift + Enter 换行</p>
             </form>
-            <details class="ledger-tools"><summary>导出与工具</summary>
-              <div class="ledger-tool-content">
-                <button id="export-word-btn" class="w-full border themed-button-secondary p-3 rounded-lg">导出为 Word</button>
-                <button id="qr-btn" class="w-full themed-button-primary p-3 rounded-lg">设置收款码</button>
-                <div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
-                  <span class="font-medium text-gray-700">语音播报</span>
-                  <label class="switch" for="speech-toggle">
-                    <input type="checkbox" id="speech-toggle" checked />
-                    <span class="switch-track" aria-hidden="true"></span>
-                  </label>
-                </div>
-              </div>
-            </details>
           </section>
           <section class="book-panel" aria-label="礼簿与汇总">
             <div class="book-search">
@@ -1201,7 +1188,6 @@
           searchAmountInput: document.getElementById("search-amount"),
           searchIcon: document.getElementById("search-icon"),
           selectEventSection: document.getElementById("select-event-section"),
-          speechToggle: document.getElementById("speech-toggle"),
           modalContainer: document.getElementById("modal-container"),
           modal: document.getElementById("modal"),
           modalTitle: document.getElementById("modal-title"),
@@ -1264,7 +1250,6 @@
         let currentPassword = null; // 当前事项的解密密码
         let gifts = []; // 当前事项的所有礼金记录
         let currentPage = 1; // 当前礼簿页码
-        let isSpeechEnabled = true; // 是否开启语音播报
         let cachedEvents = {}; // 缓存账簿列表，用于首页计数
         let isLedgerLocked = false; // 当前账簿是否锁定
         let loadGeneration = 0; // 礼金加载代际，避免快速切换账簿时串数据
@@ -1703,7 +1688,19 @@
           const sameNameGifts = gifts.filter((g) => g.data?.name === name);
           const exactMatchExists = sameNameGifts.some((g) => g.data?.amount === amount);
 
-          showGiftConfirmationModal(name, amount, remarks, sameNameGifts.length > 0, exactMatchExists);
+          // 超出设定的起止时间：白事一律停止录入，红事允许补录但要在确认页提示
+          const startTs = new Date(currentEvent.startDateTime).getTime();
+          const endTs = new Date(currentEvent.endDateTime).getTime();
+          const hasWindow = Number.isFinite(startTs) && Number.isFinite(endTs);
+          const outOfTime = hasWindow && (Date.now() < startTs || Date.now() > endTs);
+          if (outOfTime && isSolemnEvent(currentEvent)) {
+            return showAlert(
+              "白事已停止录入",
+              "这本白事账簿已超出设定的起止时间，录入已关闭。<br>如确需补录，请先在「设置」里调整结束时间。"
+            );
+          }
+
+          showGiftConfirmationModal(name, amount, remarks, sameNameGifts.length > 0, exactMatchExists, outOfTime);
         }
 
         /**
@@ -1721,17 +1718,7 @@
           const hasValidWindow = Number.isFinite(start.getTime()) && Number.isFinite(end.getTime());
           const isOutOfTime = hasValidWindow && (now < start || now > end);
 
-          // 超出事项时间范围（白事/红事都常见）：提示一次，确认后继续补录，不再因为密码卡死
-          if (isOutOfTime) {
-            const goOn = await requestConfirm(
-              "超出录入时间",
-              "当前已超出账簿设置的录入时间，仍要继续补录吗？补录会正常计入总额与修改记录。"
-            );
-            if (!goOn) {
-              closeModal();
-              return;
-            }
-          }
+          // 白事超时已在提交前拦截；红事补录的提醒放在确认弹窗里，这里不再二次拦截
 
           let giftRecord = null;
           let queued = null;
@@ -1783,25 +1770,6 @@
             }
             showAlert("错误", escapeHtml(error && error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
           }
-        }
-
-        /**
-         * 简单的“继续 / 取消”确认弹窗。
-         * @returns {Promise<boolean>}
-         */
-        function requestConfirm(title, message) {
-          return new Promise((resolve) => {
-            let settled = false;
-            const done = (value) => {
-              if (settled) return;
-              settled = true;
-              resolve(value);
-            };
-            showModal(title, `<p class="text-sm text-gray-600">${message}</p>`, [
-              { text: "取消", class: "themed-button-secondary border px-4 py-2 rounded", handler: () => done(false) },
-              { text: "继续补录", class: "themed-button-primary px-4 py-2 rounded", handler: () => done(true) },
-            ]);
-          });
         }
 
         /**
@@ -2110,7 +2078,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:00 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:10 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -2654,7 +2622,7 @@
         /**
          * 根据是否存在同名或重复记录，显示不同的确认弹窗。
          */
-        function showGiftConfirmationModal(name, amount, remarks, nameExists, exactMatchExists) {
+        function showGiftConfirmationModal(name, amount, remarks, nameExists, exactMatchExists, outOfTime) {
           let modalTitle, modalContent;
 
           if (exactMatchExists) {
@@ -2694,6 +2662,13 @@
           <p><strong>数字金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
           <p><strong>大写金额:</strong> <span class="font-bold text-xl themed-text">${amountToChinese(amount)}</span></p>
         </div>`;
+          }
+
+          if (outOfTime) {
+            modalContent =
+              `<div style="margin-bottom:12px;padding:10px 12px;background:#fdf3e3;border-left:4px solid #d39a34;border-radius:6px;font-size:13px;line-height:1.6;color:#8a6118">
+                <strong>提示：</strong>本次已超出账簿设定的起止时间，属于补录；保存后照常计入总额与修改记录。
+              </div>` + modalContent;
           }
 
           let confirmed = false;
@@ -3961,6 +3936,19 @@
             </div>
         </div>
         <div>
+            <label class="block text-sm font-medium text-gray-700">语音播报</label>
+            <div class="flex items-center justify-between mt-1 p-3 rounded-lg" style="background:#f8f3ea;border:1px solid #eadfce">
+                <div>
+                    <div class="text-sm text-gray-700">录入成功后朗读「姓名 + 金额」</div>
+                    <div class="text-xs text-gray-500 mt-1">关闭后不再播报，记录照常保存</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="edit-voice-enabled" ${currentEvent.voiceEnabled !== false ? "checked" : ""} />
+                    <span class="switch-track" aria-hidden="true"></span>
+                </label>
+            </div>
+        </div>
+        <div>
             <label for="edit-event-voice" class="block text-sm font-medium text-gray-700">语音播报音色</label>
             <div class="flex items-center gap-2 mt-1">
                 <select id="edit-event-voice" class="text-sm flex-grow w-full p-2 border rounded themed-ring">
@@ -3980,6 +3968,10 @@
             <input type="file" id="edit-cover-image-upload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300"/>
             ${currentEvent.coverImage ? '<button id="remove-cover-btn" class="mt-2 text-sm text-red-600 hover:underline">删除当前礼簿封面图</button>' : ""}
             <p class="text-xs text-gray-500 mt-2">尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。</p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">收款码</label>
+            <button type="button" id="edit-qr-btn" class="mt-1 w-full themed-button-secondary border p-2 rounded-lg">设置 / 更换收款码</button>
         </div>
     </div>`;
 
@@ -4019,6 +4011,7 @@
                 const payload = {
                   name: newName,
                   voiceName: newVoiceName,
+                  voiceEnabled: document.getElementById("edit-voice-enabled").checked,
                   minSpeechAmount: newMinSpeechAmount,
                   location: newLocation,
                   note: newNote,
@@ -4046,6 +4039,10 @@
 
           const voiceSelectElement = document.getElementById("edit-event-voice");
           populateVoiceList(voiceSelectElement, currentEvent.voiceName);
+          document.getElementById("edit-qr-btn")?.addEventListener("click", () => {
+            closeModal();
+            setTimeout(() => showQrModal(), 150);
+          });
           if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = () => populateVoiceList(voiceSelectElement, currentEvent.voiceName);
           }
@@ -4155,7 +4152,7 @@
          */
         function speakGift(name, amount) {
           const minAmount = currentEvent.minSpeechAmount || 0;
-          if (!isSpeechEnabled || !("speechSynthesis" in window) || amount < minAmount) return;
+          if (currentEvent.voiceEnabled === false || !("speechSynthesis" in window) || amount < minAmount) return;
           const ttsText = amountToChinese(amount).replace(/陆/g, "六");
 
           const textToSpeak = currentEvent.theme === "theme-solemn" ? `${name}，${ttsText}` : `${name} 贺礼 ${ttsText}`;
@@ -4434,10 +4431,18 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.08";
+        const APP_VERSION = "1.0.09";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.09", date: "2026-11-02", build: "1610",
+            notes: [
+              { t: "opt", text: "移除录入面板底部的「导出与工具」：导出统一走顶部「导出」，收款码入口移到「设置」" },
+              { t: "feat", text: "语音播报改为「设置」里的开关，可随时关闭；音色与起报金额仍在设置里" },
+              { t: "fix", text: "白事超过设定时间一律停止录入并给出提示；红事允许超时补录，提示直接出现在姓名金额确认页，无需再输密码" },
+            ],
+          },
           {
             version: "1.0.08", date: "2026-11-02", build: "1600",
             notes: [
@@ -5311,7 +5316,6 @@
           dom.exportBtn.addEventListener("click", showExportModal);
           dom.exportWordBtn?.addEventListener("click", exportToWord);
           dom.statsBtn.addEventListener("click", showStatistics);
-          dom.speechToggle.addEventListener("change", (e) => (isSpeechEnabled = e.target.checked));
 
           // 礼簿点击事件委托
           dom.giftBookContent.addEventListener("click", (e) => {
