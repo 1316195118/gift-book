@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1530">
+<html lang="zh-CN" data-build="20261102-1540">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1530"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1530"></script>
-    <script src="./static/voices.js?v=20261102-1530"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1540"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1540"></script>
+    <script src="./static/voices.js?v=20261102-1540"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1530" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1530" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1540" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1540" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2080,7 +2080,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:30 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:40 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3434,8 +3434,12 @@
                   <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 13h6M9 16.5h4"/></svg></span>
                   <span class="export-text"><b>PDF 礼簿</b><small>含封面与竖排版式</small></span>
                 </button>
+                <button type="button" class="export-option" data-format="word">
+                  <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14v16H5z"/><path d="M8 8l1.6 8 1.4-5 1.4 5L14 8"/></svg></span>
+                  <span class="export-text"><b>Word 文档</b><small>明细 + 备注 + 修改记录</small></span>
+                </button>
               </div>
-              <p class="unlock-note">Excel 与 PDF 都直接下载。PDF 为 A4 横向、含封面与竖排版式，不需要经过打印窗口。</p>
+              <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。</p>
             </div>`;
           showModal("", content, []);
           document.getElementById("export-close")?.addEventListener("click", closeModal);
@@ -3445,6 +3449,7 @@
               closeModal();
               if (format === "excel") setTimeout(() => exportToExcel(), 80);
               if (format === "pdf") setTimeout(() => exportLedgerPdf(), 120);
+              if (format === "word") setTimeout(() => exportToWord(), 80);
             });
           });
         }
@@ -3472,49 +3477,137 @@
         function exportToWord() {
           if (!gifts.length) return showAlert("无法导出", "当前事项没有任何礼金记录。");
           const isSolemn = currentEvent.theme === "theme-solemn";
-          const primary = isSolemn ? "#374151" : "#c00";
-          const bg = isSolemn ? "#f3f4f6" : "#fff2f2";
+          const primary = isSolemn ? "#374151" : "#a3261e";
+          const bg = isSolemn ? "#eef0f3" : "#fbeceb";
           const dateStr = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
           const stats = calculateStats();
-          const rows = gifts.map((g, i) => `
+          const displayId = currentEvent.displayId ? `No.${currentEvent.displayId}` : "";
+          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位来宾`]
+            .filter(Boolean)
+            .join("　·　");
+
+          const rows = gifts
+            .map((g, i) => {
+              const d = g.data || {};
+              const when = d.timestamp ? new Date(d.timestamp).toLocaleString("zh-CN", { hour12: false }) : "";
+              const nameChars = Array.from(String(d.name || ""));
+              const shownName = nameChars.slice(0, 24).join("") + (nameChars.length > 24 ? "…" : "");
+              return `
             <tr>
-              <td>${i + 1}</td>
-              <td>${escapeHtml(g.data.name)}</td>
-              <td>${formatCurrency(g.data.amount)}</td>
-              <td>${escapeHtml(g.data.type || "")}</td>
-              <td>${escapeHtml(g.data.remarks || "")}</td>
-            </tr>`).join("");
+              <td class="c">${i + 1}</td>
+              <td class="name">${escapeHtml(shownName)}</td>
+              <td class="num">${formatCurrency(d.amount)}</td>
+              <td class="cap">${escapeHtml(amountToChinese(d.amount))}</td>
+              <td class="c">${escapeHtml(d.type || "")}</td>
+              <td class="remark">${escapeHtml(d.remarks || "")}</td>
+              <td class="time">${escapeHtml(when)}</td>
+            </tr>`;
+            })
+            .join("");
+
+          const remarkItems = gifts
+            .map((g, i) => ({ index: i + 1, data: g.data || {} }))
+            .filter((item) => item.data.remarks);
+          const historyItems = [];
+          gifts.forEach((g, i) => {
+            const data = g.data || {};
+            (Array.isArray(data.history) ? data.history : []).forEach((entry) => {
+              historyItems.push({
+                index: i + 1,
+                name: data.name || "",
+                log: entry.changeLog || "修改记录",
+                when: entry.timestamp ? new Date(entry.timestamp).toLocaleString("zh-CN", { hour12: false }) : "",
+              });
+            });
+          });
+
+          const remarksSection = remarkItems.length
+            ? `
+              <div class="pagebreak"></div>
+              <h2>附：宾客备注</h2>
+              <table class="appendix">
+                <thead><tr><th style="width:8%">序号</th><th style="width:18%">姓名</th><th>备注</th></tr></thead>
+                <tbody>${remarkItems
+                  .map(
+                    (item) =>
+                      `<tr><td class="c">${item.index}</td><td class="name">${escapeHtml(item.data.name || "")}</td><td class="remark">${escapeHtml(
+                        item.data.remarks
+                      )}</td></tr>`
+                  )
+                  .join("")}</tbody>
+              </table>`
+            : "";
+
+          const historySection = historyItems.length
+            ? `
+              <h2>附：修改记录</h2>
+              <table class="appendix">
+                <thead><tr><th style="width:8%">序号</th><th style="width:16%">姓名</th><th>修改内容</th><th style="width:22%">修改时间</th></tr></thead>
+                <tbody>${historyItems
+                  .map(
+                    (item) =>
+                      `<tr><td class="c">${item.index}</td><td class="name">${escapeHtml(item.name)}</td><td class="remark">${escapeHtml(
+                        item.log
+                      )}</td><td class="time">${escapeHtml(item.when)}</td></tr>`
+                  )
+                  .join("")}</tbody>
+              </table>
+              <p class="note">共 ${historyItems.length} 条修改留痕。礼金记录只改不删，每次纠错都会保留原始快照。</p>`
+            : "";
+
           const html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8"><title>${escapeHtml(currentEvent.name)}礼金明细</title>
             <style>
-              body { font-family: "SimSun", serif; color: #333; }
-              .cover { text-align: center; padding: 120px 0 80px; border: 4px double ${primary}; margin: 20px; }
-              .cover .kicker { font-size: 16px; letter-spacing: 8px; color: ${primary}; }
-              .cover h1 { font-family: "KaiTi", serif; font-size: 36pt; color: ${primary}; margin: 24px 0; }
-              .cover .sub { font-size: 16pt; letter-spacing: 6px; color: ${primary}; }
-              .cover .date { font-size: 12pt; color: #666; margin-top: 40px; }
-              h2 { color: ${primary}; font-family: "KaiTi", serif; font-size: 20pt; text-align: center; }
-              table { width: 100%; border-collapse: collapse; font-size: 11pt; }
-              th, td { border: 1px solid #999; padding: 6px 8px; text-align: center; }
-              th { background: ${bg}; color: ${primary}; }
-              .totals { margin-top: 18px; text-align: right; font-size: 11pt; }
+              @page { size: A4 portrait; margin: 1.8cm 1.6cm; }
+              body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; }
+              .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; }
+              .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; }
+              .doc-head h1 { font-family: "KaiTi", "STKaiti", serif; font-size: 24pt; color: ${primary}; margin: 6px 0 6px; }
+              .doc-head .meta { font-size: 9pt; color: #666; }
+              table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; }
+              th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; }
+              th { background: ${bg}; color: ${primary}; font-weight: bold; font-family: "KaiTi", serif; letter-spacing: .5px; }
+              tr { page-break-inside: avoid; }
+              tr:nth-child(even) td { background: #fafafa; }
+              td.c { text-align: center; }
+              td.num { text-align: right; white-space: nowrap; }
+              td.name { text-align: center; word-break: break-all; line-height: 1.35; }
+              td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; }
+              td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; }
+              td.remark { text-align: left; word-break: break-word; }
+              h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; }
+              .appendix { font-size: 10pt; }
+              .totals { margin-top: 12px; font-size: 10.5pt; }
+              .totals b { color: ${primary}; font-size: 12pt; }
+              .note { margin-top: 8px; font-size: 8.5pt; color: #777; }
+              .foot { margin-top: 18px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 8.5pt; color: #888; }
               .pagebreak { page-break-before: always; }
             </style></head>
             <body>
-              <div class="cover">
-                <div class="kicker">${isSolemn ? "白 事" : "红 事"}</div>
-                <h1>${escapeHtml(currentEvent.name)}</h1>
-                <div class="sub">礼 金 明 细</div>
-                <div class="date">${dateStr}</div>
+              <div class="doc-head">
+                <div class="kicker">${isSolemn ? "白 事 · 奠 仪" : "红 事 · 贺 礼"}</div>
+                <h1>${escapeHtml(currentEvent.name)} 礼金明细</h1>
+                <div class="meta">${escapeHtml(metaLine)}</div>
               </div>
-              <div class="pagebreak"></div>
-              <h2>礼金明细</h2>
               <table>
-                <thead><tr><th>序号</th><th>姓名</th><th>金额</th><th>收款类型</th><th>备注</th></tr></thead>
+                <thead><tr>
+                  <th style="width:5%">序号</th>
+                  <th style="width:11%">姓名</th>
+                  <th style="width:11%">金额</th>
+                  <th style="width:27%">大写金额</th>
+                  <th style="width:8%">收款方式</th>
+                  <th>备注</th>
+                  <th style="width:16%">录入时间</th>
+                </tr></thead>
                 <tbody>${rows}</tbody>
               </table>
-              <div class="totals">送礼总人数：${stats.totalGivers}　礼金总金额：${formatCurrency(stats.totalAmount)}</div>
+              <div class="totals">送礼总人数：<b>${stats.totalGivers}</b> 位　礼金总金额：<b>${formatCurrency(stats.totalAmount)}</b></div>
+              ${remarksSection}
+              ${historySection}
+              <div class="foot">本文件由电子礼簿导出 · ${new Date().toLocaleString("zh-CN", { hour12: false })} · v${escapeHtml(
+            APP_VERSION
+          )}</div>
             </body></html>`;
           const blob = new Blob(["\ufeff", html], { type: "application/msword" });
           const a = document.createElement("a");
@@ -4241,10 +4334,18 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.04";
+        const APP_VERSION = "1.0.05";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.05", date: "2026-11-02", build: "1540",
+            notes: [
+              { t: "opt", text: "Word 导出重新排版：A4 纵向、标题信息头、7 列明细（含大写金额）、斑马纹与合计" },
+              { t: "opt", text: "Word 文末新增「宾客备注」与「修改记录」附录，纠错留痕完整可查" },
+              { t: "feat", text: "导出弹窗新增 Word 选项，与 Excel / PDF 并列" },
+            ],
+          },
           {
             version: "1.0.04", date: "2026-11-02", build: "1530",
             notes: [
