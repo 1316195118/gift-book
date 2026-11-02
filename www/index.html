@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1540">
+<html lang="zh-CN" data-build="20261102-1542">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1540"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1540"></script>
-    <script src="./static/voices.js?v=20261102-1540"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1542"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1542"></script>
+    <script src="./static/voices.js?v=20261102-1542"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1540" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1540" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1542" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1542" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2080,7 +2080,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:40 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:42 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3491,12 +3491,13 @@
               const d = g.data || {};
               const when = d.timestamp ? new Date(d.timestamp).toLocaleString("zh-CN", { hour12: false }) : "";
               const nameChars = Array.from(String(d.name || ""));
-              const shownName = nameChars.slice(0, 24).join("") + (nameChars.length > 24 ? "…" : "");
+              const shownName = nameChars.slice(0, 12).join("") + (nameChars.length > 12 ? "…" : "");
+              const amountText = formatCurrency(d.amount);
               return `
             <tr>
               <td class="c">${i + 1}</td>
               <td class="name">${escapeHtml(shownName)}</td>
-              <td class="num">${formatCurrency(d.amount)}</td>
+              <td class="num${amountText.length > 12 ? " small" : ""}">${amountText}</td>
               <td class="cap">${escapeHtml(amountToChinese(d.amount))}</td>
               <td class="c">${escapeHtml(d.type || "")}</td>
               <td class="remark">${escapeHtml(d.remarks || "")}</td>
@@ -3505,9 +3506,6 @@
             })
             .join("");
 
-          const remarkItems = gifts
-            .map((g, i) => ({ index: i + 1, data: g.data || {} }))
-            .filter((item) => item.data.remarks);
           const historyItems = [];
           gifts.forEach((g, i) => {
             const data = g.data || {};
@@ -3520,23 +3518,6 @@
               });
             });
           });
-
-          const remarksSection = remarkItems.length
-            ? `
-              <div class="pagebreak"></div>
-              <h2>附：宾客备注</h2>
-              <table class="appendix">
-                <thead><tr><th style="width:8%">序号</th><th style="width:18%">姓名</th><th>备注</th></tr></thead>
-                <tbody>${remarkItems
-                  .map(
-                    (item) =>
-                      `<tr><td class="c">${item.index}</td><td class="name">${escapeHtml(item.data.name || "")}</td><td class="remark">${escapeHtml(
-                        item.data.remarks
-                      )}</td></tr>`
-                  )
-                  .join("")}</tbody>
-              </table>`
-            : "";
 
           const historySection = historyItems.length
             ? `
@@ -3572,8 +3553,9 @@
               tr:nth-child(even) td { background: #fafafa; }
               td.c { text-align: center; }
               td.num { text-align: right; white-space: nowrap; }
-              td.name { text-align: center; word-break: break-all; line-height: 1.35; }
-              td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; }
+              td.num.small { font-size: 8pt; }
+              td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; }
+              td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; }
               td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; }
               td.remark { text-align: left; word-break: break-word; }
               h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; }
@@ -3603,7 +3585,6 @@
                 <tbody>${rows}</tbody>
               </table>
               <div class="totals">送礼总人数：<b>${stats.totalGivers}</b> 位　礼金总金额：<b>${formatCurrency(stats.totalAmount)}</b></div>
-              ${remarksSection}
               ${historySection}
               <div class="foot">本文件由电子礼簿导出 · ${new Date().toLocaleString("zh-CN", { hour12: false })} · v${escapeHtml(
             APP_VERSION
@@ -4339,7 +4320,7 @@
 
         const CHANGELOG = [
           {
-            version: "1.0.05", date: "2026-11-02", build: "1540",
+            version: "1.0.05", date: "2026-11-02", build: "1542",
             notes: [
               { t: "opt", text: "Word 导出重新排版：A4 纵向、标题信息头、7 列明细（含大写金额）、斑马纹与合计" },
               { t: "opt", text: "Word 文末新增「宾客备注」与「修改记录」附录，纠错留痕完整可查" },
