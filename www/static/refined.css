@@ -542,7 +542,7 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 #gift-book-content .late-mark {
   position: absolute; top: 3px; left: 0; right: 0; z-index: 3;
   text-align: center; font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: 0;
-  color: #b3261e; opacity: .9; writing-mode: horizontal-tb; pointer-events: none;
+  color: var(--accent); opacity: .9; writing-mode: horizontal-tb; pointer-events: none;
 }
 .book-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
 #lock-banner { background: var(--accent-soft); border-color: var(--line); color: var(--ink); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; justify-content: space-between; }
@@ -564,6 +564,40 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 #modal label { color: var(--ink); font-size: 13px; }
 #modal .modal-btn-primary, #modal .themed-button-primary { background: var(--accent); color: #fff; }
 #modal .modal-btn-ghost, #modal .themed-button-secondary { border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+
+/* 弹窗内提示与设置项统一跟随红/白主题，不写死红金背景 */
+.modal-notice {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.modal-notice-warn {
+  background: var(--surface);
+  border-color: var(--line);
+  border-left-color: var(--accent);
+}
+.modal-notice-late {
+  border-left-color: #d39a34;
+  background: var(--accent-soft);
+}
+.voice-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.search-remark { color: var(--accent); }
 #modal [class*="text-blue-"] { color: var(--accent); }
 #modal [class*="bg-gray-"] { background-color: var(--paper); }
 #modal [class*="text-gray-400"], #modal [class*="text-gray-500"], #modal [class*="text-gray-600"] { color: var(--muted); }
@@ -837,7 +871,7 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #print-view .print-appendix-table td { font-size: 11pt; letter-spacing: 0; }
   #print-view .late-mark {
     position: absolute; top: 1mm; left: 0; right: 0; z-index: 3;
-    text-align: center; font-size: 8pt; color: #a3261e; writing-mode: horizontal-tb; pointer-events: none;
+    text-align: center; font-size: 8pt; color: var(--accent); writing-mode: horizontal-tb; pointer-events: none;
   }
   #print-view .print-history { margin-top: 4mm; padding-top: 2.5mm; border-top: 1px solid var(--primary-border-color); font-size: 9pt; color: #3a2a1c; flex: none; }
   #print-view .print-history-title { font-weight: 700; font-size: 10pt; margin-bottom: 1.5mm; font-family: "KaiTi"; }
@@ -1233,8 +1267,8 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 
 /* ===== PDF 生成进度遮罩 ===== */
 #pdf-progress { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(35,25,18,.35); backdrop-filter: blur(2px); }
-.pdf-progress-card { display: flex; align-items: center; gap: 12px; min-width: 210px; padding: 18px 22px; border-radius: 14px; background: #fffdf8; border: 1px solid #ead5bb; box-shadow: 0 18px 40px rgba(60,30,20,.18); color: #3a2a1c; font-size: 13.5px; }
+.pdf-progress-card { display: flex; align-items: center; gap: 12px; min-width: 210px; padding: 18px 22px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px rgba(20,24,26,.18); color: var(--ink); font-size: 13.5px; }
 .pdf-progress-card b { display: block; font-size: 14.5px; margin-bottom: 4px; }
-.pdf-progress-card small { color: #8a7a63; font-size: 12px; }
-.pdf-progress-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ecd6c0; border-top-color: #b3261e; animation: pdf-spin .8s linear infinite; flex: none; }
+.pdf-progress-card small { color: var(--muted); font-size: 12px; }
+.pdf-progress-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: pdf-spin .8s linear infinite; flex: none; }
 @keyframes pdf-spin { to { transform: rotate(360deg); } }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1700">
+<html lang="zh-CN" data-build="20261102-1935">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1700"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1700"></script>
-    <script src="./static/voices.js?v=20261102-1700"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1935"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1935"></script>
+    <script src="./static/voices.js?v=20261102-1935"></script>
     <style>
       :root,
       .theme-festive {
@@ -615,7 +615,7 @@
       .tpl-body p { font-size: 12px; color: #a08a6a; margin-top: 4px; line-height: 1.5; }
       .tpl-body .use { margin-top: 10px; font-size: 12px; color: #b3261e; }
       .back-link { display: inline-flex; align-items: center; gap: 6px; color: #8a6a3f; font-size: 13px; cursor: pointer; margin-bottom: 18px; }
-      .back-link:hover { color: #b3261e; }
+      .back-link:hover { color: var(--accent); }
       .qr-thumb { width: 100%; max-width: 260px; border-radius: 12px; border: 1px solid #e5dccb; display: block; margin: 10px auto; }
       .qr-empty { text-align: center; color: #a08a5a; font-size: 13px; padding: 22px; border: 1px dashed #ded2bd; border-radius: 12px; }
       #qr-float { position: fixed; z-index: 70; width: 280px; background: #fffdf8; border: 1px solid #e5dccb; border-radius: 16px; box-shadow: 0 18px 50px rgba(60,40,20,.24); overflow: hidden; }
@@ -658,7 +658,7 @@
       .setup-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       .setup-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
       .setup-label { font-size: 13.5px; color: #5f5a52; font-weight: 500; }
-      .setup-label .req { color: #b3261e; }
+      .setup-label .req { color: var(--accent); }
       .setup-input { width: 100%; padding: 12px 14px; border: 1px solid #e6e1d8; border-radius: 10px; background: #fff; font-size: 14.5px; color: #2f2620; outline: none; transition: .2s; box-sizing: border-box; }
       .setup-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-bg-light); }
       .setup-dt { display: flex; gap: 8px; }
@@ -684,7 +684,7 @@
       .theme-solemn .preview-cover { background: linear-gradient(135deg, #4b5563, #6b7280 48%, #374151); box-shadow: 0 14px 30px rgba(55,65,81,.25); }
       .amount-chinese-preview { font-size: 13px; color: var(--primary-color); padding: 0 2px; min-height: 18px; letter-spacing: .02em; }
       .lock-banner { display: flex; align-items: center; justify-content: center; gap: 12px; background: #fff7e6; border: 1px solid #f0d9a8; color: #8a6a3f; font-size: 13px; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
-      .lock-banner button { color: #b3261e; font-weight: 600; }
+      .lock-banner button { color: var(--accent); font-weight: 600; }
       .main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
       .main-head-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
       .main-back { font-size: 13px; color: #8a6a3f; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2d5bf; background: #fffdf8; white-space: nowrap; }
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1700" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1700" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1935" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1935" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1067,9 +1067,9 @@
         <div id="sync-status" class="sync-status hidden" role="status"><span id="sync-status-text"></span><button id="retry-sync-btn" type="button">重试同步</button></div>
         <div class="ledger-layout">
           <section class="entry-panel" aria-label="礼金录入">
-            <div class="entry-heading"><h2><span id="copy-entry-title">礼金录入</span><span class="entry-pending hidden" id="entry-pending"><i aria-hidden="true"></i>待同步<b>0</b></span></h2><p>每一份心意，都郑重留名</p></div>
+            <div class="entry-heading"><h2><span id="copy-entry-title">礼金录入</span><span class="entry-pending hidden" id="entry-pending"><i aria-hidden="true"></i>待同步<b>0</b></span></h2><p id="copy-entry-sub">每一份心意，都郑重留名</p></div>
             <form id="add-gift-form">
-              <div class="entry-field"><label for="guest-name">来宾姓名</label><input type="text" id="guest-name" placeholder="请输入来宾姓名" required maxlength="20" autocomplete="off" /></div>
+              <div class="entry-field"><label for="guest-name" id="copy-name-label">来宾姓名</label><input type="text" id="guest-name" placeholder="请输入来宾姓名" required maxlength="20" autocomplete="off" /></div>
               <div class="entry-field"><label for="gift-amount"><span id="copy-amount-label">礼金金额</span> <small>人民币 / 元</small></label><input type="number" id="gift-amount" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" /></div>
               <div class="amount-chinese-preview" id="amount-chinese-preview" aria-live="polite">输入金额后显示大写</div>
               <div class="entry-field entry-payment"><label>收款方式</label>
@@ -1102,7 +1102,7 @@
               </div>
               <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动"><div id="gift-book-content"></div></div>
               <p id="book-empty-hint" class="book-empty-hint hidden">本页还没有记录，输入第一位来宾即可开始。</p>
-              <p class="book-note">点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整礼簿。</p>
+              <p class="book-note" id="copy-book-note">点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整礼簿。</p>
             </div>
           </section>
         </div>
@@ -1396,8 +1396,25 @@
 
           try {
             const { event, encryptedPassword, savedAt } = JSON.parse(savedSession);
+            if (!event || !encryptedPassword) {
+              sessionStorage.removeItem("activeEventSession");
+              return false;
+            }
             // 仅在 10 分钟内的刷新里恢复，避免隔很久刷新还直接进上一本账簿
             if (!savedAt || Date.now() - Number(savedAt) > 10 * 60 * 1000) {
+              sessionStorage.removeItem("activeEventSession");
+              return false;
+            }
+            const eventKind = categoryForEvent(event);
+            // 会话必须与首页当前分类一致。否则说明这是从旧页面残留的白事会话，
+            // 不能在红事首页刷新时把用户带进白事记账页。
+            if (getHomeCategory() !== eventKind) {
+              sessionStorage.removeItem("activeEventSession");
+              return false;
+            }
+            // 白事尚未到开始时间时，不恢复记账页；刷新或返回都落在白事首页。
+            if (eventKind === "white" && isEventBeforeStart(event)) {
+              setHomeCategory("white");
               sessionStorage.removeItem("activeEventSession");
               return false;
             }
@@ -1437,8 +1454,11 @@
          * 启动一个事项会话，加载数据并显示主界面。
          */
         function startSession() {
+          // 账簿类型是当前页面配色的唯一依据；同时同步首页分类，
+          // 这样从白事返回时一定会回到白事首页，不会沿用上一个红/白分类。
+          setHomeCategory(categoryForEvent(currentEvent));
           dom.currentEventTitleEl.textContent = currentEvent.name;
-          applyTheme(currentEvent.theme);
+          applyTheme(eventTheme(currentEvent));
           // 记住首页滚动位置，返回首页时回原位
           homeScrollMemory = window.scrollY || dom.homeScreen.scrollTop || 0;
           // 手机端布局：已结束的账簿把礼簿放前面，录入面板放后面
@@ -1479,8 +1499,9 @@
             cachedEvents = allEvents || {};
             dom.eventSelector.innerHTML = '<option value="">请选择一个事项</option>';
 
-            // 检查是否有事件记录
-            const eventKeys = Object.keys(allEvents);
+            // 创建/选择页只列出当前分类的账簿，避免红事流程里混入白事账簿。
+            const wantSolemn = getHomeCategory() === "white";
+            const eventKeys = Object.keys(allEvents || {}).filter((key) => isSolemnEvent(allEvents[key]) === wantSolemn);
             if (eventKeys.length > 0) {
               dom.selectEventSection.classList.remove("hidden");
               // 遍历所有事件
@@ -1530,7 +1551,10 @@
           const endDateTime = `${dom.endDateInput.value}T${dom.endTimeInput.value}`;
           const password = dom.adminPasswordInput.value;
           const passwordConfirm = dom.adminPasswordConfirmInput?.value ?? "";
-          const theme = dom.eventThemeSelect.value;
+          const category = getHomeCategory();
+          const theme = category === "white" ? "theme-solemn" : "theme-festive";
+          const selectedTemplate = getTemplates().find((t) => t.name === dom.eventNameInput.dataset.template || t.key === dom.eventNameInput.dataset.template);
+          const selectedCover = COVER_STYLES.find((style) => style.id === dom.eventNameInput.dataset.coverStyle && style.theme === (category === "white" ? "white" : "red"));
           const voiceName = dom.eventVoiceSelect.value;
           const coverFile = dom.coverImageUpload.files[0];
 
@@ -1549,7 +1573,7 @@
             }
           }
 
-          const newEventData = { name, startDateTime, endDateTime, passwordHash: password ? hashPassword(password) : NO_PASSWORD_HASH, theme, voiceName, coverImage: coverImageBase64, template: dom.eventNameInput.dataset.template || null, coverStyle: dom.eventNameInput.dataset.coverStyle || null, location: dom.eventLocationInput?.value.trim() || "", note: dom.eventNoteInput?.value.trim() || "", totalAmount: 0 };
+          const newEventData = { name, startDateTime, endDateTime, passwordHash: password ? hashPassword(password) : NO_PASSWORD_HASH, theme, voiceName, coverImage: coverImageBase64, template: selectedTemplate?.name || null, coverStyle: selectedCover?.id || null, location: dom.eventLocationInput?.value.trim() || "", note: dom.eventNoteInput?.value.trim() || "", totalAmount: 0 };
 
           try {
             const result = await apiRequest('events.php', 'POST', newEventData);
@@ -1733,7 +1757,8 @@
             const fullGiftData = {
               ...giftData,
               timestamp: new Date().toISOString(),
-              ...(isOutOfTime ? { late: true } : {}),
+              // 有起止时间时明确写入 true/false，避免以后调整账簿时间后把正常记录误判成补录。
+              late: isOutOfTime,
             };
             const encryptedContent = encryptData(fullGiftData, currentPassword);
             
@@ -1821,8 +1846,9 @@
           renderGiftBook();
           updateTotals();
           updatePageInfo();
+          const c = copyOf(currentEvent);
           const bookTitle = document.getElementById("ledger-book-title");
-          if (bookTitle) bookTitle.textContent = currentEvent?.theme === "theme-solemn" ? "奠仪簿" : "贺礼簿";
+          if (bookTitle) bookTitle.textContent = c.bookTitle;
         }
 
         /**
@@ -1867,7 +1893,7 @@
               const nameHtml =
                 shownChars.map((ch) => `<span>${escapeHtml(ch)}</span>`).join("") +
                 (nameChars.length > shownChars.length ? "<span>…</span>" : "");
-              const lateMark = gift.data.late ? '<div class="late-mark">*补录</div>' : "";
+              const lateMark = isLateGift(gift) ? '<div class="late-mark">*补录</div>' : "";
               nameCell.innerHTML = `${lateMark}<div class="name${displayName.length > 4 ? " scale" : ""}" data-len="${nameLen}">${nameHtml}</div>${statusIndicators}`;
               nameCell.dataset.giftIndex = giftIndex;
               // 鼠标悬停就能看到最后一次改动的时间，不用点进详情
@@ -1877,10 +1903,10 @@
             }
             nameRow.appendChild(nameCell);
 
-            // 贺礼/奠仪栏
+            // 红事「贺礼」/ 白事「奠仪」栏
             const typeCell = document.createElement("div");
             typeCell.className = "book-cell type-cell";
-            typeCell.textContent = currentEvent.theme === "theme-solemn" ? "奠 仪" : "贺 礼";
+            typeCell.textContent = copyOf(currentEvent).bookType;
             typeRow.appendChild(typeCell);
 
             // 金额栏
@@ -1942,9 +1968,16 @@
           const onSetup = dom.setupScreen ? !dom.setupScreen.classList.contains("hidden") : false;
           const onMain = dom.mainScreen ? !dom.mainScreen.classList.contains("hidden") : false;
           const inBook = onSetup || onMain;
+          const cat = getHomeCategory();
+          const expectedTheme = onMain && currentEvent
+            ? eventTheme(currentEvent)
+            : (cat === "white" ? "theme-solemn" : "theme-festive");
+          // 兜底：任何页面切换都让 body 主题与当前账簿/分类保持一致，
+          // 防止残留上一个主题的 class 导致红事页面出现白事配色（或反之）。
+          if (!document.body.classList.contains(expectedTheme)) setBodyTheme(expectedTheme);
           document.getElementById("app-container")?.classList.toggle("hidden", !inBook);
           document.body.classList.toggle("home-mode", !inBook);
-          document.body.classList.toggle("solemn-mode", getHomeCategory() === "white");
+          document.body.classList.toggle("solemn-mode", cat === "white");
         }
 
         function showSetupScreen(theme) {
@@ -1960,7 +1993,9 @@
           sessionStorage.removeItem("activeEventSession");
           loadEvents();
           const cat = getHomeCategory();
-          applyTheme(theme || (cat === "white" ? "theme-solemn" : "theme-festive"));
+          const canonicalTheme = cat === "white" ? "theme-solemn" : "theme-festive";
+          if (dom.eventThemeSelect) dom.eventThemeSelect.value = canonicalTheme;
+          applyTheme(canonicalTheme);
           if (dom.setupBadge) dom.setupBadge.textContent = cat === "white" ? "白 事" : "红 事";
           const c = copyOf(null);
           const setupSub = document.getElementById("setup-sub");
@@ -1985,7 +2020,9 @@
         function updateCreatePreview() {
           const preview = document.getElementById("preview-cover");
           if (!preview) return;
-          const theme = dom.eventThemeSelect.value || CATEGORY_TEXT[getHomeCategory()].theme;
+          const cat = getHomeCategory();
+          const theme = cat === "white" ? "theme-solemn" : "theme-festive";
+          if (dom.eventThemeSelect) dom.eventThemeSelect.value = theme;
           applyTheme(theme);
           if (dom.setupBadge) dom.setupBadge.textContent = theme === "theme-solemn" ? "白 事" : "红 事";
           preview.innerHTML = renderCoverMarkup({ name: dom.eventNameInput.value.trim() || "账簿名称", theme, template: dom.eventNameInput.dataset.template || "", coverStyle: dom.eventNameInput.dataset.coverStyle || "", startDateTime: dom.startDateInput.value ? `${dom.startDateInput.value}T${dom.startTimeInput.value || "00:00"}` : "", location: dom.eventLocationInput?.value.trim() || "" });
@@ -2025,11 +2062,22 @@
           },
         };
 
-        // 红事 / 白事用语：白事绝不能出现「礼金」「贺礼」「婚宴」等红事字眼
+        // 红事 / 白事用语完全分开维护。白事页面及弹窗不得出现
+        // 「礼金 / 贺礼 / 送礼 / 宾客 / 宴请 / 婚宴」等红事字眼。
         const UX_COPY = {
           festive: {
             entryTitle: "礼金录入",
+            entrySub: "每一份心意，都郑重留名",
+            nameLabel: "来宾姓名",
+            namePlaceholder: "请输入来宾姓名",
             amountLabel: "礼金金额",
+            remarksPlaceholder: "亲友关系、地址等补充说明",
+            bookTitle: "贺礼簿",
+            bookType: "贺 礼",
+            emptyHint: "本页还没有记录，输入第一位来宾即可开始。",
+            bookNote: "点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整礼簿。",
+            recordNoun: "礼金",
+            peopleNoun: "来宾",
             totalLabel: "礼金总额 / 元",
             giversLabel: "送礼人数",
             detailTitle: "礼金明细",
@@ -2046,10 +2094,39 @@
             statsTitle: "礼金统计详情",
             statsGivers: "总送礼人数",
             statsTotal: "总礼金金额",
+            confirmGuestLabel: "来宾姓名",
+            remarksTip: "建议备注宾客与东家关系或地址",
+            historyWarning: "警告：此宾客数据存在修改，请自行核验合法性。",
+            qrTip: "宾客扫码即可付款",
+            exportEmpty: "当前账簿还没有任何礼金记录。",
+            printTotalGivers: "送礼总人数",
+            printTotalAmount: "礼金总金额",
+            appendixTitle: "附录：宾客备注",
+            historyNote: "礼金记录只改不删，每次纠错都会保留原始快照。",
+            voiceSample: "张三贺礼五百元整",
+            voiceAddPrefix: "贺礼",
+            speechHint: "只有大于或等于此金额的礼金才会被播报。设置为 0 则全部播报。",
+            deleteSingleNote: "单条礼金记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。",
+            helpIntro: "四步开始，把热闹喜事记成一本清楚的礼簿。",
+            helpStep1: "首页选择「红事」，再挑一个婚宴、寿宴或满月等模板。",
+            helpStep2: "填写名称、起止时间与宴请地点；管理密码可选填，建议设置以便加密礼金数据。",
+            helpStep3: "输入来宾姓名、礼金与收款方式，核对后保存。可展示收款码，临时离开时锁定防误触。",
+            helpStep4: "导出 Excel 明细、PDF 贺礼簿或 Word 文档；打印版式与屏幕一致。",
+            helpTip: "数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。",
           },
           solemn: {
             entryTitle: "奠仪录入",
+            entrySub: "每一份哀思，都郑重留名",
+            nameLabel: "吊唁人姓名",
+            namePlaceholder: "请输入吊唁人姓名",
             amountLabel: "奠仪金额",
+            remarksPlaceholder: "与逝者关系、地址等补充说明",
+            bookTitle: "奠仪簿",
+            bookType: "奠 仪",
+            emptyHint: "本页还没有记录，录入第一位吊唁人即可开始。",
+            bookNote: "点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整奠仪簿。",
+            recordNoun: "奠仪",
+            peopleNoun: "吊唁人",
             totalLabel: "奠仪总额 / 元",
             giversLabel: "奠仪人数",
             detailTitle: "奠仪明细",
@@ -2066,6 +2143,25 @@
             statsTitle: "奠仪统计详情",
             statsGivers: "总奠仪人数",
             statsTotal: "总奠仪金额",
+            confirmGuestLabel: "吊唁人姓名",
+            remarksTip: "建议备注吊唁人与逝者关系或地址",
+            historyWarning: "提醒：此条奠仪数据存在修改，请自行核验。",
+            qrTip: "扫码即可致奠",
+            exportEmpty: "当前账簿还没有任何奠仪记录。",
+            printTotalGivers: "奠仪总人数",
+            printTotalAmount: "奠仪总金额",
+            appendixTitle: "附录：吊唁人备注",
+            historyNote: "奠仪记录只改不删，每次纠错都会保留原始快照。",
+            voiceSample: "张三敬献奠仪五百元整",
+            voiceAddPrefix: "奠仪",
+            speechHint: "只有大于或等于此金额的奠仪才会被播报。设置为 0 则全部播报。",
+            deleteSingleNote: "单条奠仪记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。",
+            helpIntro: "四步完成，庄重登记每一份奠仪与哀思。",
+            helpStep1: "首页选择「白事」，再挑一个丧仪、追思或周年模板。",
+            helpStep2: "填写名称、起止时间与仪式地点；管理密码可选填，建议设置以便加密奠仪数据。",
+            helpStep3: "录入吊唁人姓名、奠仪金额与收款方式，核对后保存。可展示收款码，临时离开时锁定防误触。",
+            helpStep4: "导出奠仪明细、PDF 奠仪簿或 Word 文档；打印版式与屏幕一致。",
+            helpTip: "数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等奠仪明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。",
           },
         };
 
@@ -2082,10 +2178,17 @@
             if (el) el.textContent = text;
           };
           set("copy-entry-title", c.entryTitle);
+          set("copy-entry-sub", c.entrySub);
+          set("copy-name-label", c.nameLabel);
           set("copy-amount-label", c.amountLabel);
           set("copy-total-label", c.totalLabel);
           set("copy-givers-label", c.giversLabel);
+          set("book-empty-hint", c.emptyHint);
+          set("copy-book-note", c.bookNote);
+          if (dom.guestNameInput) dom.guestNameInput.placeholder = c.namePlaceholder;
+          if (dom.remarksInput) dom.remarksInput.placeholder = c.remarksPlaceholder;
           document.querySelector(".entry-panel")?.setAttribute("aria-label", c.entryTitle);
+          document.querySelector(".book-panel")?.setAttribute("aria-label", `${c.bookTitle}与汇总`);
         }
 
         const WHITE_TEMPLATES = [
@@ -2097,7 +2200,31 @@
         ];
 
         function isSolemnEvent(ev) {
-          return ev.theme === "theme-solemn" || ev.template === "白事" || /丧|白事|追思|周年|迁坟/.test(ev.name || "");
+          if (!ev) return getHomeCategory() === "white";
+          const template = String(ev.template || "").trim();
+          const whiteTemplates = new Set(WHITE_TEMPLATES.flatMap((item) => [item.key, item.name]));
+          const redTemplates = new Set(RED_TEMPLATES.flatMap((item) => [item.key, item.name]));
+          // 显式的肃穆主题永远优先；旧数据若主题仍是红事但模板明确是白事，
+          // 也按白事修正。其余模板优先于名称文本，避免「结婚十周年」
+          // 之类红事名称被“周年”二字误判成白事。
+          if (ev.theme === "theme-solemn") return true;
+          if (whiteTemplates.has(template)) return true;
+          if (ev.theme === "theme-festive") return false;
+          if (redTemplates.has(template)) return false;
+          return /丧|白事|追思|周年|迁坟/.test(ev.name || "");
+        }
+
+        function categoryForEvent(ev) {
+          return isSolemnEvent(ev) ? "white" : "red";
+        }
+
+        function eventTheme(ev) {
+          return isSolemnEvent(ev) ? "theme-solemn" : "theme-festive";
+        }
+
+        function isEventBeforeStart(ev) {
+          const start = ev && ev.startDateTime ? new Date(ev.startDateTime).getTime() : NaN;
+          return Number.isFinite(start) && Date.now() < start;
         }
 
         /** 账簿是否已过结束时间（用于手机端把礼簿放到录入面板之前） */
@@ -2106,10 +2233,30 @@
           return Number.isFinite(end) && Date.now() > end;
         }
 
+        /**
+         * 是否属于补录。
+         * 新记录会明确写入 late；旧版本/旧标签页保存的记录没有这个字段，
+         * 这里再按记录时间与账簿起止时间推断，避免历史数据看不到「*补录」。
+         */
+        function isLateGift(gift) {
+          const data = gift && gift.data;
+          if (!data) return false;
+          if (data.late === true) return true;
+          if (data.late === false) return false;
+          const rawTime = data.timestamp || gift.createdAt;
+          const at = rawTime ? new Date(rawTime).getTime() : NaN;
+          if (!Number.isFinite(at) || !currentEvent) return false;
+          const start = currentEvent.startDateTime ? new Date(currentEvent.startDateTime).getTime() : NaN;
+          const end = currentEvent.endDateTime ? new Date(currentEvent.endDateTime).getTime() : NaN;
+          if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+          return at < start || at > end;
+        }
+
         function applyHomeCategory() {
           const cat = getHomeCategory();
           const t = CATEGORY_TEXT[cat];
           const solemn = cat === "white";
+          setBodyTheme(t.theme);
           dom.homeScreen?.classList.toggle("solemn", solemn);
           dom.templateScreen?.classList.toggle("solemn", solemn);
           if (dom.homeEyebrow) dom.homeEyebrow.textContent = t.eyebrow;
@@ -2129,6 +2276,9 @@
             b.classList.toggle("active", b.dataset.cat === cat);
           });
           updateHomeCount();
+          // 分类切换后一并刷新外壳状态，及时移除上一个主题留下的
+          // solemn-mode / home-mode 等 class。
+          syncShell();
         }
 
         function updateHomeCount() {
@@ -2139,44 +2289,47 @@
           dom.homeCardCount.textContent = `${count} 本账簿`;
         }
 
+        function formatBuildLabel() {
+          const raw = document.documentElement.getAttribute("data-build") || "";
+          const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(raw);
+          return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}` : raw;
+        }
+
         function showHelp() {
-          const solemn = currentEvent ? isSolemnEvent(currentEvent) : getHomeCategory() === "white";
-          const term = solemn ? "奠仪" : "礼金";
-          const pickTpl = solemn ? "丧仪、追思" : "婚宴、寿宴";
-          const catName = solemn ? "白事" : "红事";
+          const c = copyOf(currentEvent);
           showModal("使用说明", `
-            <div class="help-intro">四步开始，像用纸质礼簿一样简单。</div>
+            <div class="help-intro">${c.helpIntro}</div>
             <div class="help-steps">
               <div class="help-step">
                 <div class="help-num">1</div>
                 <div class="help-body">
                   <div class="help-title">选择分类</div>
-                  <div class="help-desc">首页选择「${catName}」，再挑一个${pickTpl}模板。</div>
+                  <div class="help-desc">${c.helpStep1}</div>
                 </div>
               </div>
               <div class="help-step">
                 <div class="help-num">2</div>
                 <div class="help-body">
                   <div class="help-title">填写账簿信息</div>
-                  <div class="help-desc">填写名称、起止时间、${solemn ? "仪式" : "宴请"}地点；管理密码可选填，建议设置以便加密${term}数据。</div>
+                  <div class="help-desc">${c.helpStep2}</div>
                 </div>
               </div>
               <div class="help-step">
                 <div class="help-num">3</div>
                 <div class="help-body">
                   <div class="help-title">开始登记</div>
-                  <div class="help-desc">输入姓名、金额与收款方式，回车打开核对弹窗，确认后保存。可展示收款码，临时离开时锁定防误触。</div>
+                  <div class="help-desc">${c.helpStep3}</div>
                 </div>
               </div>
               <div class="help-step">
                 <div class="help-num">4</div>
                 <div class="help-body">
                   <div class="help-title">导出与打印</div>
-              <div class="help-desc">PDF 直接下载（A4 横向，含封面与竖排版式），Excel 保留明细，Word 为兼容 HTML 的 .doc 文件，不是原生 .docx。</div>
+                  <div class="help-desc">${c.helpStep4}</div>
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等${term}明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 17:00 · 零第三方依赖</div>`, [
+            <div class="help-tip">${c.helpTip}</div><div class="help-build">前端构建 ${formatBuildLabel()} · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -2184,12 +2337,18 @@
         function showHomeScreen() {
           document.body.classList.remove("ledger-closed");
           document.body.classList.remove("ledger-closed-solemn");
+          // 返回首页即结束当前账簿会话。否则之后手动切到红事再刷新时，
+          // sessionStorage 里残留的白事会话会错误地打开白事记账页。
+          sessionStorage.removeItem("activeEventSession");
+          currentEvent = null;
+          currentPassword = null;
+          gifts = [];
           dom.setupScreen.classList.add("hidden");
           dom.mainScreen.classList.add("hidden");
           dom.templateScreen.classList.add("hidden");
           dom.homeScreen.classList.remove("hidden");
-          syncShell();
           applyHomeCategory();
+          syncShell();
           const restoreY = homeScrollMemory || 0;
           loadEvents().finally(() => {
             dom.homeScreen.scrollTop = restoreY;
@@ -2406,7 +2565,7 @@
           const qr = currentEvent?.qrcode || localStorage.getItem("giftbook_qr_" + (currentEvent?.id || ""));
           const content = qr
             ? `<img src="${escapeHtml(qr)}" class="qr-thumb" alt="收款码" />
-               <p class="text-xs text-gray-500 text-center">宾客扫码即可付款</p>
+               <p class="text-xs text-gray-500 text-center">${escapeHtml(copyOf(currentEvent).qrTip)}</p>
                <input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`
             : `<div class="qr-empty">还没有上传收款码<br/>支持微信 / 支付宝收款码图片</div>
                <input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`;
@@ -2618,8 +2777,20 @@
           closeBtn?.addEventListener("click", () => box.classList.add("hidden"));
         }
 
+        /**
+         * 只切换主题 class，不清空 home-mode / ledger-closed 等状态 class。
+         * 以前直接重写 body.className，会把页面状态一并清掉，造成配色错乱。
+         */
+        function setBodyTheme(themeName) {
+          const theme = themeName === "theme-solemn" ? "theme-solemn" : "theme-festive";
+          document.body.classList.toggle("theme-solemn", theme === "theme-solemn");
+          document.body.classList.toggle("theme-festive", theme === "theme-festive");
+          document.body.dataset.theme = theme === "theme-solemn" ? "solemn" : "festive";
+          document.body.dataset.occasion = theme === "theme-solemn" ? "white" : "red";
+        }
+
         function applyTheme(themeName) {
-          document.body.className = `bg-gray-100 min-h-screen ${themeName || "theme-festive"}`;
+          setBodyTheme(themeName);
           syncShell();
         }
 
@@ -2725,41 +2896,42 @@
          */
         function showGiftConfirmationModal(name, amount, remarks, nameExists, exactMatchExists, outOfTime) {
           let modalTitle, modalContent;
+          const c = copyOf(currentEvent);
 
           if (exactMatchExists) {
             modalTitle = "重复信息确认";
             modalContent = `
         <div class="space-y-3 text-left">
-          <div class="p-3 bg-red-100 border-l-4 border-red-500 text-red-800 rounded-md">
+          <div class="modal-notice modal-notice-warn">
             <strong class="font-bold">警告：</strong>
             <p class="text-sm">系统中已存在“相同姓名”且“相同金额”的记录，为避免重复录入，请仔细核对。</p>
           </div>
-          <p><strong>来宾姓名:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
+          <p><strong>${c.confirmGuestLabel}:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
           <p><strong>金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
           <div>
             <label for="modal-remarks-input" class="block text-sm font-medium text-gray-700">如非重复，建议填写备注(选填)</label>
-            <textarea id="modal-remarks-input" placeholder="建议备注宾客与东家关系或地址" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea>
+            <textarea id="modal-remarks-input" placeholder="${escapeHtml(c.remarksTip)}" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea>
           </div>
         </div>`;
           } else if (nameExists) {
             modalTitle = "同名提醒与信息确认";
             modalContent = `
         <div class="space-y-3 text-left">
-          <div class="p-2 bg-yellow-100 text-yellow-800 rounded-md text-sm">
+          <div class="modal-notice modal-notice-warn">
             <strong>注意：</strong>系统中已存在名为 <strong>${escapeHtml(name)}</strong> 的记录。为避免混淆，建议您添加备注。
           </div>
-          <p><strong>来宾姓名:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
+          <p><strong>${c.confirmGuestLabel}:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
           <p><strong>金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
           <div>
             <label for="modal-remarks-input" class="block text-sm font-medium text-gray-700">备注 (选填)</label>
-            <textarea id="modal-remarks-input" placeholder="建议备注宾客与东家关系或地址" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea>
+            <textarea id="modal-remarks-input" placeholder="${escapeHtml(c.remarksTip)}" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea>
           </div>
         </div>`;
           } else {
             modalTitle = "请确认录入信息";
             modalContent = `
         <div class="space-y-3 text-left">
-          <p><strong>来宾姓名:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
+          <p><strong>${c.confirmGuestLabel}:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
           <p><strong>数字金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
           <p><strong>大写金额:</strong> <span class="font-bold text-xl themed-text">${amountToChinese(amount)}</span></p>
         </div>`;
@@ -2767,7 +2939,7 @@
 
           if (outOfTime) {
             modalContent =
-              `<div style="margin-bottom:12px;padding:10px 12px;background:#fdf3e3;border-left:4px solid #d39a34;border-radius:6px;font-size:13px;line-height:1.6;color:#8a6118">
+              `<div class="modal-notice modal-notice-late">
                 <strong>提示：</strong>本次已超出账簿设定的起止时间，属于补录；保存后照常计入总额与修改记录。
               </div>` + modalContent;
           }
@@ -2859,10 +3031,14 @@
           }
 
           // 3. 显示弹窗（标题用纯文本；改动警告放在内容里，避免被当成纯文字显示）
+          const c = copyOf(currentEvent);
           const historyWarning = hasHistory
-            ? `<div class="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">警告：此宾客数据存在修改，请自行核验合法性。</div>`
+            ? `<div class="modal-notice modal-notice-warn">${c.historyWarning}</div>`
             : "";
-          showModal(`${g.name} 的礼金详情`, historyWarning + modalContent, [
+          const lateNotice = isLateGift(giftObject)
+            ? `<div class="modal-notice modal-notice-late"><strong>补录记录：</strong>录入时间已超出账簿设定的起止时间，照常计入总额与修改记录。</div>`
+            : "";
+          showModal(`${g.name} 的${c.detailTitle}`, lateNotice + historyWarning + modalContent, [
             { text: "关闭", class: "themed-button-secondary border px-4 py-2 rounded" },
           ]);
 
@@ -3094,6 +3270,9 @@
             ...currentData,
             ...newFields, // 应用新字段
             timestamp: now, // 更新主记录时间
+            // 保留原来的补录状态；旧记录没有 late 时先按旧时间判断一次并落盘，
+            // 避免修改时间被覆盖后，正常记录被误判成补录。
+            late: isLateGift(giftObject),
             history: currentData.history ? [...currentData.history, historyEntry] : [historyEntry], // 追加历史
           };
 
@@ -3168,6 +3347,7 @@
          */
         function buildPrintPages() {
           if (gifts.length === 0) return null;
+          const c = copyOf(currentEvent);
 
           let printView = document.getElementById("print-view");
           if (printView) printView.remove();
@@ -3192,13 +3372,13 @@
             content.className = "print-book-content";
 
             if (i === 0) {
-              pageContainer.innerHTML += `<h1 class="print-header">${escapeHtml(currentEvent.name)}礼金明细</h1>`;
+              pageContainer.innerHTML += `<h1 class="print-header">${escapeHtml(currentEvent.name)}${c.detailTitle}</h1>`;
             }
 
             renderGiftBook(content, pageGifts);
             pageContainer.appendChild(content);
 
-            // 本页涉及修改的礼金：在页面下方补一段修改记录，跟着这一页走
+            // 本页涉及修改的记录：在页面下方补一段修改记录，跟着这一页走
             const historyRows = [];
             pageGifts.forEach((gift) => {
               if (!gift.data || !Array.isArray(gift.data.history)) return;
@@ -3244,8 +3424,8 @@
               ${
                 isLastPage
                   ? `
-                <span class="total-amount-print">送礼总人数: ${stats.totalGivers}</span>
-                <span class="ml-3 total-amount-print">礼金总金额: ${formatCurrency(stats.totalAmount)}</span>`
+                <span class="total-amount-print">${c.printTotalGivers}: ${stats.totalGivers}</span>
+                <span class="ml-3 total-amount-print">${c.printTotalAmount}: ${formatCurrency(stats.totalAmount)}</span>`
                   : ""
               }
             </div>
@@ -3264,10 +3444,10 @@
         function prepareForPrint() {
           const printView = buildPrintPages();
           if (!printView) {
-            return showAlert("无法打印", "当前事项没有任何礼金记录，无需打印。");
+            return showAlert("无法打印", `当前账簿没有任何${copyOf(currentEvent).recordNoun}记录，无需打印。`);
           }
           const eventCreationDate = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
-          document.title = `${currentEvent.name}礼金明细-${eventCreationDate}`;
+          document.title = `${currentEvent.name}${copyOf(currentEvent).detailTitle}-${eventCreationDate}`;
           document.body.appendChild(printView);
           document.body.classList.add("printing");
           setTimeout(() => {
@@ -3446,7 +3626,7 @@
         }
 
         async function exportLedgerPdf() {
-          if (!gifts.length) return showAlert("无法导出", "当前账簿还没有任何礼金记录。");
+          if (!gifts.length) return showAlert("无法导出", copyOf(currentEvent).exportEmpty);
           const printView = buildPrintPages();
           if (!printView) return;
           const pages = Array.from(printView.querySelectorAll(".print-page"));
@@ -3475,6 +3655,7 @@
          * 生成并附加备注附录页面到打印视图。
          */
         function appendAppendixPages(printView, dateString) {
+          const c = copyOf(currentEvent);
           const remarkedItems = gifts.map((gift, index) => ({ ...gift, originalIndex: index })).filter((g) => g.data && g.data.remarks);
 
           if (remarkedItems.length === 0) return;
@@ -3500,7 +3681,7 @@
               .join("");
 
             appendixPage.innerHTML = `
-              <h1 class="print-header">附录：宾客备注</h1>
+              <h1 class="print-header">${c.appendixTitle}</h1>
               <table class="print-appendix-table">
                   <thead>
                       <tr><th>姓名</th><th>记录索引</th><th>备注信息</th></tr>
@@ -3521,7 +3702,8 @@
          */
         function showExportModal() {
           if (!currentEvent) return;
-          if (!gifts.length) return showAlert("无法导出", "当前账簿还没有任何礼金记录。");
+          const c = copyOf(currentEvent);
+          if (!gifts.length) return showAlert("无法导出", c.exportEmpty);
           const solemn = isSolemnEvent(currentEvent);
           dom.modal.classList.add("modal-unlock");
           dom.modal.classList.toggle("theme-solemn", solemn);
@@ -3531,7 +3713,7 @@
               <button type="button" class="unlock-close" id="export-close" aria-label="关闭">×</button>
               <div class="unlock-seal" aria-hidden="true">导</div>
               <h3 class="unlock-title">导出账簿</h3>
-              <p class="unlock-sub">「${escapeHtml(currentEvent.name)}」共 ${gifts.length} 条${copyOf(currentEvent).recordsLabel}</p>
+              <p class="unlock-sub">「${escapeHtml(currentEvent.name)}」共 ${gifts.length} 条${c.recordsLabel}</p>
               <div class="export-options">
                 <button type="button" class="export-option" data-format="excel">
                   <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9 9.5v10M15 9.5v10"/></svg></span>
@@ -3539,7 +3721,7 @@
                 </button>
                 <button type="button" class="export-option" data-format="pdf">
                   <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 13h6M9 16.5h4"/></svg></span>
-                  <span class="export-text"><b>PDF 礼簿</b><small>含封面与竖排版式</small></span>
+                  <span class="export-text"><b>PDF ${c.bookTitle}</b><small>含封面与竖排版式</small></span>
                 </button>
                 <button type="button" class="export-option" data-format="word">
                   <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14v16H5z"/><path d="M8 8l1.6 8 1.4-5 1.4 5L14 8"/></svg></span>
@@ -3565,17 +3747,18 @@
          * 将当前礼金数据导出为 Excel 文件。
          */
         function exportToExcel() {
-          if (!gifts.length) return showAlert("无法导出", "当前账簿还没有任何礼金记录。");
+          const c = copyOf(currentEvent);
+          if (!gifts.length) return showAlert("无法导出", c.exportEmpty);
           const stats = calculateStats();
           const dateStr = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
           const displayId = currentEvent.displayId ? `No.${currentEvent.displayId}` : "";
-          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位来宾`]
+          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位${c.peopleNoun}`]
             .filter(Boolean)
             .join("　·　");
           const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 };
 
           const rows = [
-            [{ v: `${currentEvent.name} ${copyOf(currentEvent).detailTitle}`, s: style.title }, null, null, null, null, null, null],
+            [{ v: `${currentEvent.name} ${c.detailTitle}`, s: style.title }, null, null, null, null, null, null],
             [{ v: metaLine, s: style.meta }, null, null, null, null, null, null],
             [null],
             ["序号", "姓名", "金额", "大写金额", "收款方式", "备注", "录入时间"].map((v) => ({ v, s: style.head })),
@@ -3585,7 +3768,7 @@
             const d = g.data || {};
             rows.push([
               { v: i + 1, s: style.center },
-              { v: d.name || "", s: style.center },
+              { v: `${isLateGift(g) ? "*补录 " : ""}${d.name || ""}`, s: style.center },
               { v: Number(d.amount) || 0, s: style.money },
               { v: amountToChinese(d.amount), s: style.text },
               { v: d.type || "", s: style.center },
@@ -3597,7 +3780,7 @@
           const lastDataRow = rows.length;
           rows.push([
             {
-              v: `送礼总人数：${stats.totalGivers} 位　　礼金总金额：${formatCurrency(stats.totalAmount)}`,
+              v: `${c.printTotalGivers}：${stats.totalGivers} 位　　${c.printTotalAmount}：${formatCurrency(stats.totalAmount)}`,
               s: style.total,
             },
             null,
@@ -3614,7 +3797,7 @@
 
           const sheets = [
             {
-              name: "礼金明细",
+              name: c.detailTitle,
               widths: [6, 14, 14, 26, 10, 30, 20],
               rows,
               merges: ["A1:G1", "A2:G2", `A${lastDataRow + 1}:G${lastDataRow + 1}`],
@@ -3643,7 +3826,7 @@
           if (history.length) {
             const historyRows = [
               [{ v: `${currentEvent.name} 修改记录`, s: style.title }, null, null, null],
-              [{ v: `共 ${history.length} 条修改留痕　·　礼金记录只改不删，每次纠错都会保留原始快照`, s: style.meta }, null, null, null],
+              [{ v: `共 ${history.length} 条修改留痕　·　${c.historyNote}`, s: style.meta }, null, null, null],
               [null],
               ["序号", "姓名", "修改内容", "修改时间"].map((v) => ({ v, s: style.head })),
               ...history,
@@ -3661,21 +3844,22 @@
             });
           }
 
-          XlsxLite.downloadWorkbook(sheets, `${currentEvent.name}_${copyOf(currentEvent).fileSuffix}.xlsx`);
+          XlsxLite.downloadWorkbook(sheets, `${currentEvent.name}_${c.fileSuffix}.xlsx`);
         }
 
         /**
          * 导出为 Word（.doc，HTML 格式，Word/WPS 可直接打开）
          */
         function exportToWord() {
-          if (!gifts.length) return showAlert("无法导出", "当前事项没有任何礼金记录。");
-          const isSolemn = currentEvent.theme === "theme-solemn";
+          const c = copyOf(currentEvent);
+          if (!gifts.length) return showAlert("无法导出", c.exportEmpty);
+          const isSolemn = isSolemnEvent(currentEvent);
           const primary = isSolemn ? "#374151" : "#a3261e";
           const bg = isSolemn ? "#eef0f3" : "#fbeceb";
           const dateStr = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
           const stats = calculateStats();
           const displayId = currentEvent.displayId ? `No.${currentEvent.displayId}` : "";
-          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位来宾`]
+          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位${c.peopleNoun}`]
             .filter(Boolean)
             .join("　·　");
 
@@ -3690,7 +3874,7 @@
               return `
             <tr>
               <td class="c">${i + 1}</td>
-              <td class="name${nameClass}">${escapeHtml(shownName)}</td>
+              <td class="name${nameClass}">${isLateGift(g) ? '<span class="late">*补录</span>' : ""}${escapeHtml(shownName)}</td>
               <td class="num${amountText.length > 12 ? " small" : ""}">${amountText}</td>
               <td class="cap">${escapeHtml(amountToChinese(d.amount))}</td>
               <td class="c">${escapeHtml(d.type || "")}</td>
@@ -3727,12 +3911,12 @@
                   )
                   .join("")}</tbody>
               </table>
-              <p class="note">共 ${historyItems.length} 条修改留痕。礼金记录只改不删，每次纠错都会保留原始快照。</p>`
+              <p class="note">共 ${historyItems.length} 条修改留痕。${c.historyNote}</p>`
             : "";
 
           const html = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-            <head><meta charset="utf-8"><title>${escapeHtml(currentEvent.name)}礼金明细</title>
+            <head><meta charset="utf-8"><title>${escapeHtml(currentEvent.name)}${c.detailTitle}</title>
             <style>
               @page { size: A4 portrait; margin: 1.8cm 1.6cm; }
               body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; }
@@ -3749,6 +3933,7 @@
               td.num { text-align: center; white-space: nowrap; }
               td.num.small { font-size: 8pt; }
               td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; }
+              td.name .late { display: block; font-size: 8pt; font-weight: bold; color: ${primary}; line-height: 1.2; }
               td.name.len2 { letter-spacing: .6em; padding-left: .6em; }
               td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; }
               td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; }
@@ -3764,7 +3949,7 @@
             <body>
               <div class="doc-head">
                 <div class="kicker">${isSolemn ? "白 事 · 奠 仪" : "红 事 · 贺 礼"}</div>
-                <h1>${escapeHtml(currentEvent.name)} 礼金明细</h1>
+                <h1>${escapeHtml(currentEvent.name)} ${c.detailTitle}</h1>
                 <div class="meta">${escapeHtml(metaLine)}</div>
               </div>
               <table>
@@ -3779,16 +3964,16 @@
                 </tr></thead>
                 <tbody>${rows}</tbody>
               </table>
-              <div class="totals">送礼总人数：<b>${stats.totalGivers}</b> 位　礼金总金额：<b>${formatCurrency(stats.totalAmount)}</b></div>
+              <div class="totals">${c.printTotalGivers}：<b>${stats.totalGivers}</b> 位　${c.printTotalAmount}：<b>${formatCurrency(stats.totalAmount)}</b></div>
               ${historySection}
-              <div class="foot">本文件由电子礼簿导出 · ${new Date().toLocaleString("zh-CN", { hour12: false })} · v${escapeHtml(
+              <div class="foot">本文件由${isSolemn ? "电子奠仪簿" : "电子礼簿"}导出 · ${new Date().toLocaleString("zh-CN", { hour12: false })} · v${escapeHtml(
             APP_VERSION
           )}</div>
             </body></html>`;
           const blob = new Blob(["\ufeff", html], { type: "application/msword" });
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
-          a.download = `${currentEvent.name}_${copyOf(currentEvent).fileSuffix}.doc`;
+          a.download = `${currentEvent.name}_${c.fileSuffix}.doc`;
           document.body.appendChild(a);
           a.click();
           setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -3978,7 +4163,7 @@
           <div>
             <p><strong>姓名:</strong> ${escapeHtml(r.data.name)}</p>
             <p><strong>金额:</strong> ${Number(r.data.amount).toFixed(2)} 元 (${escapeHtml(r.data.type || "")})</p>
-            ${r.data.remarks ? `<p class="text-red-500"><strong>备注:</strong> ${escapeHtml(r.data.remarks)}</p>` : ""}
+            ${r.data.remarks ? `<p class="search-remark"><strong>备注:</strong> ${escapeHtml(r.data.remarks)}</p>` : ""}
           </div>
           <button class="view-details-btn themed-button-primary px-3 py-1 rounded" data-gift-index="${r.originalIndex}">查看详情</button>
         </div>`
@@ -3997,6 +4182,7 @@
         async function showEditEventInfoModal() {
           let coverImageForUpdate = currentEvent.coverImage;
           let shouldRemoveCover = false;
+          const c = copyOf(currentEvent);
 
           const startVal = currentEvent.startDateTime ? currentEvent.startDateTime.slice(0, 10) : "";
           const startTimeVal = currentEvent.startDateTime ? currentEvent.startDateTime.slice(11, 16) : "";
@@ -4029,7 +4215,7 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <label class="block text-sm font-medium text-gray-700">宴请地点</label>
+                <label class="block text-sm font-medium text-gray-700">${c.locationLabel}</label>
                 <input type="text" id="edit-event-location" class="w-full mt-1 p-2 border rounded themed-ring" value="${escapeHtml(currentEvent.location || "")}" placeholder="选填">
             </div>
             <div>
@@ -4039,7 +4225,7 @@
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">语音播报</label>
-            <div class="flex items-center justify-between mt-1 p-3 rounded-lg" style="background:#f8f3ea;border:1px solid #eadfce">
+            <div class="voice-toggle-row">
                 <div>
                     <div class="text-sm text-gray-700">录入成功后朗读「姓名 + 金额」</div>
                     <div class="text-xs text-gray-500 mt-1">关闭后不再播报，记录照常保存</div>
@@ -4062,13 +4248,13 @@
         <div>
             <label for="edit-min-speech-amount" class="block text-sm font-medium text-gray-700">语音播报起报金额 (元)</label>
             <input type="number" id="edit-min-speech-amount" min="0" step="1" class="w-full mt-1 p-2 border rounded themed-ring" value="${currentEvent.minSpeechAmount || 0}">
-            <p class="text-xs text-gray-500 mt-1">只有大于或等于此金额的礼金才会被播报。设置为 0 则全部播报。</p>
+            <p class="text-xs text-gray-500 mt-1">${c.speechHint}</p>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">礼簿封面图</label>
+            <label class="block text-sm font-medium text-gray-700">${c.bookTitle}封面图</label>
             <img id="edit-cover-preview" src="${escapeHtml(currentEvent.coverImage || "")}" alt="封面预览" class="my-2 rounded-lg ${!currentEvent.coverImage ? "hidden" : ""} max-w-full h-auto max-h-48 object-contain">
             <input type="file" id="edit-cover-image-upload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300"/>
-            ${currentEvent.coverImage ? '<button id="remove-cover-btn" class="mt-2 text-sm text-red-600 hover:underline">删除当前礼簿封面图</button>' : ""}
+            ${currentEvent.coverImage ? `<button id="remove-cover-btn" class="mt-2 text-sm text-red-600 hover:underline">删除当前${c.bookTitle}封面图</button>` : ""}
             <p class="text-xs text-gray-500 mt-2">尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。</p>
         </div>
         <div>
@@ -4129,7 +4315,7 @@
                   if (dom.currentEventSub) dom.currentEventSub.textContent = [currentEvent.template, d, currentEvent.location].filter(Boolean).join(" · ");
                   const sessionData = JSON.parse(sessionStorage.getItem("activeEventSession"));
                   if (sessionData) {
-                    sessionStorage.setItem("activeEventSession", JSON.stringify({ event: currentEvent, encryptedPassword: sessionData.encryptedPassword }));
+                    sessionStorage.setItem("activeEventSession", JSON.stringify({ event: currentEvent, encryptedPassword: sessionData.encryptedPassword, savedAt: Date.now() }));
                   }
                   showAlert("成功", "账簿设置已保存。", false);
                 } catch (error) {
@@ -4181,7 +4367,7 @@
               preview.classList.add("hidden");
               preview.src = "";
               fileInput.value = "";
-              removeBtn.textContent = "礼簿封面图已删除";
+              removeBtn.textContent = `${c.bookTitle}封面图已删除`;
               removeBtn.disabled = true;
             };
           }
@@ -4192,11 +4378,12 @@
          */
         async function deleteCurrentEvent() {
           if (!currentEvent) return;
+          const c = copyOf(currentEvent);
           const hasPassword = eventHasPassword(currentEvent);
           const content = `
             <div class="modal-danger-tip">
               <span aria-hidden="true">⚠️</span>
-              <span>即将删除账簿「${escapeHtml(currentEvent.name)}」<b>及其全部${copyOf(currentEvent).recordsLabel}</b>，删除后无法恢复。<br>单条礼金记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。</span>
+              <span>即将删除账簿「${escapeHtml(currentEvent.name)}」<b>及其全部${c.recordsLabel}</b>，删除后无法恢复。<br>${c.deleteSingleNote}</span>
             </div>
             ${hasPassword
               ? '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-password">请输入管理密码以继续</label><input type="password" id="delete-confirm-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password">'
@@ -4225,7 +4412,7 @@
                   await apiRequest(`gifts.php?eventId=${currentEvent.id}`, 'DELETE');
                   await apiRequest(`events.php?id=${currentEvent.id}`, 'DELETE');
                   closeModal();
-                  showAlert("成功", escapeHtml(`账簿 “${currentEvent.name}” 及其礼金记录已删除。`), () => {
+                  showAlert("成功", escapeHtml(`账簿 “${currentEvent.name}” 及其${c.recordsLabel}已删除。`), () => {
                     currentEvent = null;
                     currentPassword = null;
                     gifts = [];
@@ -4257,7 +4444,8 @@
           if (currentEvent.voiceEnabled === false || !("speechSynthesis" in window) || amount < minAmount) return;
           const ttsText = amountToChinese(amount).replace(/陆/g, "六");
 
-          const textToSpeak = currentEvent.theme === "theme-solemn" ? `${name}，${ttsText}` : `${name} 贺礼 ${ttsText}`;
+          const c = copyOf(currentEvent);
+          const textToSpeak = isSolemnEvent(currentEvent) ? `${name}，${c.voiceAddPrefix}，${ttsText}` : `${name} ${c.voiceAddPrefix} ${ttsText}`;
           const utterance = new SpeechSynthesisUtterance(textToSpeak);
           utterance.lang = "zh-CN";
 
@@ -4286,7 +4474,8 @@
           speechSynthesis.cancel();
 
           const selectedVoiceName = selectElement.value;
-          const utterance = new SpeechSynthesisUtterance("张三贺礼五百元整");
+          const c = copyOf(currentEvent);
+          const utterance = new SpeechSynthesisUtterance(c.voiceSample);
           utterance.lang = "zh-CN";
 
           if (selectedVoiceName) {
@@ -4533,10 +4722,20 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.14";
+        const APP_VERSION = "1.0.15";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.15", date: "2026-11-02", build: "1935",
+            notes: [
+              { t: "fix", text: "账簿结束后补录的旧记录也会按录入时间自动识别，礼簿、详情与 Word/Excel 导出都会标出「*补录」" },
+              { t: "fix", text: "修复红事首页刷新后误入白事记账页；返回首页会结束旧会话，白事未到开始时间时只回白事首页" },
+              { t: "fix", text: "主题切换覆盖首页、模板、创建、记账与弹窗，切换分类不再残留上一主题的状态 class" },
+              { t: "fix", text: "白事账簿、录入、设置、确认、统计、搜索、导出、打印和语音预览全面使用奠仪/吊唁人/仪式地点等肃穆用语" },
+              { t: "opt", text: "选账簿与创建流程按当前红/白分类过滤，避免红事流程出现白事账簿或反向混用" },
+            ],
+          },
           {
             version: "1.0.14", date: "2026-11-02", build: "1700",
             notes: [
@@ -5117,18 +5316,19 @@
         /** 「待同步」提示：顶部胶囊 + 录入卡片标题旁的徽标，只在真有暂存时出现。 */
         function paintQueueChip() {
           const pending = currentEvent ? queueFor(currentEvent.id).length : readQueue().length;
+          const recordNoun = copyOf(currentEvent).recordNoun;
           const chip = document.getElementById("queue-chip");
           if (chip) {
             chip.classList.toggle("hidden", pending === 0);
             chip.textContent = pending ? `待同步 ${pending} 条` : "";
-            chip.title = pending ? "这些礼金只存在于本机，点击查看并补传" : "";
+            chip.title = pending ? `这些${recordNoun}只存在于本机，点击查看并补传` : "";
           }
           const badge = document.getElementById("entry-pending");
           if (badge) {
             badge.classList.toggle("hidden", pending === 0);
             const num = badge.querySelector("b");
             if (num) num.textContent = String(pending);
-            badge.title = pending ? `${pending} 条礼金只暂存在本机，网络恢复后自动补传` : "";
+            badge.title = pending ? `${pending} 条${recordNoun}只暂存在本机，网络恢复后自动补传` : "";
           }
         }
 
@@ -5233,7 +5433,7 @@
           const list = currentEvent ? queueFor(currentEvent.id) : readQueue();
           if (!list.length) {
             paintQueueChip();
-            return showAlert("暂无待同步", "所有礼金都已写入 NAS。");
+            return showAlert("暂无待同步", `所有${copyOf(currentEvent).recordNoun}都已写入 NAS。`);
           }
           const rows = list.map((item) => {
             const data = decryptData(item.encryptedContent, currentPassword) || {};
@@ -5301,7 +5501,7 @@
           if (sent && currentEvent) {
             touchSession();
             await loadGiftsForCurrentEvent();
-            showSyncStatus(`已补传 ${sent} 条暂存礼金`, false);
+            showSyncStatus(`已补传 ${sent} 条暂存${copyOf(currentEvent).recordNoun}`, false);
             setTimeout(() => showSyncStatus(""), 4000);
           } else if (rejected) {
             showSyncStatus(`${rejected} 条暂存记录被服务端拒绝，已移除`, true);
