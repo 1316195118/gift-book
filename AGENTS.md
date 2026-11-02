@@ -24,7 +24,8 @@ This project has two live deployments. After any code upload or release, update 
 - Webroot bind mount: `/volume1/docker/gift-book/www`
 - Data/config: `/volume1/docker/gift-book/data` and `/volume1/docker/gift-book/config`
 - Compose file: `/volume1/Compose/gift-book/docker-compose.yaml`
-- Update both the bind-mounted `www/` files and the Docker image; rebuilding only the image is not enough, and updating only `www/` leaves the old PHP limits in place.
+- SMB path for static-only updates: `\\10.10.10.253\docker\gift-book\www` (back up the `www` directory first; SSH may not always be enabled).
+- For functional/PHP changes, update both the bind-mounted `www/` files and the Docker image; rebuilding only the image is not enough, and updating only `www/` leaves the old PHP limits in place. For CSS/HTML-only releases, updating `www/` is sufficient once the image already has the current PHP hardening.
 - This is a separate deployment from PVE and must also be updated after a release.
 
 ## Verification
