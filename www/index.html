@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1232">
+<html lang="zh-CN" data-build="20261102-1323">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1232"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1232"></script>
-    <script src="./static/voices.js?v=20261102-1232"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1323"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1323"></script>
+    <script src="./static/voices.js?v=20261102-1323"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1232" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1232" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1323" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1323" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -877,6 +877,23 @@
 
         <div id="choice-grid" class="choice-grid single">
           <div class="choice-card choice-red" id="home-main-card" role="button" tabindex="0" aria-label="选择礼簿模板">
+            <div class="home-3d-mark" aria-hidden="true">
+              <div class="home-3d-spinner">
+                <span class="home-3d-side" style="transform: translateZ(-10px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(-8px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(-6px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(-4px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(-2px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(0)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(2px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(4px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(6px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(8px)">囍</span>
+                <span class="home-3d-side" style="transform: translateZ(10px)">囍</span>
+                <span class="home-3d-face front">囍</span>
+                <span class="home-3d-face back">囍</span>
+              </div>
+            </div>
             <div>
               <div class="choice-kicker" id="home-card-kicker">喜 事</div>
               <div class="choice-title" id="home-card-title">红事</div>
@@ -2041,7 +2058,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 12:32 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:23 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3980,10 +3997,17 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.02-3";
+        const APP_VERSION = "2026.11.02-4";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.02-4", date: "2026-11-02", build: "1323",
+            notes: [
+              { t: "feat", text: "红事主卡片新增胭脂淡红 3D 悬浮「囍」，由多层字片堆叠并缓慢自转" },
+              { t: "opt", text: "3D 字放在内容下方并禁止点击，不遮挡标题、按钮或账簿功能；白事保持原样" },
+            ],
+          },
           {
             version: "2026.11.02-3", date: "2026-11-02", build: "1232",
             notes: [
