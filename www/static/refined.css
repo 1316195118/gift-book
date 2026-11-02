@@ -831,8 +831,8 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #print-view .print-history li { line-height: 1.45; }
   #print-view .print-history li span { color: #8a7a63; margin-left: 3mm; font-size: 8pt; }
   /* 封面主章更大更饱满，A4 上更大气 */
-  #print-view .ledger-cover .cover-medallion { width: 46mm; height: 46mm; max-width: none; font-size: 42pt; }
-  #print-view .ledger-cover .cover-name { font-size: 36pt; }
+  #print-view .ledger-cover .cover-medallion { width: 76mm; height: 76mm; max-width: none; font-size: 68pt; font-weight: 600; }
+  #print-view .ledger-cover .cover-name { font-size: 40pt; }
 }
 
 /* ===== 红事喜庆主题增强：只作用于红事，白事保持原有肃穆配色 ===== */
