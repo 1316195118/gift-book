@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1542">
+<html lang="zh-CN" data-build="20261102-1545">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1542"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1542"></script>
-    <script src="./static/voices.js?v=20261102-1542"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1545"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1545"></script>
+    <script src="./static/voices.js?v=20261102-1545"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1542" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1542" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1545" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1545" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2080,7 +2080,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:42 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:45 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3458,17 +3458,103 @@
          * 将当前礼金数据导出为 Excel 文件。
          */
         function exportToExcel() {
-          const rows = [["姓名", "金额", "收款类型", "备注", "录入时间"]];
-          gifts.forEach((g) => {
+          if (!gifts.length) return showAlert("无法导出", "当前账簿还没有任何礼金记录。");
+          const stats = calculateStats();
+          const dateStr = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
+          const displayId = currentEvent.displayId ? `No.${currentEvent.displayId}` : "";
+          const metaLine = [displayId, dateStr, currentEvent.location, `共 ${stats.totalGivers} 位来宾`]
+            .filter(Boolean)
+            .join("　·　");
+          const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 };
+
+          const rows = [
+            [{ v: `${currentEvent.name} 礼金明细`, s: style.title }, null, null, null, null, null, null],
+            [{ v: metaLine, s: style.meta }, null, null, null, null, null, null],
+            [null],
+            ["序号", "姓名", "金额", "大写金额", "收款方式", "备注", "录入时间"].map((v) => ({ v, s: style.head })),
+          ];
+
+          gifts.forEach((g, i) => {
+            const d = g.data || {};
             rows.push([
-              g.data.name || "",
-              Number(g.data.amount) || 0,
-              g.data.type || "",
-              g.data.remarks || "",
-              new Date(g.data.timestamp).toLocaleString("zh-CN"),
+              { v: i + 1, s: style.center },
+              { v: d.name || "", s: style.center },
+              { v: Number(d.amount) || 0, s: style.money },
+              { v: amountToChinese(d.amount), s: style.text },
+              { v: d.type || "", s: style.center },
+              { v: d.remarks || "", s: style.text },
+              { v: d.timestamp ? new Date(d.timestamp).toLocaleString("zh-CN", { hour12: false }) : "", s: style.center },
             ]);
           });
-          XlsxLite.download(rows, `${currentEvent.name}_礼金明细.xlsx`, "礼金明细", [18, 10, 12, 28, 22]);
+
+          const lastDataRow = rows.length;
+          rows.push([
+            {
+              v: `送礼总人数：${stats.totalGivers} 位　　礼金总金额：${formatCurrency(stats.totalAmount)}`,
+              s: style.total,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          ]);
+
+          const rowHeights = { 1: 30, 2: 20, 3: 8, 4: 24 };
+          for (let r = 5; r <= lastDataRow; r += 1) rowHeights[r] = 22;
+          rowHeights[lastDataRow + 1] = 24;
+
+          const sheets = [
+            {
+              name: "礼金明细",
+              widths: [6, 14, 14, 26, 10, 30, 20],
+              rows,
+              merges: ["A1:G1", "A2:G2", `A${lastDataRow + 1}:G${lastDataRow + 1}`],
+              rowHeights,
+              freeze: { ySplit: 4, topLeft: "A5" },
+              autoFilter: `A4:G${lastDataRow}`,
+            },
+          ];
+
+          const history = [];
+          gifts.forEach((g, i) => {
+            const d = g.data || {};
+            (Array.isArray(d.history) ? d.history : []).forEach((entry) => {
+              history.push([
+                { v: i + 1, s: style.center },
+                { v: d.name || "", s: style.center },
+                { v: entry.changeLog || "修改记录", s: style.text },
+                {
+                  v: entry.timestamp ? new Date(entry.timestamp).toLocaleString("zh-CN", { hour12: false }) : "",
+                  s: style.center,
+                },
+              ]);
+            });
+          });
+
+          if (history.length) {
+            const historyRows = [
+              [{ v: `${currentEvent.name} 修改记录`, s: style.title }, null, null, null],
+              [{ v: `共 ${history.length} 条修改留痕　·　礼金记录只改不删，每次纠错都会保留原始快照`, s: style.meta }, null, null, null],
+              [null],
+              ["序号", "姓名", "修改内容", "修改时间"].map((v) => ({ v, s: style.head })),
+              ...history,
+            ];
+            const historyHeights = { 1: 30, 2: 20, 3: 8, 4: 24 };
+            for (let r = 5; r < historyRows.length + 1; r += 1) historyHeights[r] = 24;
+            sheets.push({
+              name: "修改记录",
+              widths: [6, 14, 52, 22],
+              rows: historyRows,
+              merges: ["A1:D1", "A2:D2"],
+              rowHeights: historyHeights,
+              freeze: { ySplit: 4, topLeft: "A5" },
+              autoFilter: `A4:D${historyRows.length}`,
+            });
+          }
+
+          XlsxLite.downloadWorkbook(sheets, `${currentEvent.name}_礼金明细.xlsx`);
         }
 
         /**
@@ -3492,11 +3578,12 @@
               const when = d.timestamp ? new Date(d.timestamp).toLocaleString("zh-CN", { hour12: false }) : "";
               const nameChars = Array.from(String(d.name || ""));
               const shownName = nameChars.slice(0, 12).join("") + (nameChars.length > 12 ? "…" : "");
+              const nameClass = nameChars.length === 1 ? " len1" : nameChars.length === 2 ? " len2" : "";
               const amountText = formatCurrency(d.amount);
               return `
             <tr>
               <td class="c">${i + 1}</td>
-              <td class="name">${escapeHtml(shownName)}</td>
+              <td class="name${nameClass}">${escapeHtml(shownName)}</td>
               <td class="num${amountText.length > 12 ? " small" : ""}">${amountText}</td>
               <td class="cap">${escapeHtml(amountToChinese(d.amount))}</td>
               <td class="c">${escapeHtml(d.type || "")}</td>
@@ -3552,9 +3639,10 @@
               tr { page-break-inside: avoid; }
               tr:nth-child(even) td { background: #fafafa; }
               td.c { text-align: center; }
-              td.num { text-align: right; white-space: nowrap; }
+              td.num { text-align: center; white-space: nowrap; }
               td.num.small { font-size: 8pt; }
               td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; }
+              td.name.len2 { letter-spacing: .6em; padding-left: .6em; }
               td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; }
               td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; }
               td.remark { text-align: left; word-break: break-word; }
@@ -4320,7 +4408,7 @@
 
         const CHANGELOG = [
           {
-            version: "1.0.05", date: "2026-11-02", build: "1542",
+            version: "1.0.05", date: "2026-11-02", build: "1545",
             notes: [
               { t: "opt", text: "Word 导出重新排版：A4 纵向、标题信息头、7 列明细（含大写金额）、斑马纹与合计" },
               { t: "opt", text: "Word 文末新增「宾客备注」与「修改记录」附录，纠错留痕完整可查" },
