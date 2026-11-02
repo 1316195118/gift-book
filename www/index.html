@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1610">
+<html lang="zh-CN" data-build="20261102-1620">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1610"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1610"></script>
-    <script src="./static/voices.js?v=20261102-1610"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1620"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1620"></script>
+    <script src="./static/voices.js?v=20261102-1620"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1610" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1610" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1620" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1620" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1252,6 +1252,7 @@
         let currentPage = 1; // 当前礼簿页码
         let cachedEvents = {}; // 缓存账簿列表，用于首页计数
         let isLedgerLocked = false; // 当前账簿是否锁定
+        let homeScrollMemory = 0; // 返回首页时恢复原来的滚动位置
         let loadGeneration = 0; // 礼金加载代际，避免快速切换账簿时串数据
         let modalToken = 0; // 弹窗代际，避免异步回调误关新弹窗
         let syncRetryTimer = null; // 总额同步重试计时器
@@ -1438,8 +1439,13 @@
         function startSession() {
           dom.currentEventTitleEl.textContent = currentEvent.name;
           applyTheme(currentEvent.theme);
+          // 记住首页滚动位置，返回首页时回原位
+          homeScrollMemory = window.scrollY || dom.homeScreen.scrollTop || 0;
           // 手机端布局：已结束的账簿把礼簿放前面，录入面板放后面
-          document.body.classList.toggle("ledger-closed", isLedgerClosed(currentEvent));
+          const closed = isLedgerClosed(currentEvent);
+          document.body.classList.toggle("ledger-closed", closed);
+          // 白事一旦超时：手机端直接隐藏整个录入框，只在电脑端保留
+          document.body.classList.toggle("ledger-closed-solemn", closed && isSolemnEvent(currentEvent));
           if (dom.currentEventSub) {
             const d = currentEvent.startDateTime ? new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN") : "";
             dom.currentEventSub.textContent = [currentEvent.template, d, currentEvent.location].filter(Boolean).join(" · ");
@@ -2078,22 +2084,25 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:10 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:20 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
 
         function showHomeScreen() {
           document.body.classList.remove("ledger-closed");
+          document.body.classList.remove("ledger-closed-solemn");
           dom.setupScreen.classList.add("hidden");
           dom.mainScreen.classList.add("hidden");
           dom.templateScreen.classList.add("hidden");
           dom.homeScreen.classList.remove("hidden");
-          dom.homeScreen.scrollTop = 0;
           syncShell();
           applyHomeCategory();
-          loadEvents();
-          window.scrollTo(0, 0);
+          const restoreY = homeScrollMemory || 0;
+          loadEvents().finally(() => {
+            dom.homeScreen.scrollTop = restoreY;
+            window.scrollTo(0, restoreY);
+          });
         }
 
         function showTemplateScreen(cat) {
@@ -4431,10 +4440,17 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.09";
+        const APP_VERSION = "1.0.10";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.10", date: "2026-11-02", build: "1620",
+            notes: [
+              { t: "fix", text: "手机端从首页进入账簿再返回时，首页保持原来的滚动位置，不再跳回顶部" },
+              { t: "opt", text: "白事超过设定时间后，手机端隐藏整个「礼金录入」框，只保留礼簿；电脑端仍显示（提交时会被拦截）" },
+            ],
+          },
           {
             version: "1.0.09", date: "2026-11-02", build: "1610",
             notes: [
