@@ -973,13 +973,12 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .home-screen-wrap:not(.solemn) #home-main-card::after {
     content: "囍";
     position: absolute;
-    right: -8px;
-    bottom: -34px;
+    right: 28px;
+    bottom: -15px;
     font-family: "Songti SC", "STSong", serif;
-    font-size: clamp(190px, 19vw, 268px);
+    font-size: 155px;
     line-height: 1;
-    color: rgba(255,244,226,.105);
-    text-shadow: 0 14px 34px rgba(58,8,6,.26);
+    color: rgba(255,255,255,.075);
     pointer-events: none;
     z-index: 1;
   }
@@ -1208,9 +1207,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 /* 小屏时把主卡水印缩到右侧留白里，避免压住「进入模板」这行字 */
 @media screen and (max-width: 640px) {
   .home-screen-wrap:not(.solemn) #home-main-card::after {
-    font-size: 150px;
-    right: -6px;
-    bottom: -16px;
+    font-size: 116px;
+    right: 12px;
+    bottom: -4px;
   }
 }
 
