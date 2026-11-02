@@ -22,3 +22,7 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
+# 本地验收脚本与截图（不随发布提交）
+.shots/
+tools/ui-shot.mjs
+tools/ui-*.json

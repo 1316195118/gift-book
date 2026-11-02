@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1323">
+<html lang="zh-CN" data-build="20261102-1355">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1323"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1323"></script>
-    <script src="./static/voices.js?v=20261102-1323"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1355"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1355"></script>
+    <script src="./static/voices.js?v=20261102-1355"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1323" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1323" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1355" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1355" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -860,7 +860,6 @@
             </button>
             <button type="button" class="version-chip" data-version title="查看更新说明">v--</button>
             <button type="button" class="home-help-btn" id="access-btn">访问保护</button>
-            <button type="button" class="home-help-btn" id="home-help-btn">使用说明</button>
             <button type="button" class="home-help-btn hidden" id="logout-btn">退出</button>
             <div class="cat-switch" id="cat-switch">
               <button type="button" class="cat-btn active" data-cat="red">红事</button>
@@ -877,23 +876,6 @@
 
         <div id="choice-grid" class="choice-grid single">
           <div class="choice-card choice-red" id="home-main-card" role="button" tabindex="0" aria-label="选择礼簿模板">
-            <div class="home-3d-mark" aria-hidden="true">
-              <div class="home-3d-spinner">
-                <span class="home-3d-side" style="transform: translateZ(-10px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(-8px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(-6px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(-4px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(-2px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(0)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(2px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(4px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(6px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(8px)">囍</span>
-                <span class="home-3d-side" style="transform: translateZ(10px)">囍</span>
-                <span class="home-3d-face front">囍</span>
-                <span class="home-3d-face back">囍</span>
-              </div>
-            </div>
             <div>
               <div class="choice-kicker" id="home-card-kicker">喜 事</div>
               <div class="choice-title" id="home-card-title">红事</div>
@@ -1132,6 +1114,7 @@
                 <div class="book-navigation"><button id="prev-page-btn" type="button" aria-label="上一页">‹</button><span id="page-info">第 1 / 1 页</span><button id="next-page-btn" type="button" aria-label="下一页">›</button></div>
               </div>
               <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动"><div id="gift-book-content"></div></div>
+              <p id="book-empty-hint" class="book-empty-hint hidden">本页还没有记录，输入第一位来宾即可开始。</p>
               <p class="book-note">点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整礼簿。</p>
             </div>
           </section>
@@ -1260,7 +1243,6 @@
           homeCardDesc: document.getElementById("home-card-desc"),
           homeCardGo: document.getElementById("home-card-go"),
           homeCardCount: document.getElementById("home-card-count"),
-          homeHelpBtn: document.getElementById("home-help-btn"),
           setupBadge: document.getElementById("setup-badge"),
           setupBack: document.getElementById("setup-back"),
           recentEvents: document.getElementById("recent-events"),
@@ -1819,6 +1801,10 @@
          */
         function renderGiftBook(container = dom.giftBookContent, items = gifts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)) {
           container.innerHTML = "";
+          if (container === dom.giftBookContent) {
+            const emptyHint = document.getElementById("book-empty-hint");
+            if (emptyHint) emptyHint.classList.toggle("hidden", items.some(Boolean));
+          }
           const nameRow = document.createElement("div");
           nameRow.className = "gift-book-row";
           const typeRow = document.createElement("div");
@@ -2058,7 +2044,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:23 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:55 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -4002,10 +3988,15 @@
 
         const CHANGELOG = [
           {
-            version: "2026.11.02-4", date: "2026-11-02", build: "1323",
+            version: "2026.11.02-4", date: "2026-11-02", build: "1355",
             notes: [
-              { t: "feat", text: "红事主卡片新增胭脂淡红 3D 悬浮「囍」，由多层字片堆叠并缓慢自转" },
-              { t: "opt", text: "3D 字放在内容下方并禁止点击，不遮挡标题、按钮或账簿功能；白事保持原样" },
+              { t: "opt", text: "红事继续保留云纹角饰、顶部饰带、菱形标识与金色分隔线" },
+              { t: "opt", text: "主卡片「囍」暂恢复为原来的平面水印，白事保持原样，功能仍共用" },
+              { t: "opt", text: "首页顶部移除「使用说明」按钮，完整说明仍可从右侧三步卡片进入" },
+              { t: "opt", text: "调整首页在平板和窄屏下的比例：平板保持主卡与说明并排，小屏再居中收窄，避免盲目拉长" },
+              { t: "fix", text: "修复模板页窄屏封面被竖向内容撑高的问题，封面统一保持 3:4 比例" },
+              { t: "opt", text: "模板页按屏宽重排列数：宽屏 5 列、平板 3 列、手机 2 列，卡片不再被压成细长条" },
+              { t: "opt", text: "礼簿页手机端缩短空白版面高度，并增加「本页暂无记录」提示，避免大面积留白" },
             ],
           },
           {
@@ -4697,7 +4688,6 @@
           });
           dom.templateBack?.addEventListener("click", showHomeScreen);
           dom.setupBack?.addEventListener("click", showHomeScreen);
-          dom.homeHelpBtn?.addEventListener("click", showHelp);
           document.getElementById("home-side-help")?.addEventListener("click", showHelp);
           document.getElementById("modal-close")?.addEventListener("click", closeModal);
           dom.qrBtn?.addEventListener("click", showQrModal);
