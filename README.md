@@ -60,7 +60,7 @@
 ### 导出与打印
 
 - 一个「导出」按钮，弹窗里选 **Excel 明细** 或 **PDF 礼簿**。
-- PDF 用浏览器打印生成：A4 横向、含封面页、竖排姓名、大写金额、页脚汇总。
+- PDF 直接下载（不弹打印窗口）：A4 横向、含封面页、竖排姓名、大写金额、页脚汇总。
 
 ### 断网也能记
 
@@ -105,7 +105,7 @@
 
 ```
 ghcr.io/1316195118/gift-book:latest
-ghcr.io/1316195118/gift-book:v2026.11.02-4
+ghcr.io/1316195118/gift-book:v1.0.04
 ```
 
 ### 前置要求
@@ -242,7 +242,7 @@ docker compose pull     # 拉最新镜像
 docker compose up -d    # 重建容器
 ```
 
-想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v2026.11.02-4`。
+想固定版本就把 `image:` 写成 `ghcr.io/1316195118/gift-book:v1.0.04`。
 
 ### 环境变量
 
@@ -377,7 +377,7 @@ docker compose -f docker-compose.build.yml up -d --build
 
 ## 版本检查与升级
 
-- 页面右上角的版本号（`v2026.11.02-4`）点开就是更新说明，顶部有「检查更新」。
+- 页面右上角的版本号（`v1.0.04`）点开就是更新说明，顶部有「检查更新」。
 - 它会读取本仓库的最新 Release，比当前版本新就给出「前往下载」。
 - 内网部署连不上 GitHub 时会提示「暂时连不上 GitHub（内网部署可忽略）」，不影响使用。
 - 升级方式：`git pull && docker compose up -d --build`，数据目录不受影响。
@@ -385,8 +385,8 @@ docker compose -f docker-compose.build.yml up -d --build
 发布新版本时打 tag 即可：
 
 ```bash
-git tag -a v2026.11.02-4 -m "v2026.11.02-4"
-git push origin v2026.11.02-4
+git tag -a v1.0.04 -m "v1.0.04"
+git push origin v1.0.04
 ```
 
 ---

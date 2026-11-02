@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1440">
+<html lang="zh-CN" data-build="20261102-1510">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1440"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1440"></script>
-    <script src="./static/voices.js?v=20261102-1440"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1510"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1510"></script>
+    <script src="./static/voices.js?v=20261102-1510"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1440" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1440" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1510" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1510" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1069,8 +1069,8 @@
           <section class="entry-panel" aria-label="礼金录入">
             <div class="entry-heading"><h2>礼金录入<span class="entry-pending hidden" id="entry-pending"><i aria-hidden="true"></i>待同步<b>0</b></span></h2><p>每一份心意，都郑重留名</p></div>
             <form id="add-gift-form">
-              <div class="entry-field"><label for="guest-name">来宾姓名</label><input type="text" id="guest-name" placeholder="请输入来宾姓名" required maxlength="120" autocomplete="off" /></div>
-              <div class="entry-field"><label for="gift-amount">礼金金额 <small>人民币 / 元</small></label><input type="number" id="gift-amount" placeholder="0.00" required min="0" max="999999999999" step="0.01" inputmode="decimal" /></div>
+              <div class="entry-field"><label for="guest-name">来宾姓名</label><input type="text" id="guest-name" placeholder="请输入来宾姓名" required maxlength="20" autocomplete="off" /></div>
+              <div class="entry-field"><label for="gift-amount">礼金金额 <small>人民币 / 元</small></label><input type="number" id="gift-amount" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" /></div>
               <div class="amount-chinese-preview" id="amount-chinese-preview" aria-live="polite">输入金额后显示大写</div>
               <div class="entry-field entry-payment"><label>收款方式</label>
                 <div class="payment-options">
@@ -1168,6 +1168,9 @@
       document.addEventListener("DOMContentLoaded", () => {
         // --- 常量定义 ---
         const ITEMS_PER_PAGE = 12; // 礼簿每页显示的条目数
+        const MAX_GIFT_NAME = 20; // 姓名最多 20 个字，避免异常长文本
+        const MAX_GIFT_AMOUNT = 1000000; // 单笔礼金上限 100 万元，超出视为误输入
+        const MIN_GIFT_AMOUNT = 0.01;
         const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024; // 礼簿封面图最大体积 (2MB)
 
         // --- DOM 元素引用 ---
@@ -1687,10 +1690,11 @@
           const remarks = dom.remarksInput.value.trim();
 
           if (!name || !amountStr || !type) return showAlert("信息不完整", "请输入姓名、金额并选择收款方式。");
-          if (name.length > 120) return showAlert("姓名过长", "姓名请控制在 120 个字符以内。");
+          if (name.length > MAX_GIFT_NAME) return showAlert("姓名过长", `姓名请控制在 ${MAX_GIFT_NAME} 个字以内。`);
 
           const amount = Number(amountStr);
-          if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return showAlert("金额无效", "请输入大于 0 且合理的金额。");
+          if (!Number.isFinite(amount) || amount < MIN_GIFT_AMOUNT || amount > MAX_GIFT_AMOUNT)
+            return showAlert("金额超出范围", `单笔礼金需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
           if (Math.abs(Math.round(amount * 100) - amount * 100) > 0.0001) return showAlert("金额无效", "金额最多保留两位小数。");
 
           // 检查是否已存在同名或同名同金额的记录
@@ -1854,7 +1858,13 @@
               </div>`;
               
               const displayName = String(gift.data.name ?? "");
-              nameCell.innerHTML = `<div class="name${displayName.length > 4 ? " scale" : ""}">${escapeHtml(displayName)}</div>${statusIndicators}`;
+              const nameChars = Array.from(displayName);
+              const shownChars = nameChars.slice(0, 24);
+              const nameLen = shownChars.length > 3 ? "long" : String(shownChars.length);
+              const nameHtml =
+                shownChars.map((ch) => `<span>${escapeHtml(ch)}</span>`).join("") +
+                (nameChars.length > shownChars.length ? "<span>…</span>" : "");
+              nameCell.innerHTML = `<div class="name${displayName.length > 4 ? " scale" : ""}" data-len="${nameLen}">${nameHtml}</div>${statusIndicators}`;
               nameCell.dataset.giftIndex = giftIndex;
               // 鼠标悬停就能看到最后一次改动的时间，不用点进详情
               nameCell.title = isModified
@@ -2066,11 +2076,11 @@
                 <div class="help-num">4</div>
                 <div class="help-body">
                   <div class="help-title">导出与打印</div>
-                  <div class="help-desc">打印可选择另存为 PDF，默认使用渲染封面；Excel 保留明细，Word 为兼容 HTML 的 .doc 文件，不是原生 .docx。</div>
+              <div class="help-desc">PDF 直接下载（A4 横向，含封面与竖排版式），Excel 保留明细，Word 为兼容 HTML 的 .doc 文件，不是原生 .docx。</div>
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 14:40 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:10 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -2863,12 +2873,13 @@
             editHtml = `
                     <div class="themed-edit-area">
                         <label>纠错姓名</label>
-                        <input type="text" id="inline-edit-name" value="${escapeHtml(g.name)}" class="w-full p-2 border rounded themed-ring mb-2">
+                        <input type="text" id="inline-edit-name" value="${escapeHtml(g.name)}" maxlength="20" class="w-full p-2 border rounded themed-ring mb-2">
                         <div class="flex justify-end space-x-2">${cancelBtnHtml}${saveBtnHtml}</div>
                     </div>`;
             saveHandler = async () => {
               const newName = document.getElementById("inline-edit-name").value.trim();
               if (!newName || newName === g.name) return cancelHandler(); // 无变化或为空则取消
+              if (newName.length > MAX_GIFT_NAME) return showAlert("姓名过长", `姓名请控制在 ${MAX_GIFT_NAME} 个字以内。`);
               const changeLog = `将姓名由 “${g.name}” 更正为 “${newName}”`;
               await performUpdateWithHistory(giftIndex, { name: newName }, changeLog);
             };
@@ -2877,7 +2888,7 @@
             editHtml = `
                     <div class="themed-edit-area">
                         <label>修改金额与类型</label>
-                        <input type="number" id="inline-edit-amount" value="${g.amount}" min="0" step="0.01" class="w-full p-2 border rounded themed-ring mb-2">
+                        <input type="number" id="inline-edit-amount" value="${g.amount}" min="0.01" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2">
                         <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">
                             ${["现金", "支付宝", "微信", "其他"]
                               .map(
@@ -2894,7 +2905,8 @@
             saveHandler = async () => {
               const newAmount = parseFloat(document.getElementById("inline-edit-amount").value);
               const newType = document.querySelector('input[name="inline-edit-type"]:checked').value;
-              if (isNaN(newAmount) || newAmount < 0) return showAlert("错误", "请输入有效金额");
+              if (isNaN(newAmount) || newAmount < MIN_GIFT_AMOUNT || newAmount > MAX_GIFT_AMOUNT)
+                return showAlert("金额超出范围", `单笔礼金需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
 
               if (newAmount === g.amount && newType === g.type) return cancelHandler(); // 无变化则取消
 
@@ -3045,16 +3057,10 @@
         // --- 功能模块 (打印, 导出, 统计, 搜索) ---
 
         /**
-         * 生成所有用于打印的页面 HTML 内容，并触发浏览器打印功能。
+         * 生成整本礼簿（封面页 + 明细页 + 附录页）的 DOM，供 PDF 导出或打印使用。
          */
-        /**
-         * 生成所有用于打印的页面 HTML 内容，并触发浏览器打印功能。
-         * 核心修复：此函数现在会等待封面图加载完成后再触发打印，以解决首次打印不显示封面的问题。
-         */
-        function prepareForPrint() {
-          if (gifts.length === 0) {
-            return showAlert("无法打印", "当前事项没有任何礼金记录，无需打印。");
-          }
+        function buildPrintPages() {
+          if (gifts.length === 0) return null;
 
           let printView = document.getElementById("print-view");
           if (printView) printView.remove();
@@ -3062,32 +3068,34 @@
           printView.id = "print-view";
 
           const eventCreationDate = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
-          document.title = `${currentEvent.name}礼金明细-${eventCreationDate}`;
 
-          // 1. 将打印的核心逻辑封装成一个函数
-          // 这个函数将在封面加载后（或无封面时）被调用
-          const executePrint = () => {
-            // 2. 生成礼金明细页 (这部分逻辑不变)
-            const totalGiftPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1;
-            for (let i = 0; i < totalGiftPages; i++) {
-              const pageGifts = gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE);
-              const pageContainer = document.createElement("div");
-              pageContainer.className = "print-page";
-              const content = document.createElement("div");
-              content.className = "print-book-content";
+          // 1. 封面页：与界面同一套渲染组件，不依赖照片或上传图
+          const coverPage = document.createElement("div");
+          coverPage.className = "print-page print-cover-page";
+          coverPage.innerHTML = renderCoverMarkup(currentEvent);
+          printView.appendChild(coverPage);
 
-              if (i === 0) {
-                pageContainer.innerHTML += `<h1 class="print-header">${escapeHtml(currentEvent.name)}礼金明细</h1>`;
-              }
+          // 2. 礼金明细页
+          const totalGiftPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1;
+          for (let i = 0; i < totalGiftPages; i++) {
+            const pageGifts = gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE);
+            const pageContainer = document.createElement("div");
+            pageContainer.className = "print-page";
+            const content = document.createElement("div");
+            content.className = "print-book-content";
 
-              renderGiftBook(content, pageGifts);
-              pageContainer.appendChild(content);
+            if (i === 0) {
+              pageContainer.innerHTML += `<h1 class="print-header">${escapeHtml(currentEvent.name)}礼金明细</h1>`;
+            }
 
-              const pageSubtotal = pageGifts.reduce((sum, gift) => sum + (gift.data?.amount || 0), 0);
-              const stats = calculateStats();
-              const isLastPage = i === totalGiftPages - 1;
+            renderGiftBook(content, pageGifts);
+            pageContainer.appendChild(content);
 
-              pageContainer.innerHTML += `
+            const pageSubtotal = pageGifts.reduce((sum, gift) => sum + (gift.data?.amount || 0), 0);
+            const stats = calculateStats();
+            const isLastPage = i === totalGiftPages - 1;
+
+            pageContainer.innerHTML += `
           <div class="print-footer">
             <p>日期: ${eventCreationDate}</p>
             <p class="print-page-number">第 ${i + 1} / ${totalGiftPages} 页</p>
@@ -3102,34 +3110,225 @@
               }
             </div>
           </div>`;
-              printView.appendChild(pageContainer);
-            }
+            printView.appendChild(pageContainer);
+          }
 
-            // 3. 生成附录页 (逻辑不变)
-            appendAppendixPages(printView, eventCreationDate);
+          // 3. 附录页
+          appendAppendixPages(printView, eventCreationDate);
+          return printView;
+        }
 
-            // 4. 将准备好的所有内容添加到页面并打印
-            document.body.appendChild(printView);
-            document.body.classList.add("printing");
-
-            // 使用 setTimeout 0 毫秒将打印操作推迟到下一个事件循环
-            // 这可以确保DOM元素（特别是图片）有足够的时间被浏览器“绘制”出来
+        /**
+         * 生成所有用于打印的页面 HTML 内容，并触发浏览器打印功能（备用入口）。
+         */
+        function prepareForPrint() {
+          const printView = buildPrintPages();
+          if (!printView) {
+            return showAlert("无法打印", "当前事项没有任何礼金记录，无需打印。");
+          }
+          const eventCreationDate = new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN");
+          document.title = `${currentEvent.name}礼金明细-${eventCreationDate}`;
+          document.body.appendChild(printView);
+          document.body.classList.add("printing");
+          setTimeout(() => {
+            window.print();
             setTimeout(() => {
-              window.print();
-              //打印后清理
-              setTimeout(() => {
-                document.body.classList.remove("printing");
-                document.getElementById("print-view")?.remove();
-              }, 100);
-            }, 0);
-          };
+              document.body.classList.remove("printing");
+              document.getElementById("print-view")?.remove();
+            }, 100);
+          }, 0);
+        }
 
-          // 5. 封面页：与界面同一套渲染组件，不依赖照片或上传图
-          const coverPage = document.createElement("div");
-          coverPage.className = "print-page print-cover-page";
-          coverPage.innerHTML = renderCoverMarkup(currentEvent);
-          printView.appendChild(coverPage);
-          executePrint();
+        // ===== PDF 直接下载：把排好的 A4 横版页面逐页转成图片，再封装成 PDF =====
+        const PDF_PAGE_W_PT = 841.89; // A4 横向（pt）
+        const PDF_PAGE_H_PT = 595.28;
+
+        /** 取出打印用样式：基础样式 + @media print 规则（去掉屏幕专用规则） */
+        function collectPrintCss() {
+          const base = [];
+          const print = [];
+          const walk = (rules, bucket) => {
+            for (const rule of rules) {
+              if (rule.type === CSSRule.MEDIA_RULE) {
+                const media = String(rule.conditionText || (rule.media && rule.media.mediaText) || "");
+                if (/print/i.test(media)) walk(rule.cssRules, print);
+                continue;
+              }
+              if (rule.type === CSSRule.SUPPORTS_RULE) {
+                walk(rule.cssRules, bucket);
+                continue;
+              }
+              if (rule.type === CSSRule.PAGE_RULE) continue;
+              bucket.push(rule.cssText);
+            }
+          };
+          for (const sheet of document.styleSheets) {
+            let rules = null;
+            try {
+              rules = sheet.cssRules;
+            } catch (error) {
+              continue;
+            }
+            if (rules) walk(rules, base);
+          }
+          return base.join("\n") + "\n" + print.join("\n");
+        }
+
+        /** 把一张 A4 横版页面画进 canvas，返回 JPEG dataURL */
+        async function rasterizePrintPage(pageEl, css, themeClass, scale) {
+          const widthPx = (297 / 25.4) * 96;
+          const heightPx = (209 / 25.4) * 96;
+          let markup = "";
+          try {
+            markup = new XMLSerializer().serializeToString(pageEl);
+          } catch (error) {
+            markup = pageEl.outerHTML;
+          }
+          const svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="' + widthPx + '" height="' + heightPx + '">' +
+            '<foreignObject x="0" y="0" width="' + widthPx + '" height="' + heightPx + '">' +
+            '<div xmlns="http://www.w3.org/1999/xhtml" id="print-view" class="' + themeClass + '">' +
+            "<style><![CDATA[" + css + "]]></style>" +
+            markup +
+            "</div></foreignObject></svg>";
+          const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+          const img = new Image();
+          img.src = url;
+          await img.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(widthPx * scale);
+          canvas.height = Math.round(heightPx * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          return { dataUrl: canvas.toDataURL("image/jpeg", 0.92), width: canvas.width, height: canvas.height };
+        }
+
+        function pdfBase64ToBytes(base64) {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          return bytes;
+        }
+
+        /** 最小 PDF 封装：每页一张 JPEG（DCTDecode），无需第三方库 */
+        function buildPdfBlob(images, pageW, pageH) {
+          const encoder = new TextEncoder();
+          const parts = [];
+          let length = 0;
+          const push = (data) => {
+            const bytes = typeof data === "string" ? encoder.encode(data) : data;
+            parts.push(bytes);
+            length += bytes.length;
+          };
+          const offsets = [];
+          const beginObj = () => offsets.push(length);
+
+          push("%PDF-1.4\n%\u00E2\u00E3\u00CF\u00D3\n");
+          beginObj();
+          push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+          const pageObj = (i) => 3 + i * 3;
+          const imageObj = (i) => 4 + i * 3;
+          const contentObj = (i) => 5 + i * 3;
+
+          beginObj();
+          push(
+            "2 0 obj\n<< /Type /Pages /Kids [" +
+              images.map((_, i) => pageObj(i) + " 0 R").join(" ") +
+              "] /Count " + images.length + " >>\nendobj\n"
+          );
+
+          images.forEach((image, i) => {
+            beginObj();
+            push(
+              pageObj(i) + " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + pageW + " " + pageH + "]" +
+                " /Resources << /XObject << /Im0 " + imageObj(i) + " 0 R >> >>" +
+                " /Contents " + contentObj(i) + " 0 R >>\nendobj\n"
+            );
+            const jpeg = pdfBase64ToBytes(String(image.dataUrl).split(",")[1] || "");
+            beginObj();
+            push(
+              imageObj(i) + " 0 obj\n<< /Type /XObject /Subtype /Image /Width " + image.width +
+                " /Height " + image.height + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode" +
+                " /Length " + jpeg.length + " >>\nstream\n"
+            );
+            push(jpeg);
+            push("\nendstream\nendobj\n");
+            const content = "q " + pageW + " 0 0 " + pageH + " 0 0 cm /Im0 Do Q";
+            beginObj();
+            push(contentObj(i) + " 0 obj\n<< /Length " + content.length + " >>\nstream\n" + content + "\nendstream\nendobj\n");
+          });
+
+          const xrefStart = length;
+          let xref = "xref\n0 " + (offsets.length + 1) + "\n0000000000 65535 f \n";
+          offsets.forEach((offset) => {
+            xref += String(offset).padStart(10, "0") + " 00000 n \n";
+          });
+          push(xref);
+          push(
+            "trailer\n<< /Size " + (offsets.length + 1) + " /Root 1 0 R >>\nstartxref\n" +
+              xrefStart + "\n%%EOF\n"
+          );
+          return new Blob(parts, { type: "application/pdf" });
+        }
+
+        function downloadBlob(blob, filename) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            link.remove();
+          }, 1500);
+        }
+
+        function showPdfProgress(total) {
+          const box = document.createElement("div");
+          box.id = "pdf-progress";
+          box.innerHTML =
+            '<div class="pdf-progress-card"><span class="pdf-progress-spin" aria-hidden="true"></span>' +
+            '<div><b>正在生成 PDF…</b><small id="pdf-progress-text">共 ' + total + " 页</small></div></div>";
+          document.body.appendChild(box);
+          return {
+            update(text) {
+              const el = document.getElementById("pdf-progress-text");
+              if (el) el.textContent = text;
+            },
+            close() {
+              box.remove();
+            },
+          };
+        }
+
+        async function exportLedgerPdf() {
+          if (!gifts.length) return showAlert("无法导出", "当前账簿还没有任何礼金记录。");
+          const printView = buildPrintPages();
+          if (!printView) return;
+          const pages = Array.from(printView.querySelectorAll(".print-page"));
+          const themeClass = isSolemnEvent(currentEvent) ? "theme-solemn" : "theme-festive";
+          const progress = showPdfProgress(pages.length);
+          try {
+            const css = collectPrintCss();
+            const images = [];
+            for (let i = 0; i < pages.length; i += 1) {
+              progress.update("正在排版第 " + (i + 1) + " / " + pages.length + " 页…");
+              images.push(await rasterizePrintPage(pages[i], css, themeClass, 2));
+            }
+            progress.update("正在写入 PDF…");
+            const blob = buildPdfBlob(images, PDF_PAGE_W_PT, PDF_PAGE_H_PT);
+            downloadBlob(blob, `${currentEvent.name}_礼金明细.pdf`);
+          } catch (error) {
+            console.error("PDF 生成失败:", error);
+            showAlert("导出失败", "PDF 生成失败，请重试，或先改用 Excel 导出。");
+          } finally {
+            progress.close();
+            printView.remove();
+          }
         }
 
         /**
@@ -3203,7 +3402,7 @@
                   <span class="export-text"><b>PDF 礼簿</b><small>含封面与竖排版式</small></span>
                 </button>
               </div>
-              <p class="unlock-note">Excel 直接下载；PDF 由浏览器打印生成，请在打印窗口选「另存为 PDF」，纸张 A4 横向、边距「无」。</p>
+              <p class="unlock-note">Excel 与 PDF 都直接下载。PDF 为 A4 横向、含封面与竖排版式，不需要经过打印窗口。</p>
             </div>`;
           showModal("", content, []);
           document.getElementById("export-close")?.addEventListener("click", closeModal);
@@ -3212,7 +3411,7 @@
               const format = btn.dataset.format;
               closeModal();
               if (format === "excel") setTimeout(() => exportToExcel(), 80);
-              if (format === "pdf") setTimeout(() => prepareForPrint(), 120);
+              if (format === "pdf") setTimeout(() => exportLedgerPdf(), 120);
             });
           });
         }
@@ -4009,12 +4208,12 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.02-4";
+        const APP_VERSION = "1.0.04";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
           {
-            version: "2026.11.02-4", date: "2026-11-02", build: "1440",
+            version: "1.0.04", date: "2026-11-02", build: "1510",
             notes: [
               { t: "opt", text: "红事继续保留云纹角饰、顶部饰带、菱形标识与金色分隔线" },
               { t: "opt", text: "主卡片「囍」暂恢复为原来的平面水印，白事保持原样，功能仍共用" },
@@ -4032,6 +4231,12 @@
               { t: "opt", text: "手机端顶栏改为「品牌 + 红白切换」一行、状态胶囊一行铺满，右侧不再留空" },
               { t: "opt", text: "手机端状态胶囊与电脑端一致，显示完整的「NAS 存储 · 延迟」，账簿页同步" },
               { t: "opt", text: "直接双击打开 index.html 时给出「请通过网址访问」的明确提示，不再只报无法加载事项列表" },
+              { t: "opt", text: "版本号改为 1.0.04 起按次递增，不再用日期拼版本；顶栏显示「当前版本」" },
+              { t: "feat", text: "PDF 改为直接下载：A4 横向逐页渲染后封装，不再跳转打印窗口" },
+              { t: "fix", text: "修复导出 PDF 时大写金额与数字重叠、长姓名溢出到下一行的问题" },
+              { t: "opt", text: "姓名按三字高度对齐，两字中间留白、单字居中，数字与字母改为竖排" },
+              { t: "fix", text: "姓名限制 20 字、单笔礼金限制 0.01 ~ 100 万元，避免误输入超长文本或离谱金额" },
+              { t: "fix", text: "历史/导入的账簿缺少编号时自动补号（No.001 起），首页不再出现没有编号的卡片" },
             ],
           },
           {
@@ -4272,7 +4477,9 @@
             return;
           }
           if (!updateState.latest) {
-            status.textContent = `当前 v${APP_VERSION} · 尚未检查`;
+            status.textContent = updateState.checked
+              ? `当前 v${APP_VERSION} · 已是最新版本`
+              : `当前 v${APP_VERSION} · 尚未检查`;
             return;
           }
           const diff = compareVersions(updateState.latest, APP_VERSION);
@@ -4303,7 +4510,10 @@
             });
             if (!res.ok) throw new Error(res.status === 404 ? "仓库还没有发布版本" : `GitHub 返回 ${res.status}`);
             const data = await res.json();
-            updateState.latest = String(data.tag_name || data.name || "").replace(/^v/i, "");
+            const latestTag = String(data.tag_name || data.name || "").replace(/^v/i, "");
+            // 版本号已从日期制改为 1.0.x：只比较同一主版本的发布，避免旧日期 tag 被当成"更新"
+            const sameMajor = versionParts(latestTag)[0] === versionParts(APP_VERSION)[0];
+            updateState.latest = sameMajor ? latestTag : "";
             updateState.url = data.html_url || "";
             updateState.checked = true;
             updateState.error = updateState.latest ? "" : "未读到版本号";
@@ -4707,7 +4917,7 @@
 
         function paintVersionChips() {
           document.querySelectorAll("[data-version]").forEach((chip) => {
-            chip.textContent = `v${APP_VERSION}`;
+            chip.innerHTML = `<span class="version-prefix">当前版本</span>v${escapeHtml(APP_VERSION)}`;
           });
         }
 

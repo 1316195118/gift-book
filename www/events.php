@@ -23,7 +23,8 @@ function eventsApiLock($method) {
     if ($handle === false) {
         jsonResponse(['success' => false, 'message' => '账簿暂时不可用'], 503);
     }
-    if (!@flock($handle, $method === 'GET' ? LOCK_SH : LOCK_EX)) {
+    // GET 也可能补齐历史账簿编号，统一用排它锁，避免并发写入互相覆盖
+    if (!@flock($handle, LOCK_EX)) {
         @fclose($handle);
         jsonResponse(['success' => false, 'message' => '账簿暂时不可用'], 503);
     }
@@ -256,6 +257,32 @@ switch ($method) {
                 jsonResponse(['success' => true, 'data' => $events[$eventId]]);
             }
             jsonResponse(['success' => false, 'message' => '事件不存在'], 404);
+        }
+        // 历史账簿（脚本导入或早期版本）可能没有编号：按创建时间补号并落盘，只补缺失的
+        $maxDisplayId = 0;
+        $missingIds = [];
+        foreach ($events as $id => $event) {
+            if (isset($event['displayId']) && preg_match('/\A[0-9]{3}\z/', (string) $event['displayId'])) {
+                $maxDisplayId = max($maxDisplayId, (int) $event['displayId']);
+            } else {
+                $missingIds[$id] = isset($event['createdAt']) ? (string) $event['createdAt'] : '';
+            }
+        }
+        if ($missingIds !== []) {
+            asort($missingIds);
+            $changed = false;
+            foreach (array_keys($missingIds) as $id) {
+                if ($maxDisplayId >= 999) {
+                    break;
+                }
+                $maxDisplayId += 1;
+                $events[$id]['displayId'] = sprintf('%03d', $maxDisplayId);
+                $events[$id]['updatedAt'] = date('Y-m-d H:i:s');
+                $changed = true;
+            }
+            if ($changed) {
+                eventsApiWrite('events.json', $events);
+            }
         }
         // 列表只返回展示所需字段，密码哈希仅在单本读取（解锁校验）时返回。
         $publicEvents = [];

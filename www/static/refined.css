@@ -158,6 +158,7 @@ input::placeholder, textarea::placeholder { color: #96928d; }
 .net-chip.is-bad { color: #9c2f26; border-color: #eec9c4; background: #fdf2f0; }
 .net-chip.is-bad .net-dot { background: #c0392b; }
 .net-chip-sm, .version-chip-sm { height: 26px; padding: 0 9px; font-size: 11.5px; }
+.version-chip .version-prefix { opacity: .72; margin-right: 3px; }
 .net-label { font-size: 11.5px; letter-spacing: .04em; opacity: .85; margin-right: 1px; }
 .net-chip-sm .net-label { font-size: 11px; }
 .toolbar-meta { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
@@ -519,7 +520,16 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 #gift-book-content .gift-book-row:nth-child(2) { min-height: 48px; }
 #gift-book-content .gift-book-row:nth-child(3) { height: 300px; min-height: 300px; }
 #gift-book-content .book-cell { border-width: 1px; font-size: 22px; max-height: 100%; letter-spacing: 4px; }
-#gift-book-content .name { padding: 12px 0; min-height: 0; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gift-book-content .name {
+  writing-mode: horizontal-tb; text-orientation: mixed;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: none;
+  height: 3.35em; max-height: 100%; min-height: 0; padding: 0; overflow: hidden;
+  line-height: 1.1; letter-spacing: 0;
+}
+#gift-book-content .name span { display: block; }
+#gift-book-content .name[data-len="2"], #gift-book-content .name[data-len="3"] { justify-content: space-between; }
+#gift-book-content .name[data-len="long"] { height: auto; justify-content: flex-start; }
 #gift-book-content .name.scale { font-size: 18px; letter-spacing: 1px; }
 #gift-book-content .type-cell { writing-mode: horizontal-tb; font-size: 15px; letter-spacing: 1px; padding: 8px 0; }
 #gift-book-content .amount-cell { position: relative; writing-mode: horizontal-tb; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 14px 0 38px; }
@@ -791,12 +801,24 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #print-view .print-header { font-size: 22pt; margin-bottom: 6mm; }
   #print-view .print-book-content { min-height: 0; flex: 1; }
   #print-view .gift-book-row { min-height: 0; }
-  #print-view .book-cell { max-height: none; border-width: 1px; padding: 3mm 0; letter-spacing: 2px; }
-  #print-view .name { padding: 0; min-height: 0; }
+  #print-view .gift-book-row:nth-child(1) { flex: 2.4; }
+  #print-view .gift-book-row:nth-child(2) { flex: 1; }
+  #print-view .gift-book-row:nth-child(3) { flex: 3.6; }
+  #print-view .book-cell { max-height: 100%; border-width: 1px; padding: 3mm 0; letter-spacing: 2px; overflow: hidden; }
+  #print-view .name {
+    writing-mode: horizontal-tb; text-orientation: mixed;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: none;
+    height: 3.35em; max-height: 100%; min-height: 0; padding: 0; overflow: hidden;
+  }
+  #print-view .name span { display: block; }
+  #print-view .name[data-len="2"], #print-view .name[data-len="3"] { justify-content: space-between; }
+  #print-view .name[data-len="long"] { height: auto; justify-content: flex-start; }
   #print-view .type-cell { writing-mode: horizontal-tb; font-size: 14pt !important; letter-spacing: 0; padding: 1mm 0; }
   #print-view .amount-cell { position: relative; writing-mode: horizontal-tb; flex-direction: column; gap: 0; padding-bottom: 8mm; }
-  #print-view .amount-chinese { writing-mode: vertical-lr; flex: none; height: auto; padding: 0; font-size: 17pt; letter-spacing: 1px; }
+  #print-view .amount-chinese { writing-mode: vertical-lr; flex: none; height: auto; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; font-size: 17pt; letter-spacing: 1px; }
   #print-view .amount-chinese.scale { font-size: 13pt; }
+  #print-view .amount-chinese.tiny { font-size: 10pt; letter-spacing: 0; }
   #print-view .amount-numeric { position: absolute; left: 50%; bottom: 3mm; transform: translateX(-50%); writing-mode: horizontal-tb; text-orientation: mixed; flex: none; padding: 0; font-size: 11pt; line-height: 1.3; }
   #print-view .amount-numeric.scale { font-size: 9pt; }
   #print-view .print-footer { font-size: 10pt; padding: 4mm 0 0; gap: 4mm; }
@@ -1185,3 +1207,11 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 @media screen and (max-width: 700px) {
   #choice-grid { grid-template-columns: 1fr; max-width: 560px; margin-left: auto; margin-right: auto; }
 }
+
+/* ===== PDF 生成进度遮罩 ===== */
+#pdf-progress { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(35,25,18,.35); backdrop-filter: blur(2px); }
+.pdf-progress-card { display: flex; align-items: center; gap: 12px; min-width: 210px; padding: 18px 22px; border-radius: 14px; background: #fffdf8; border: 1px solid #ead5bb; box-shadow: 0 18px 40px rgba(60,30,20,.18); color: #3a2a1c; font-size: 13.5px; }
+.pdf-progress-card b { display: block; font-size: 14.5px; margin-bottom: 4px; }
+.pdf-progress-card small { color: #8a7a63; font-size: 12px; }
+.pdf-progress-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ecd6c0; border-top-color: #b3261e; animation: pdf-spin .8s linear infinite; flex: none; }
+@keyframes pdf-spin { to { transform: rotate(360deg); } }
