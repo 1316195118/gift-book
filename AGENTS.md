@@ -2,6 +2,11 @@
 
 This project has two live deployments. After any code upload or release, update and verify **both** of them; do not stop after PVE.
 
+## Theme rule
+
+- Red (`theme-festive`) and white (`theme-solemn`) share the same HTML, JavaScript, and API. Functional changes must apply to both themes.
+- Only visual styling may differ. Keep theme-specific rules in CSS; do not fork business logic by theme.
+
 ## PVE
 
 - Host: `10.10.10.252`

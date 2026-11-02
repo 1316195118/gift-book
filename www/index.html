@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-0322">
+<html lang="zh-CN" data-build="20261102-1232">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-0322"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-0322"></script>
-    <script src="./static/voices.js?v=20261102-0322"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1232"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1232"></script>
+    <script src="./static/voices.js?v=20261102-1232"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-0322" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-0322" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1232" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1232" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2041,7 +2041,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 03:22 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 12:32 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3980,10 +3980,18 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "2026.11.02-2";
+        const APP_VERSION = "2026.11.02-3";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "2026.11.02-3", date: "2026-11-02", build: "1232",
+            notes: [
+              { t: "opt", text: "红事主题强化喜庆质感：暖金纸底、朱红主卡、金色描边与更饱满的喜庆层次" },
+              { t: "opt", text: "红事记账页同步优化录入卡片、汇总、礼簿与按钮的暖红金配色" },
+              { t: "opt", text: "白事主题保持原有肃穆灰蓝配色；两端仍共用同一套功能与数据逻辑" },
+            ],
+          },
           {
             version: "2026.11.02-2", date: "2026-11-02", build: "0322",
             notes: [
