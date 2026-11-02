@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1355">
+<html lang="zh-CN" data-build="20261102-1358">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1355"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1355"></script>
-    <script src="./static/voices.js?v=20261102-1355"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1358"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1358"></script>
+    <script src="./static/voices.js?v=20261102-1358"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1355" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1355" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1358" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1358" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2044,7 +2044,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:55 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:58 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3988,11 +3988,12 @@
 
         const CHANGELOG = [
           {
-            version: "2026.11.02-4", date: "2026-11-02", build: "1355",
+            version: "2026.11.02-4", date: "2026-11-02", build: "1358",
             notes: [
               { t: "opt", text: "红事继续保留云纹角饰、顶部饰带、菱形标识与金色分隔线" },
               { t: "opt", text: "主卡片「囍」暂恢复为原来的平面水印，白事保持原样，功能仍共用" },
               { t: "opt", text: "首页顶部移除「使用说明」按钮，完整说明仍可从右侧三步卡片进入" },
+              { t: "fix", text: "红事装饰只做覆盖层（角饰、水印、顶饰带），不再用行内元素挤动标题与正文，也不改动原有间距" },
               { t: "opt", text: "调整首页在平板和窄屏下的比例：平板保持主卡与说明并排，小屏再居中收窄，避免盲目拉长" },
               { t: "fix", text: "修复模板页窄屏封面被竖向内容撑高的问题，封面统一保持 3:4 比例" },
               { t: "opt", text: "模板页按屏宽重排列数：宽屏 5 列、平板 3 列、手机 2 列，卡片不再被压成细长条" },

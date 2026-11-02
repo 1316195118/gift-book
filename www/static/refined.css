@@ -868,20 +868,6 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .home-screen-wrap:not(.solemn) .home-hero { position: relative; }
   .home-screen-wrap:not(.solemn) #home-eyebrow,
   .home-screen-wrap:not(.solemn) #tpl-eyebrow { color: #a8752b; }
-  .home-screen-wrap:not(.solemn) #home-eyebrow::before,
-  .home-screen-wrap:not(.solemn) #home-eyebrow::after,
-  .home-screen-wrap:not(.solemn) #tpl-eyebrow::before,
-  .home-screen-wrap:not(.solemn) #tpl-eyebrow::after {
-    content: "";
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    margin: 0 13px;
-    background: #c79a4b;
-    transform: rotate(45deg);
-    vertical-align: middle;
-    opacity: .72;
-  }
   .home-screen-wrap:not(.solemn) #home-title,
   .home-screen-wrap:not(.solemn) #tpl-title {
     color: #3a2119;
@@ -891,11 +877,14 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .home-screen-wrap:not(.solemn) #tpl-sub { color: #7c6253; }
   .home-screen-wrap:not(.solemn) .home-hero::after {
     content: "";
-    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
     width: 92px;
     height: 1px;
-    margin: 18px auto 0;
+    margin-left: -46px;
     background: linear-gradient(90deg, transparent, rgba(199,154,75,.18), #c79a4b, rgba(199,154,75,.18), transparent);
+    pointer-events: none;
   }
 
   .home-screen-wrap:not(.solemn) .home-brand .seal {
@@ -953,14 +942,6 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
     z-index: 1;
   }
   .home-screen-wrap:not(.solemn) #home-main-card .choice-kicker { color: #f2d79d; opacity: .92; }
-  .home-screen-wrap:not(.solemn) #home-main-card .choice-kicker::after {
-    content: "";
-    display: block;
-    width: 34px;
-    height: 1px;
-    margin-top: 8px;
-    background: linear-gradient(90deg, #e8c992, transparent);
-  }
   .home-screen-wrap:not(.solemn) #home-main-card .choice-title {
     color: #fff8e8;
     text-shadow: 0 2px 8px rgba(73,7,6,.36);
@@ -972,12 +953,6 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
     color: #ffe9be;
   }
   .home-screen-wrap:not(.solemn) #home-card-go {
-    width: max-content;
-    margin-top: 17px;
-    padding: 7px 12px;
-    border: 1px solid rgba(255,223,160,.28);
-    border-radius: 999px;
-    background: rgba(255,231,178,.12);
     color: #ffe7b6;
   }
 
@@ -1030,17 +1005,6 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   }
   .home-screen-wrap:not(.solemn) .home-side-steps b { color: #3a271d; }
   .home-screen-wrap:not(.solemn) .home-side-help { color: #a3261e; font-weight: 600; }
-  .home-screen-wrap:not(.solemn) .section-head h2::before {
-    content: "";
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-right: 10px;
-    background: #c79a4b;
-    transform: rotate(45deg);
-    vertical-align: middle;
-  }
-
   .home-screen-wrap:not(.solemn) #recent-events .recent-item {
     background: linear-gradient(135deg, #fffaf2 0%, #fdf1e1 55%, #fbe8dc 100%);
     border-color: #ead3b6;
@@ -1159,16 +1123,18 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
     border-color: #ead3b4;
     box-shadow: inset 0 0 0 1px rgba(199,154,75,.12), 0 18px 42px rgba(90,45,20,.07);
   }
-  body.theme-festive:not(.solemn) .book-caption h2 { color: #a3261e; }
+  body.theme-festive:not(.solemn) .book-caption h2 { color: #a3261e; position: relative; }
   body.theme-festive:not(.solemn) .book-caption h2::before {
     content: "";
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-right: 10px;
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -3.5px;
     background: #c79a4b;
     transform: rotate(45deg);
-    vertical-align: middle;
+    pointer-events: none;
   }
   body.theme-festive:not(.solemn) #book-container-wrapper .book-topline {
     border-bottom: 1px solid rgba(199,154,75,.22);
@@ -1183,14 +1149,6 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
     color: #a3261e;
   }
   body.theme-festive:not(.solemn) .ledger-tools summary { color: #5b3a29; }
-  body.theme-festive:not(.solemn) .entry-heading h2::after {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 1px;
-    margin-top: 8px;
-    background: linear-gradient(90deg, #c79a4b, transparent);
-  }
   body.theme-festive:not(.solemn) #setup-screen .setup-card {
     background:
       var(--festive-corner) center / 100% 100% no-repeat,
@@ -1198,18 +1156,19 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
     border-color: #ead3b6;
     box-shadow: 0 20px 52px rgba(90,45,20,.09);
   }
-  body.theme-festive:not(.solemn) #setup-screen .setup-title::after {
-    content: "";
-    display: block;
-    width: 52px;
-    height: 1px;
-    margin: 12px auto 0;
-    background: linear-gradient(90deg, transparent, #c79a4b, transparent);
-  }
   body.theme-festive:not(.solemn) #setup-screen .setup-submit {
     background: linear-gradient(135deg, #b3261e, #8d1715);
     border-color: #b3261e;
     color: #fff8e8;
+  }
+}
+
+/* 小屏时把主卡水印缩到右侧留白里，避免压住「进入模板」这行字 */
+@media screen and (max-width: 640px) {
+  .home-screen-wrap:not(.solemn) #home-main-card::after {
+    font-size: 116px;
+    right: 12px;
+    bottom: -4px;
   }
 }
 
