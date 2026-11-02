@@ -221,7 +221,7 @@ input::placeholder, textarea::placeholder { color: #96928d; }
 .offline-toast-ok:hover { background: var(--accent-hover); }
 
 .home-brand .seal, .home-screen-wrap.solemn .home-brand .seal { background: var(--accent); box-shadow: none; width: 38px; height: 38px; border-radius: 10px; }
-.home-top-actions { gap: 12px; }
+.home-top-actions { gap: 12px; margin-left: auto; }
 #cat-switch .cat-btn { min-height: 40px; padding: 8px 17px; font-size: 13px; }
 .home-storage-badge { background: var(--surface); border-color: var(--line); color: var(--muted); font-size: 12px; }
 .home-storage-badge::before { color: var(--accent); }
@@ -515,17 +515,18 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 #gift-book-content { min-width: min(720px, 100%); background: transparent; min-height: 515px; flex: none; }
 .book-empty-hint { margin: 12px 0 0; text-align: center; font-size: 12px; letter-spacing: .18em; color: var(--muted); opacity: .8; }
 #gift-book-content .gift-book-row { flex: none; }
-#gift-book-content .gift-book-row:nth-child(1) { min-height: 170px; }
+#gift-book-content .gift-book-row:nth-child(1) { height: 170px; min-height: 170px; }
 #gift-book-content .gift-book-row:nth-child(2) { min-height: 48px; }
-#gift-book-content .gift-book-row:nth-child(3) { min-height: 280px; }
-#gift-book-content .book-cell { border-width: 1px; font-size: 22px; max-height: none; letter-spacing: 4px; }
-#gift-book-content .name { padding: 12px 0; min-height: 0; }
+#gift-book-content .gift-book-row:nth-child(3) { height: 300px; min-height: 300px; }
+#gift-book-content .book-cell { border-width: 1px; font-size: 22px; max-height: 100%; letter-spacing: 4px; }
+#gift-book-content .name { padding: 12px 0; min-height: 0; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gift-book-content .name.scale { font-size: 18px; letter-spacing: 1px; }
 #gift-book-content .type-cell { writing-mode: horizontal-tb; font-size: 15px; letter-spacing: 1px; padding: 8px 0; }
 #gift-book-content .amount-cell { position: relative; writing-mode: horizontal-tb; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 14px 0 38px; }
-#gift-book-content .amount-chinese { flex: none; height: auto; max-height: none; writing-mode: vertical-lr; padding: 0; text-align: center; letter-spacing: 2px; line-height: 1.25; }
+#gift-book-content .amount-chinese { flex: none; height: auto; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; writing-mode: vertical-lr; padding: 0; text-align: center; letter-spacing: 2px; line-height: 1.25; }
 #gift-book-content .amount-numeric { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); flex: none; writing-mode: horizontal-tb; text-orientation: mixed; white-space: nowrap; max-width: 100%; font-family: "Microsoft YaHei",sans-serif; font-size: 14px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; padding: 0; color: var(--muted); }
 #gift-book-content .amount-chinese.scale { font-size: 15px; letter-spacing: 0; }
+#gift-book-content .amount-chinese.tiny { font-size: 11px; letter-spacing: 0; }
 #gift-book-content .amount-numeric.scale { font-size: 12px; letter-spacing: -.02em; }
 #gift-book-content .mark { bottom: 5px; width: 100%; height: auto; text-align: center; font-size: 9px; line-height: 1.3; writing-mode: horizontal-tb; }
 .book-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
@@ -625,8 +626,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #app-container { padding: 18px 16px 36px; }
   .home-inner { padding: 18px 16px 40px; }
   .home-topbar { flex-wrap: wrap; gap: 10px; }
-  .home-brand { flex: 1 1 100%; }
-  .home-top-actions { width: 100%; flex-wrap: wrap; gap: 7px; justify-content: flex-start; }
+  .home-brand { flex: 1 1 auto; }
+  #cat-switch { order: 1; }
+  .home-top-actions { order: 2; width: 100%; margin-left: 0; flex-wrap: nowrap; gap: 8px; justify-content: space-between; }
   .home-brand { font-size: 15px; }
   .home-top-actions { gap: 8px; }
   #cat-switch .cat-btn { min-height: 38px; padding: 7px 11px; font-size: 12px; }
@@ -711,9 +713,13 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .summary-card > span:first-child { font-size: 10px; margin-bottom: 6px; }
   .summary-card > span:last-child { font-size: 20px; line-height: 1.35; }
   #gift-book-content { min-width: 640px; min-height: 330px; }
-  #gift-book-content .gift-book-row:nth-child(1) { min-height: 108px; }
-  #gift-book-content .gift-book-row:nth-child(3) { min-height: 168px; }
+  #gift-book-content .gift-book-row:nth-child(1) { height: 130px; min-height: 130px; }
+  #gift-book-content .gift-book-row:nth-child(3) { height: 270px; min-height: 270px; }
   #gift-book-content .book-cell { font-size: 20px; }
+  #gift-book-content .name { padding: 8px 0; }
+  #gift-book-content .name.scale { font-size: 15px; }
+  #gift-book-content .amount-chinese.scale { font-size: 13px; }
+  #gift-book-content .amount-chinese.tiny { font-size: 9.5px; }
   #add-gift-form { display: flex; gap: 16px; }
   .entry-panel { padding: 20px; border-radius: 16px; }
   .payment-options { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -744,7 +750,7 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #qr-float .qr-float-actions button { min-height: 36px; }
 }
 @media (max-width: 359px) {
-  .home-top-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .home-top-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
   #template-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
   #template-grid .tpl-cover { height: auto; min-height: 0; aspect-ratio: 3 / 4; overflow: hidden; }
   #template-grid .tpl-body { padding: 11px 10px 13px; }

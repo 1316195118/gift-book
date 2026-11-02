@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1358">
+<html lang="zh-CN" data-build="20261102-1428">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1358"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1358"></script>
-    <script src="./static/voices.js?v=20261102-1358"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1428"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1428"></script>
+    <script src="./static/voices.js?v=20261102-1428"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1358" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1358" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1428" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1428" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -861,10 +861,10 @@
             <button type="button" class="version-chip" data-version title="查看更新说明">v--</button>
             <button type="button" class="home-help-btn" id="access-btn">访问保护</button>
             <button type="button" class="home-help-btn hidden" id="logout-btn">退出</button>
-            <div class="cat-switch" id="cat-switch">
-              <button type="button" class="cat-btn active" data-cat="red">红事</button>
-              <button type="button" class="cat-btn" data-cat="white">白事</button>
-            </div>
+          </div>
+          <div class="cat-switch" id="cat-switch">
+            <button type="button" class="cat-btn active" data-cat="red">红事</button>
+            <button type="button" class="cat-btn" data-cat="white">白事</button>
           </div>
         </div>
 
@@ -1312,7 +1312,13 @@
             }
             
             if (!result.success) {
-              throw new Error(result.message || '请求失败');
+              const apiError = new Error(result.message || '请求失败');
+              apiError.status = response.status;
+              // 4xx（除超时/限流）视为明确拒绝；5xx、408、429 属于临时故障，保留待重试
+              apiError.code = (!response.ok && (response.status >= 500 || response.status === 408 || response.status === 429))
+                ? 'NETWORK'
+                : (!response.ok ? 'REJECT' : null);
+              throw apiError;
             }
             
             return result;
@@ -1719,6 +1725,7 @@
           }
 
           let giftRecord = null;
+          let queued = null;
           try {
             const fullGiftData = { ...giftData, timestamp: new Date().toISOString() };
             const encryptedContent = encryptData(fullGiftData, currentPassword);
@@ -1729,9 +1736,14 @@
               encryptedContent: encryptedContent,
               requestId: newRequestId()
             };
+
+            // 先落本机队列再发请求：请求途中断电、断网或页面被关掉，
+            // 这一笔仍留在浏览器里，恢复后按同一个 requestId 补传（服务端会去重）。
+            queued = enqueueGift(giftRecord, true);
             
             // 姓名、金额、备注等只进入客户端密文，不再重复发送明文副本。
             await apiRequest('gifts.php', 'POST', giftRecord);
+            if (queued) writeQueue(readQueue().filter((item) => item.qid !== queued.qid));
 
             closeModal();
             dom.addGiftForm.reset();
@@ -1743,9 +1755,21 @@
             await loadGiftsForCurrentEvent();
           } catch (error) {
             closeModal();
-            if (error && error.code === 'NETWORK' && giftRecord) {
-              // 只在记账这一步接管：暂存本机 + 说清楚是哪条链路断了
-              await handleRecordOffline(giftRecord, giftData);
+            if (giftRecord && queued) {
+              if (error && error.code === 'REJECT') {
+                // 服务端明确判定这条数据无效，不再反复重试
+                writeQueue(readQueue().filter((item) => item.qid !== queued.qid));
+                showAlert("错误", escapeHtml(error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
+                return;
+              }
+              // 网络中断或服务暂时不可用：这一笔已经在队列里，保留并提示补传
+              const serverIssue = error && error.code !== 'NETWORK';
+              await handleRecordOffline(
+                giftRecord,
+                giftData,
+                queued,
+                serverIssue ? "服务暂时不可用，这一笔已加密暂存在本机，恢复后会自动补传。" : ""
+              );
               return;
             }
             showAlert("错误", escapeHtml(error && error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
@@ -1851,7 +1875,9 @@
             amountCell.dataset.giftIndex = giftIndex;
             if (gift?.data) {
               const amountChinese = amountToChinese(gift.data.amount);
-              amountCell.innerHTML = `<div class="amount-chinese${amountChinese.length > 16 ? " scale" : ""}">${amountChinese}</div>
+              const cnLen = amountChinese.length;
+              const cnClass = cnLen > 18 ? " scale tiny" : cnLen > 8 ? " scale" : "";
+              amountCell.innerHTML = `<div class="amount-chinese${cnClass}">${amountChinese}</div>
                                 <div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? " scale" : ""}">¥${gift.data.amount}</div>`;
             }
             amountRow.appendChild(amountCell);
@@ -2044,7 +2070,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 13:58 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 14:28 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3988,7 +4014,7 @@
 
         const CHANGELOG = [
           {
-            version: "2026.11.02-4", date: "2026-11-02", build: "1358",
+            version: "2026.11.02-4", date: "2026-11-02", build: "1428",
             notes: [
               { t: "opt", text: "红事继续保留云纹角饰、顶部饰带、菱形标识与金色分隔线" },
               { t: "opt", text: "主卡片「囍」暂恢复为原来的平面水印，白事保持原样，功能仍共用" },
@@ -3998,6 +4024,12 @@
               { t: "fix", text: "修复模板页窄屏封面被竖向内容撑高的问题，封面统一保持 3:4 比例" },
               { t: "opt", text: "模板页按屏宽重排列数：宽屏 5 列、平板 3 列、手机 2 列，卡片不再被压成细长条" },
               { t: "opt", text: "礼簿页手机端缩短空白版面高度，并增加「本页暂无记录」提示，避免大面积留白" },
+              { t: "fix", text: "录入时先把这一笔写进本机加密队列再发请求：请求途中断电、断网或关闭页面，恢复后按同一请求 ID 补传，不会丢单也不会重复" },
+              { t: "fix", text: "服务端 5xx、超时、限流不再丢弃待同步记录，只有明确的 4xx 数据无效才会移除" },
+              { t: "opt", text: "账簿文件改为先 fsync 落盘再原子替换，断电最多回到上一版完整文件，不会留下写坏的账簿" },
+              { t: "fix", text: "超长姓名、超大金额改为定高裁切并显示省略号，极端输入不再把整本礼簿拉成长条" },
+              { t: "opt", text: "手机端礼簿重新分配姓名与金额行高，常见金额的大写能完整显示" },
+              { t: "opt", text: "手机端顶栏改为「品牌 + 红白切换」一行、状态胶囊一行铺满，右侧不再留空" },
             ],
           },
           {
@@ -4443,21 +4475,24 @@
           }
         }
 
-        function writeQueue(list) {
+        function writeQueue(list, silent = false) {
+          let persisted = true;
           try {
             if (list.length) localStorage.setItem(QUEUE_KEY, JSON.stringify(list));
             else localStorage.removeItem(QUEUE_KEY);
           } catch (e) {
+            persisted = false;
             console.warn("暂存写入失败", e);
           }
-          paintQueueChip();
+          if (!silent) paintQueueChip();
+          return persisted;
         }
 
         function queueFor(eventId) {
           return readQueue().filter((item) => String(item.eventId) === String(eventId));
         }
 
-        function enqueueGift(record) {
+        function enqueueGift(record, silent = false) {
           const list = readQueue();
           const item = {
             qid: `q${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
@@ -4467,7 +4502,7 @@
           };
           if (record.requestId) item.requestId = String(record.requestId);
           list.push(item);
-          writeQueue(list);
+          writeQueue(list, silent);
           return item;
         }
 
@@ -4506,8 +4541,9 @@
         /**
          * 记账时网络失败：把记录暂存到本机，并弹窗说清楚是哪条链路不通。
          */
-        async function handleRecordOffline(record, giftData) {
-          const item = enqueueGift(record);
+        async function handleRecordOffline(record, giftData, existingItem = null, note = "") {
+          paintQueueChip();
+          const item = existingItem || enqueueGift(record);
           // 先在本机显示，带「待同步」标记；刷新后用暂存里的密文重新解密显示
           gifts.push({
             id: item.qid,
@@ -4523,6 +4559,11 @@
           document.querySelector('input[name="payment-type"][value="现金"]').checked = true;
           updateAmountChinesePreview();
 
+          if (note) {
+            // 服务端 5xx：链路可能还是通的，只需要说明已暂存并等待补传
+            showSyncStatus(note, true);
+            return;
+          }
           const probes = await probeAllLinks();
           showOfflineToast(probes, item, giftData);
         }
@@ -4639,7 +4680,8 @@
               writeQueue(readQueue().filter((x) => x.qid !== item.qid));
               sent += 1;
             } catch (err) {
-              if (err && err.code === "NETWORK") break; // 还没通，留着下次
+              // 只有服务端明确拒绝（4xx 数据无效）才丢弃；网络中断、5xx、408、429 一律保留重试
+              if (!err || err.code !== "REJECT") break;
               writeQueue(readQueue().filter((x) => x.qid !== item.qid));
               rejected += 1;
               console.warn("暂存记录被服务端拒绝，已移除", item.qid, err);

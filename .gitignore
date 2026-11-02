@@ -26,3 +26,4 @@ Thumbs.db
 .shots/
 tools/ui-shot.mjs
 tools/ui-*.json
+tools/gen-*.mjs

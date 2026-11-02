@@ -100,7 +100,15 @@ function giftsApiWrite($filename, $records) {
             return false;
         }
         $temporary = $candidate;
-        if (!@fclose($handle) || @file_put_contents($temporary, $encoded) !== strlen($encoded)) {
+        if (@fwrite($handle, $encoded) !== strlen($encoded) || !@fflush($handle)) {
+            @fclose($handle);
+            return false;
+        }
+        // 先落盘再改名：断电时最多回到上一版完整文件，不会留下写了一半的账簿
+        if (function_exists('fsync')) {
+            @fsync($handle);
+        }
+        if (!@fclose($handle)) {
             return false;
         }
         return @rename($temporary, STORAGE_DIR . $filename);
