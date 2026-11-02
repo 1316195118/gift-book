@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1620">
+<html lang="zh-CN" data-build="20261102-1640">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1620"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1620"></script>
-    <script src="./static/voices.js?v=20261102-1620"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1640"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1640"></script>
+    <script src="./static/voices.js?v=20261102-1640"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1620" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1620" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1640" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1640" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -887,9 +887,9 @@
           <aside class="home-side" aria-label="使用提示">
             <div class="home-side-kicker">三步开始</div>
             <ol class="home-side-steps">
-              <li><span>01</span><div><b>选择场景</b><small>婚宴、寿宴或丧仪，套用对应礼俗称谓</small></div></li>
+              <li><span>01</span><div><b>选择场景</b><small id="copy-step-1">婚宴、寿宴或丧仪，套用对应礼俗称谓</small></div></li>
               <li><span>02</span><div><b>建立账簿</b><small>填写时间、地点，密码可选填</small></div></li>
-              <li><span>03</span><div><b>登记与导出</b><small>录入礼金，随时打印或导出 Excel</small></div></li>
+              <li><span>03</span><div><b>登记与导出</b><small id="copy-step-3">录入礼金，随时打印或导出 Excel</small></div></li>
             </ol>
             <button type="button" class="home-side-help" id="home-side-help">查看完整使用说明 →</button>
           </aside>
@@ -926,7 +926,7 @@
           <div class="setup-badge" id="setup-badge">红 事</div>
         </div>
         <h1 class="setup-title">创建新账簿</h1>
-        <p class="setup-sub">填写账簿信息，创建后即可开始登记礼金</p>
+        <p class="setup-sub" id="setup-sub">填写账簿信息，创建后即可开始登记礼金</p>
         <div class="setup-divider"></div>
 
         <div id="select-event-section" class="setup-section hidden">
@@ -965,7 +965,7 @@
 
             <div class="setup-grid2">
               <div class="setup-field">
-                <label class="setup-label" for="event-location">宴请地点</label>
+                <label class="setup-label" for="event-location" id="setup-location-label">宴请地点</label>
                 <input type="text" id="event-location" placeholder="例如：某某大酒店 3 楼" class="setup-input" />
               </div>
               <div class="setup-field">
@@ -984,7 +984,7 @@
                 <input type="password" id="admin-password-confirm" placeholder="再次输入（不设密码可留空）" class="setup-input" autocomplete="new-password" />
               </div>
             </div>
-            <p class="setup-hint">密码用于 AES 加密礼金数据，遗忘将无法恢复。留空也能正常使用，只是任何拿到地址的人都能打开这本账簿 —— 建议设置。</p>
+            <p class="setup-hint" id="setup-pwd-hint">密码用于 AES 加密礼金数据，遗忘将无法恢复。留空也能正常使用，只是任何拿到地址的人都能打开这本账簿 —— 建议设置。</p>
 
             <details class="setup-more group">
               <summary class="setup-more-summary">
@@ -1048,7 +1048,7 @@
               <button type="button" class="net-chip net-chip-sm" data-net title="点击查看各链路的实时延迟">
                 <span class="net-label" aria-hidden="true">NAS 存储</span><span class="net-dot" aria-hidden="true"></span><span class="net-text">检测中</span>
               </button>
-              <button type="button" id="queue-chip" class="queue-chip hidden" title="查看待同步礼金">待同步</button>
+              <button type="button" id="queue-chip" class="queue-chip hidden" title="查看待同步记录">待同步</button>
               <button type="button" class="version-chip version-chip-sm" data-version title="查看更新说明">v--</button>
             </div>
             <div class="toolbar-actions">
@@ -1067,10 +1067,10 @@
         <div id="sync-status" class="sync-status hidden" role="status"><span id="sync-status-text"></span><button id="retry-sync-btn" type="button">重试同步</button></div>
         <div class="ledger-layout">
           <section class="entry-panel" aria-label="礼金录入">
-            <div class="entry-heading"><h2>礼金录入<span class="entry-pending hidden" id="entry-pending"><i aria-hidden="true"></i>待同步<b>0</b></span></h2><p>每一份心意，都郑重留名</p></div>
+            <div class="entry-heading"><h2><span id="copy-entry-title">礼金录入</span><span class="entry-pending hidden" id="entry-pending"><i aria-hidden="true"></i>待同步<b>0</b></span></h2><p>每一份心意，都郑重留名</p></div>
             <form id="add-gift-form">
               <div class="entry-field"><label for="guest-name">来宾姓名</label><input type="text" id="guest-name" placeholder="请输入来宾姓名" required maxlength="20" autocomplete="off" /></div>
-              <div class="entry-field"><label for="gift-amount">礼金金额 <small>人民币 / 元</small></label><input type="number" id="gift-amount" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" /></div>
+              <div class="entry-field"><label for="gift-amount"><span id="copy-amount-label">礼金金额</span> <small>人民币 / 元</small></label><input type="number" id="gift-amount" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" /></div>
               <div class="amount-chinese-preview" id="amount-chinese-preview" aria-live="polite">输入金额后显示大写</div>
               <div class="entry-field entry-payment"><label>收款方式</label>
                 <div class="payment-options">
@@ -1092,8 +1092,8 @@
               <button type="button" id="search-top-btn">查询</button>
             </div>
             <div class="ledger-summary" aria-live="polite">
-              <div class="summary-card"><span>礼金总额 / 元</span><span id="total-amount">¥0.00</span></div>
-              <div class="summary-card"><span>送礼人数</span><span id="total-givers">0</span></div>
+              <div class="summary-card"><span id="copy-total-label">礼金总额 / 元</span><span id="total-amount">¥0.00</span></div>
+              <div class="summary-card"><span id="copy-givers-label">送礼人数</span><span id="total-givers">0</span></div>
               <div class="summary-card"><span>本页小计 / 元</span><span id="page-subtotal">¥0.00</span></div>
             </div>
             <div id="book-container-wrapper" class="gift-book-frame">
@@ -1123,7 +1123,7 @@
     <!-- 断网提示：右下角悬浮卡片，不遮页面 -->
     <div id="offline-toast" class="offline-toast hidden" role="alert" aria-live="assertive">
       <button type="button" class="offline-toast-close" id="offline-toast-close" title="关闭提示" aria-label="关闭提示">×</button>
-      <div class="offline-toast-head"><span class="offline-toast-dot" aria-hidden="true"></span><b>网络中断 · 礼金已暂存</b></div>
+      <div class="offline-toast-head"><span class="offline-toast-dot" aria-hidden="true"></span><b>网络中断 · 已暂存</b></div>
       <p class="offline-toast-text" id="offline-toast-text"></p>
       <ul class="offline-toast-links" id="offline-toast-links"></ul>
       <div class="offline-toast-foot">
@@ -1446,6 +1446,7 @@
           document.body.classList.toggle("ledger-closed", closed);
           // 白事一旦超时：手机端直接隐藏整个录入框，只在电脑端保留
           document.body.classList.toggle("ledger-closed-solemn", closed && isSolemnEvent(currentEvent));
+          paintLedgerCopy();
           if (dom.currentEventSub) {
             const d = currentEvent.startDateTime ? new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN") : "";
             dom.currentEventSub.textContent = [currentEvent.template, d, currentEvent.location].filter(Boolean).join(" · ");
@@ -1599,7 +1600,7 @@
                   <div class="unlock-error hidden" id="unlock-error" role="alert"></div>
                   <button type="submit" class="unlock-submit">进入账簿</button>
                 </form>
-                <p class="unlock-note">管理密码用于解密礼金数据，忘记将无法恢复</p>
+                <p class="unlock-note">管理密码用于解密本账簿数据，忘记将无法恢复</p>
               </div>`;
             showModal("", content, []);
             document.getElementById("unlock-close")?.addEventListener("click", closeModal);
@@ -1666,7 +1667,7 @@
             syncEventTotal();
           } catch (error) {
             console.error("加载礼金列表失败:", error);
-            if (generation === loadGeneration) showSyncStatus("礼金数据加载失败，请检查网络后重试。", true);
+            if (generation === loadGeneration) showSyncStatus("账簿数据加载失败，请检查网络后重试。", true);
           }
         }
 
@@ -1676,7 +1677,7 @@
          */
         async function handleAddGiftSubmit(e) {
           e.preventDefault();
-          if (isLedgerLocked) return showAlert("账簿已锁定", "请先解锁账簿后再录入礼金。");
+          if (isLedgerLocked) return showAlert("账簿已锁定", "请先解锁账簿后再录入。");
           const name = dom.guestNameInput.value.trim();
           const amountStr = dom.giftAmountInput.value;
           const type = document.querySelector('input[name="payment-type"]:checked')?.value;
@@ -1687,7 +1688,7 @@
 
           const amount = Number(amountStr);
           if (!Number.isFinite(amount) || amount < MIN_GIFT_AMOUNT || amount > MAX_GIFT_AMOUNT)
-            return showAlert("金额超出范围", `单笔礼金需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
+            return showAlert("金额超出范围", `单笔金额需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
           if (Math.abs(Math.round(amount * 100) - amount * 100) > 0.0001) return showAlert("金额无效", "金额最多保留两位小数。");
 
           // 检查是否已存在同名或同名同金额的记录
@@ -1716,7 +1717,7 @@
         async function saveGift(giftData) {
           if (isLedgerLocked) {
             closeModal();
-            return showAlert("账簿已锁定", "请先解锁账簿后再录入礼金。");
+            return showAlert("账簿已锁定", "请先解锁账簿后再录入。");
           }
           const start = new Date(currentEvent.startDateTime);
           const end = new Date(currentEvent.endDateTime);
@@ -1729,7 +1730,11 @@
           let giftRecord = null;
           let queued = null;
           try {
-            const fullGiftData = { ...giftData, timestamp: new Date().toISOString() };
+            const fullGiftData = {
+              ...giftData,
+              timestamp: new Date().toISOString(),
+              ...(isOutOfTime ? { late: true } : {}),
+            };
             const encryptedContent = encryptData(fullGiftData, currentPassword);
             
             // 只发送密文；断网暂存也沿用同一个对象，不把姓名/金额带到本机队列。
@@ -1761,7 +1766,7 @@
               if (error && error.code === 'REJECT') {
                 // 服务端明确判定这条数据无效，不再反复重试
                 writeQueue(readQueue().filter((item) => item.qid !== queued.qid));
-                showAlert("错误", escapeHtml(error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
+                showAlert("错误", escapeHtml(error.message ? `录入失败：${error.message}` : "录入失败。"));
                 return;
               }
               // 网络中断或服务暂时不可用：这一笔已经在队列里，保留并提示补传
@@ -1774,7 +1779,7 @@
               );
               return;
             }
-            showAlert("错误", escapeHtml(error && error.message ? `录入礼金失败：${error.message}` : "录入礼金失败。"));
+            showAlert("错误", escapeHtml(error && error.message ? `录入失败：${error.message}` : "录入失败。"));
           }
         }
 
@@ -1862,7 +1867,8 @@
               const nameHtml =
                 shownChars.map((ch) => `<span>${escapeHtml(ch)}</span>`).join("") +
                 (nameChars.length > shownChars.length ? "<span>…</span>" : "");
-              nameCell.innerHTML = `<div class="name${displayName.length > 4 ? " scale" : ""}" data-len="${nameLen}">${nameHtml}</div>${statusIndicators}`;
+              const lateMark = gift.data.late ? '<div class="late-mark">*补录</div>' : "";
+              nameCell.innerHTML = `${lateMark}<div class="name${displayName.length > 4 ? " scale" : ""}" data-len="${nameLen}">${nameHtml}</div>${statusIndicators}`;
               nameCell.dataset.giftIndex = giftIndex;
               // 鼠标悬停就能看到最后一次改动的时间，不用点进详情
               nameCell.title = isModified
@@ -1954,6 +1960,18 @@
           const cat = getHomeCategory();
           applyTheme(theme || (cat === "white" ? "theme-solemn" : "theme-festive"));
           if (dom.setupBadge) dom.setupBadge.textContent = cat === "white" ? "白 事" : "红 事";
+          const c = copyOf(null);
+          const setupSub = document.getElementById("setup-sub");
+          const locationLabel = document.getElementById("setup-location-label");
+          const pwdHint = document.getElementById("setup-pwd-hint");
+          if (setupSub) setupSub.textContent = c.setupSub;
+          if (locationLabel) locationLabel.textContent = c.locationLabel;
+          if (pwdHint) pwdHint.textContent = c.pwdHint;
+          if (dom.eventNameInput) dom.eventNameInput.placeholder = c.namePh;
+          const locInput = document.getElementById("event-location");
+          const noteInput = document.getElementById("event-note");
+          if (locInput) locInput.placeholder = c.locationPh;
+          if (noteInput) noteInput.placeholder = c.notePh;
           setDefaultTimes();
           resetSetupPanels();
           renderCoverStyles();
@@ -2005,12 +2023,75 @@
           },
         };
 
+        // 红事 / 白事用语：白事绝不能出现「礼金」「贺礼」「婚宴」等红事字眼
+        const UX_COPY = {
+          festive: {
+            entryTitle: "礼金录入",
+            amountLabel: "礼金金额",
+            totalLabel: "礼金总额 / 元",
+            giversLabel: "送礼人数",
+            detailTitle: "礼金明细",
+            fileSuffix: "礼金明细",
+            recordsLabel: "礼金记录",
+            setupSub: "填写账簿信息，创建后即可开始登记礼金",
+            locationLabel: "宴请地点",
+            namePh: "例如：张三李四新婚之喜",
+            locationPh: "例如：某某大酒店 3 楼",
+            notePh: "选填，如：男方亲友",
+            pwdHint: "密码用于 AES 加密礼金数据，遗忘将无法恢复。留空也能正常使用，只是任何拿到地址的人都能打开这本账簿 —— 建议设置。",
+            stepScene: "婚宴、寿宴或丧仪，套用对应礼俗称谓",
+            stepEntry: "录入礼金，随时打印或导出 Excel",
+            statsTitle: "礼金统计详情",
+            statsGivers: "总送礼人数",
+            statsTotal: "总礼金金额",
+          },
+          solemn: {
+            entryTitle: "奠仪录入",
+            amountLabel: "奠仪金额",
+            totalLabel: "奠仪总额 / 元",
+            giversLabel: "奠仪人数",
+            detailTitle: "奠仪明细",
+            fileSuffix: "奠仪明细",
+            recordsLabel: "奠仪记录",
+            setupSub: "填写账簿信息，创建后即可开始登记奠仪",
+            locationLabel: "仪式地点",
+            namePh: "例如：家父追思会",
+            locationPh: "例如：市殡仪馆 追思厅",
+            notePh: "选填，如：亲属 / 同事",
+            pwdHint: "密码用于 AES 加密奠仪数据，遗忘将无法恢复。留空也能正常使用，只是任何拿到地址的人都能打开这本账簿 —— 建议设置。",
+            stepScene: "丧仪、追思或周年，套用对应礼俗称谓",
+            stepEntry: "录入奠仪，随时打印或导出 Excel",
+            statsTitle: "奠仪统计详情",
+            statsGivers: "总奠仪人数",
+            statsTotal: "总奠仪金额",
+          },
+        };
+
+        function copyOf(ev) {
+          const solemn = ev ? isSolemnEvent(ev) : getHomeCategory() === "white";
+          return solemn ? UX_COPY.solemn : UX_COPY.festive;
+        }
+
+        /** 把账簿页的静态文案按红/白切换 */
+        function paintLedgerCopy() {
+          const c = copyOf(currentEvent);
+          const set = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+          };
+          set("copy-entry-title", c.entryTitle);
+          set("copy-amount-label", c.amountLabel);
+          set("copy-total-label", c.totalLabel);
+          set("copy-givers-label", c.giversLabel);
+          document.querySelector(".entry-panel")?.setAttribute("aria-label", c.entryTitle);
+        }
+
         const WHITE_TEMPLATES = [
-          { key: "funeral", name: "丧事", glyph: "奠", sub: "丧仪", desc: "丧仪礼金登记，称谓多用「奠仪」「帛金」。" },
+          { key: "funeral", name: "丧事", glyph: "奠", sub: "丧仪", desc: "丧仪奠仪登记，称谓多用「奠仪」「帛金」。" },
           { key: "baishi", name: "白事", glyph: "白", sub: "通用", desc: "白事礼簿通用，庄重肃穆，适用于各类丧仪。" },
-          { key: "memorial", name: "追思", glyph: "思", sub: "追思 / 悼念", desc: "追思会、悼念仪式礼金登记。" },
+          { key: "memorial", name: "追思", glyph: "思", sub: "追思 / 悼念", desc: "追思会、悼念仪式奠仪登记。" },
           { key: "anniversary", name: "周年", glyph: "周", sub: "周年祭", desc: "周年祭礼登记，缅怀先人。" },
-          { key: "reburial", name: "迁坟", glyph: "迁", sub: "迁坟 / 安葬", desc: "迁坟、安葬仪式礼金登记。" },
+          { key: "reburial", name: "迁坟", glyph: "迁", sub: "迁坟 / 安葬", desc: "迁坟、安葬仪式奠仪登记。" },
         ];
 
         function isSolemnEvent(ev) {
@@ -2037,6 +2118,11 @@
           if (dom.homeCardDesc) dom.homeCardDesc.textContent = t.cardDesc;
           if (dom.homeCardGo) dom.homeCardGo.textContent = t.go;
           if (dom.tplEyebrow) dom.tplEyebrow.textContent = t.tplEyebrow;
+          const c = copyOf(null);
+          const step1 = document.getElementById("copy-step-1");
+          const step3 = document.getElementById("copy-step-3");
+          if (step1) step1.textContent = c.stepScene;
+          if (step3) step3.textContent = c.stepEntry;
           dom.catSwitch?.querySelectorAll("[data-cat]").forEach((b) => {
             b.classList.toggle("active", b.dataset.cat === cat);
           });
@@ -2066,7 +2152,7 @@
                 <div class="help-num">2</div>
                 <div class="help-body">
                   <div class="help-title">填写账簿信息</div>
-                  <div class="help-desc">填写名称、起止时间、地点；管理密码可选填，建议设置以便加密礼金数据。</div>
+                  <div class="help-desc">填写名称、起止时间、地点；管理密码可选填，建议设置以便加密账簿数据。</div>
                 </div>
               </div>
               <div class="help-step">
@@ -2084,7 +2170,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:20 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 16:40 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -2921,7 +3007,7 @@
               const newAmount = parseFloat(document.getElementById("inline-edit-amount").value);
               const newType = document.querySelector('input[name="inline-edit-type"]:checked').value;
               if (isNaN(newAmount) || newAmount < MIN_GIFT_AMOUNT || newAmount > MAX_GIFT_AMOUNT)
-                return showAlert("金额超出范围", `单笔礼金需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
+                return showAlert("金额超出范围", `单笔金额需在 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString("zh-CN")} 元之间。`);
 
               if (newAmount === g.amount && newType === g.type) return cancelHandler(); // 无变化则取消
 
@@ -3369,7 +3455,7 @@
             }
             progress.update("正在写入 PDF…");
             const blob = buildPdfBlob(images, PDF_PAGE_W_PT, PDF_PAGE_H_PT);
-            downloadBlob(blob, `${currentEvent.name}_礼金明细.pdf`);
+            downloadBlob(blob, `${currentEvent.name}_${copyOf(currentEvent).fileSuffix}.pdf`);
           } catch (error) {
             console.error("PDF 生成失败:", error);
             showAlert("导出失败", "PDF 生成失败，请重试，或先改用 Excel 导出。");
@@ -3439,7 +3525,7 @@
               <button type="button" class="unlock-close" id="export-close" aria-label="关闭">×</button>
               <div class="unlock-seal" aria-hidden="true">导</div>
               <h3 class="unlock-title">导出账簿</h3>
-              <p class="unlock-sub">「${escapeHtml(currentEvent.name)}」共 ${gifts.length} 条礼金记录</p>
+              <p class="unlock-sub">「${escapeHtml(currentEvent.name)}」共 ${gifts.length} 条${copyOf(currentEvent).recordsLabel}</p>
               <div class="export-options">
                 <button type="button" class="export-option" data-format="excel">
                   <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9 9.5v10M15 9.5v10"/></svg></span>
@@ -3483,7 +3569,7 @@
           const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 };
 
           const rows = [
-            [{ v: `${currentEvent.name} 礼金明细`, s: style.title }, null, null, null, null, null, null],
+            [{ v: `${currentEvent.name} ${copyOf(currentEvent).detailTitle}`, s: style.title }, null, null, null, null, null, null],
             [{ v: metaLine, s: style.meta }, null, null, null, null, null, null],
             [null],
             ["序号", "姓名", "金额", "大写金额", "收款方式", "备注", "录入时间"].map((v) => ({ v, s: style.head })),
@@ -3569,7 +3655,7 @@
             });
           }
 
-          XlsxLite.downloadWorkbook(sheets, `${currentEvent.name}_礼金明细.xlsx`);
+          XlsxLite.downloadWorkbook(sheets, `${currentEvent.name}_${copyOf(currentEvent).fileSuffix}.xlsx`);
         }
 
         /**
@@ -3696,7 +3782,7 @@
           const blob = new Blob(["\ufeff", html], { type: "application/msword" });
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
-          a.download = `${currentEvent.name}_礼金明细.doc`;
+          a.download = `${currentEvent.name}_${copyOf(currentEvent).fileSuffix}.doc`;
           document.body.appendChild(a);
           a.click();
           setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -3817,16 +3903,17 @@
         function showStatistics() {
           dom.modal.classList.add("modal-large");
           const stats = calculateStats();
+          const c = copyOf(currentEvent);
           const statsHtml = `
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div id="grid-container" class="md:col-span-3"></div>
         <div class="space-y-4">
           <div class="flex justify-between p-3 bg-gray-100 rounded-lg">
-              <span class="font-bold">总送礼人数:</span>
+              <span class="font-bold">${c.statsGivers}:</span>
               <span class="font-bold themed-text">${stats.totalGivers} 人</span>
           </div>
           <div class="flex justify-between p-3 bg-gray-100 rounded-lg">
-              <span class="font-bold">总礼金金额:</span>
+              <span class="font-bold">${c.statsTotal}:</span>
               <span class="font-bold themed-text">${formatCurrency(stats.totalAmount)}</span>
           </div>
           <div class="border-t pt-4 mt-4">
@@ -3838,7 +3925,7 @@
         </div>
       </div>`;
 
-          showModal("礼金统计详情", statsHtml, [{ text: "关闭", class: "border themed-button-secondary px-4 py-2 rounded" }]);
+          showModal(c.statsTitle, statsHtml, [{ text: "关闭", class: "border themed-button-secondary px-4 py-2 rounded" }]);
 
           const tableData = gifts.map((g) => [g.data.name, g.data.amount, g.data.remarks || "无", g.data.type, new Date(g.data.timestamp).toLocaleString("zh-CN")]);
           renderStatsTable(document.getElementById("grid-container"), ["姓名", "金额 (元)", "备注", "收款类型", "录入时间"], tableData);
@@ -4103,7 +4190,7 @@
           const content = `
             <div class="modal-danger-tip">
               <span aria-hidden="true">⚠️</span>
-              <span>即将删除账簿「${escapeHtml(currentEvent.name)}」<b>及其全部礼金记录</b>，删除后无法恢复。<br>单条礼金记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。</span>
+              <span>即将删除账簿「${escapeHtml(currentEvent.name)}」<b>及其全部${copyOf(currentEvent).recordsLabel}</b>，删除后无法恢复。<br>单条礼金记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。</span>
             </div>
             ${hasPassword
               ? '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-password">请输入管理密码以继续</label><input type="password" id="delete-confirm-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password">'
@@ -4440,10 +4527,24 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.10";
+        const APP_VERSION = "1.0.12";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.12", date: "2026-11-02", build: "1640",
+            notes: [
+              { t: "feat", text: "超出账簿时间补录的礼金，在礼簿姓名上方标记「*补录」，屏幕、打印与 PDF 都会显示" },
+            ],
+          },
+          {
+            version: "1.0.11", date: "2026-11-02", build: "1630",
+            notes: [
+              { t: "fix", text: "白事全站用语排查：录入页、汇总、设置、统计、导出、帮助、离线提示不再出现「礼金/贺礼/送礼」等红事字眼，分别使用「奠仪」等白事用语" },
+              { t: "opt", text: "白事创建账簿的占位示例改为追思会/殡仪馆/亲属，地点标签改为「仪式地点」" },
+              { t: "fix", text: "进入记账页面不再自动跳回顶部，保留进入前的滚动位置" },
+            ],
+          },
           {
             version: "1.0.10", date: "2026-11-02", build: "1620",
             notes: [
@@ -5129,7 +5230,7 @@
               <td class="num">${new Date(item.queuedAt).toLocaleTimeString("zh-CN", { hour12: false })}</td>
             </tr>`;
           }).join("");
-          showModal("待同步礼金", `
+          showModal("待同步记录", `
             <p class="offline-lead">以下 ${list.length} 条只保存在本浏览器，尚未写入 NAS。</p>
             <table class="net-detail-table">
               <thead><tr><th>姓名</th><th class="num">金额</th><th class="num">暂存时间</th></tr></thead>
