@@ -612,6 +612,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #setup-screen .setup-dt { grid-template-columns: 1.6fr 1fr; }
 }
 @media (max-width: 900px) {
+  /* 已结束的账簿：手机/平板单列时把「礼簿」放到最上面，录入面板往下挪 */
+  body.ledger-closed .ledger-layout > .book-panel { order: 1; }
+  body.ledger-closed .ledger-layout > .entry-panel { order: 2; }
   .home-inner { padding: 24px; }
   #choice-grid { grid-template-columns: minmax(0,1.55fr) minmax(260px,1fr); }
   .home-side { padding: 20px 22px; border-radius: 17px; gap: 12px; }

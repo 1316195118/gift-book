@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1550">
+<html lang="zh-CN" data-build="20261102-1555">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1550"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1550"></script>
-    <script src="./static/voices.js?v=20261102-1550"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1555"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1555"></script>
+    <script src="./static/voices.js?v=20261102-1555"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1550" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1550" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1555" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1555" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -1453,6 +1453,8 @@
         function startSession() {
           dom.currentEventTitleEl.textContent = currentEvent.name;
           applyTheme(currentEvent.theme);
+          // 手机端布局：已结束的账簿把礼簿放前面，录入面板放后面
+          document.body.classList.toggle("ledger-closed", isLedgerClosed(currentEvent));
           if (dom.currentEventSub) {
             const d = currentEvent.startDateTime ? new Date(currentEvent.startDateTime).toLocaleDateString("zh-CN") : "";
             dom.currentEventSub.textContent = [currentEvent.template, d, currentEvent.location].filter(Boolean).join(" · ");
@@ -2019,6 +2021,12 @@
           return ev.theme === "theme-solemn" || ev.template === "白事" || /丧|白事|追思|周年|迁坟/.test(ev.name || "");
         }
 
+        /** 账簿是否已过结束时间（用于手机端把礼簿放到录入面板之前） */
+        function isLedgerClosed(ev) {
+          const end = ev && ev.endDateTime ? new Date(ev.endDateTime).getTime() : NaN;
+          return Number.isFinite(end) && Date.now() > end;
+        }
+
         function applyHomeCategory() {
           const cat = getHomeCategory();
           const t = CATEGORY_TEXT[cat];
@@ -2080,12 +2088,13 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:50 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:55 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
 
         function showHomeScreen() {
+          document.body.classList.remove("ledger-closed");
           dom.setupScreen.classList.add("hidden");
           dom.mainScreen.classList.add("hidden");
           dom.templateScreen.classList.add("hidden");
@@ -2255,20 +2264,7 @@
           if (!dom.recentEvents) return;
           const wantSolemn = getHomeCategory() === "white";
           let list = Object.values(allEvents || {}).filter((ev) => isSolemnEvent(ev) === wantSolemn);
-          // 排序：已结束的账簿置顶（方便回看/导出），未开始的沉到最后，进行中夹在中间
-          const nowTs = Date.now();
-          const statusRank = (ev) => {
-            const endTs = ev.endDateTime ? new Date(ev.endDateTime).getTime() : NaN;
-            const startTs = ev.startDateTime ? new Date(ev.startDateTime).getTime() : NaN;
-            if (Number.isFinite(endTs) && nowTs > endTs) return 0; // 已结束
-            if (Number.isFinite(startTs) && nowTs < startTs) return 2; // 尚未开始
-            return 1; // 进行中 / 未设置时间
-          };
-          list.sort(
-            (a, b) =>
-              statusRank(a) - statusRank(b) ||
-              String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
-          );
+          list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
           if (!list.length) {
             dom.recentEvents.innerHTML = `<div class="recent-empty">还没有${wantSolemn ? "白事" : "红事"}账簿，点击下方「创建新账簿」开始</div>`;
             return;
@@ -4416,10 +4412,17 @@
 
         // ================= 版本与更新说明 =================
 
-        const APP_VERSION = "1.0.06";
+        const APP_VERSION = "1.0.07";
         const LOG_TAG = { feat: "新增", fix: "修复", sec: "安全", opt: "优化" };
 
         const CHANGELOG = [
+          {
+            version: "1.0.07", date: "2026-11-02", build: "1555",
+            notes: [
+              { t: "opt", text: "手机端录入页：已结束的账簿把「礼簿」放到最上面，录入面板下移；未结束的保持录入在上、礼簿在下" },
+              { t: "fix", text: "撤销 1.0.06 的首页排序，首页「最近账簿」恢复按创建时间倒序" },
+            ],
+          },
           {
             version: "1.0.06", date: "2026-11-02", build: "1550",
             notes: [
