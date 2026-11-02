@@ -26,6 +26,7 @@ This project has two live deployments. After any code upload or release, update 
 
 - Confirm `/build.json` matches the new build.
 - Confirm the container is healthy and the page shows the expected version.
+- The events list endpoint intentionally omits `passwordHash`; fetch a single event with `events.php?id=...` when checking whether a ledger is password-protected.
 - Exercise a temporary ledger in the preview/test deployment; delete it afterwards.
 - On production, prefer read-only checks plus invalid-request checks that do not write data.
 
