@@ -785,8 +785,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #print-view { position: static; width: 297mm; height: auto; }
   #print-view .print-page { width: 297mm; height: 209mm; padding: 12mm 15mm; background: #fffdf9; page-break-after: always; break-after: page; overflow: hidden; }
   #print-view .print-page:last-child { page-break-after: auto; break-after: auto; }
-  #print-view .print-cover-page { align-items: center; justify-content: center; background: #fff; }
-  #print-view .ledger-cover { width: 205mm; height: 172mm; min-height: 0; gap: 5mm; padding: 12mm; border-radius: 3mm; }
+  #print-view .print-cover-page { align-items: center; justify-content: center; padding: 0; background: #fff; }
+  /* 封面铺满整张 A4 横向纸面，不再留白边 */
+  #print-view .print-cover-page .ledger-cover { width: 100%; height: 100%; min-height: 0; gap: 6mm; padding: 6% 9%; border-radius: 0; }
   #print-view .ledger-cover * { background-color: transparent; }
   #print-view .ledger-cover .cover-name { font-size: 32pt; max-width: 174mm; }
   #print-view .ledger-cover .cover-emblem { width: 26mm; height: 26mm; font-size: 40pt; }
@@ -824,6 +825,14 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   #print-view .print-footer { font-size: 10pt; padding: 4mm 0 0; gap: 4mm; }
   #print-view .print-footer .total-amount-print { font-size: 10pt; }
   #print-view .print-appendix-table td { font-size: 11pt; letter-spacing: 0; }
+  #print-view .print-history { margin-top: 4mm; padding-top: 2.5mm; border-top: 1px solid var(--primary-border-color); font-size: 9pt; color: #3a2a1c; flex: none; }
+  #print-view .print-history-title { font-weight: 700; font-size: 10pt; margin-bottom: 1.5mm; font-family: "KaiTi"; }
+  #print-view .print-history ol { margin: 0; padding-left: 6mm; }
+  #print-view .print-history li { line-height: 1.45; }
+  #print-view .print-history li span { color: #8a7a63; margin-left: 3mm; font-size: 8pt; }
+  /* 封面主章更大更饱满，A4 上更大气 */
+  #print-view .ledger-cover .cover-medallion { width: 46mm; height: 46mm; max-width: none; font-size: 42pt; }
+  #print-view .ledger-cover .cover-name { font-size: 36pt; }
 }
 
 /* ===== 红事喜庆主题增强：只作用于红事，白事保持原有肃穆配色 ===== */
@@ -964,12 +973,13 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
   .home-screen-wrap:not(.solemn) #home-main-card::after {
     content: "囍";
     position: absolute;
-    right: 28px;
-    bottom: -15px;
+    right: -8px;
+    bottom: -34px;
     font-family: "Songti SC", "STSong", serif;
-    font-size: 155px;
+    font-size: clamp(190px, 19vw, 268px);
     line-height: 1;
-    color: rgba(255,255,255,.075);
+    color: rgba(255,244,226,.105);
+    text-shadow: 0 14px 34px rgba(58,8,6,.26);
     pointer-events: none;
     z-index: 1;
   }
@@ -1198,9 +1208,9 @@ body.theme-solemn #book-container-wrapper::after { content: "奠"; }
 /* 小屏时把主卡水印缩到右侧留白里，避免压住「进入模板」这行字 */
 @media screen and (max-width: 640px) {
   .home-screen-wrap:not(.solemn) #home-main-card::after {
-    font-size: 116px;
-    right: 12px;
-    bottom: -4px;
+    font-size: 150px;
+    right: -6px;
+    bottom: -16px;
   }
 }
 

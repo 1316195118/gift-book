@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="20261102-1510">
+<html lang="zh-CN" data-build="20261102-1520">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>电子礼簿系统</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
-    <script src="./static/xlsx-lite.js?v=20261102-1510"></script>
-    <script src="./static/ledger-crypto.js?v=20261102-1510"></script>
-    <script src="./static/voices.js?v=20261102-1510"></script>
+    <script src="./static/xlsx-lite.js?v=20261102-1520"></script>
+    <script src="./static/ledger-crypto.js?v=20261102-1520"></script>
+    <script src="./static/voices.js?v=20261102-1520"></script>
     <style>
       :root,
       .theme-festive {
@@ -828,8 +828,8 @@
         .main-tool { flex: none; padding: 6px 8px; font-size: 11px; }
       }
     </style>
-    <link rel="stylesheet" href="./static/base.css?v=20261102-1510" />
-    <link rel="stylesheet" href="./static/refined.css?v=20261102-1510" />
+    <link rel="stylesheet" href="./static/base.css?v=20261102-1520" />
+    <link rel="stylesheet" href="./static/refined.css?v=20261102-1520" />
   </head>
 
   <body class="bg-gray-100 min-h-screen theme-festive">
@@ -2080,7 +2080,7 @@
                 </div>
               </div>
             </div>
-            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:10 · 零第三方依赖</div>`, [
+            <div class="help-tip">数据保存在您的 NAS，不是当前手机或电脑。需连接部署所在的网络使用，建议定期导出备份。姓名、金额、备注等礼金明细只保存在 AES 密文中，服务器只保留账簿 ID、录入时间等必要元数据；仍请仅在可信网络使用。</div><div class="help-build">前端构建 2026-11-02 15:20 · 零第三方依赖</div>`, [
             { text: "知道了", class: "themed-button-primary px-4 py-2 rounded" },
           ]);
         }
@@ -3090,6 +3090,39 @@
 
             renderGiftBook(content, pageGifts);
             pageContainer.appendChild(content);
+
+            // 本页涉及修改的礼金：在页面下方补一段修改记录，跟着这一页走
+            const historyRows = [];
+            pageGifts.forEach((gift) => {
+              if (!gift.data || !Array.isArray(gift.data.history)) return;
+              gift.data.history.forEach((entry) => {
+                historyRows.push({
+                  name: gift.data.name || "",
+                  text: entry.changeLog || "修改记录",
+                  when: entry.timestamp ? new Date(entry.timestamp).toLocaleString("zh-CN") : "",
+                });
+              });
+            });
+            if (historyRows.length) {
+              const shown = historyRows.slice(0, 8);
+              const historyBox = document.createElement("div");
+              historyBox.className = "print-history";
+              historyBox.innerHTML =
+                '<div class="print-history-title">本页修改记录</div><ol>' +
+                shown
+                  .map(
+                    (row) =>
+                      `<li><b>${escapeHtml(row.name)}</b> ${escapeHtml(row.text)}${
+                        row.when ? ` <span>${escapeHtml(row.when)}</span>` : ""
+                      }</li>`
+                  )
+                  .join("") +
+                (historyRows.length > shown.length
+                  ? `<li>…另有 ${historyRows.length - shown.length} 条修改记录未显示</li>`
+                  : "") +
+                "</ol>";
+              pageContainer.appendChild(historyBox);
+            }
 
             const pageSubtotal = pageGifts.reduce((sum, gift) => sum + (gift.data?.amount || 0), 0);
             const stats = calculateStats();
@@ -4213,7 +4246,7 @@
 
         const CHANGELOG = [
           {
-            version: "1.0.04", date: "2026-11-02", build: "1510",
+            version: "1.0.04", date: "2026-11-02", build: "1520",
             notes: [
               { t: "opt", text: "红事继续保留云纹角饰、顶部饰带、菱形标识与金色分隔线" },
               { t: "opt", text: "主卡片「囍」暂恢复为原来的平面水印，白事保持原样，功能仍共用" },
@@ -4237,6 +4270,10 @@
               { t: "opt", text: "姓名按三字高度对齐，两字中间留白、单字居中，数字与字母改为竖排" },
               { t: "fix", text: "姓名限制 20 字、单笔礼金限制 0.01 ~ 100 万元，避免误输入超长文本或离谱金额" },
               { t: "fix", text: "历史/导入的账簿缺少编号时自动补号（No.001 起），首页不再出现没有编号的卡片" },
+              { t: "opt", text: "账簿编号跳过所有含 4 的号码（004、014、040…），新账簿按 001、002、003、005 递增" },
+              { t: "opt", text: "PDF 封面铺满整张 A4 纸面，主章与账簿名放大，不再留白边" },
+              { t: "feat", text: "PDF 每页底部新增「本页修改记录」，列出该页礼金的纠错留痕与时间" },
+              { t: "opt", text: "首页主卡「囍」字水印放大并出血到边缘，更有气势，仍不遮挡标题与按钮" },
             ],
           },
           {

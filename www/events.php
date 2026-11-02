@@ -165,6 +165,17 @@ function eventsApiImage($value) {
     return $decoded !== false && $decoded !== '';
 }
 
+/**
+ * 账簿编号从 001 起递增，跳过任何含 4 的号码（004、014、040…）。
+ */
+function eventsApiNextDisplayId(int $current): int {
+    $next = $current;
+    do {
+        $next += 1;
+    } while (strpos((string) $next, '4') !== false);
+    return $next;
+}
+
 function eventsApiValidate(&$body, $existing = []) {
     if (array_key_exists('name', $body) && !eventsApiName($body['name'])) {
         jsonResponse(['success' => false, 'message' => '名称不能为空且最多120个Unicode字符'], 400);
@@ -272,10 +283,11 @@ switch ($method) {
             asort($missingIds);
             $changed = false;
             foreach (array_keys($missingIds) as $id) {
-                if ($maxDisplayId >= 999) {
+                $nextNumber = eventsApiNextDisplayId($maxDisplayId);
+                if ($nextNumber > 999) {
                     break;
                 }
-                $maxDisplayId += 1;
+                $maxDisplayId = $nextNumber;
                 $events[$id]['displayId'] = sprintf('%03d', $maxDisplayId);
                 $events[$id]['updatedAt'] = date('Y-m-d H:i:s');
                 $changed = true;
@@ -323,7 +335,8 @@ switch ($method) {
             }
         }
         // 只增不复用：删除旧账簿后，新账簿不会捡回旧编号。
-        $nextDisplayId = $maxDisplayId + 1;
+        // 同时跳过任何含 4 的号码（004、014、040…）。
+        $nextDisplayId = eventsApiNextDisplayId($maxDisplayId);
         if ($nextDisplayId > 999) {
             jsonResponse(['success' => false, 'message' => '账簿编号已用完（最多 999 本）'], 409);
         }
