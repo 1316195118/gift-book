@@ -52,17 +52,30 @@ giftbook.exe
 
 ### 方式二：Docker 部署
 
-仓库内置了 `Dockerfile` 和 `docker-compose.yml`，一条命令构建并启动：
+仓库内置了多阶段构建的 `Dockerfile` 和面向 NAS 的 `docker-compose.yml`。最终镜像为 Alpine 精简镜像，内置 shell 与 `wget`，健康检查开箱即用。
+
+**从源码构建镜像**（需要 Docker，Dockerfile 会自动安装前端依赖、编译 Go 并产出镜像）：
 
 ```bash
 git clone https://github.com/1316195118/git-book.git
 cd git-book
-docker compose up -d --build
+docker build -t gift-book:latest .
 ```
 
-浏览器打开 `http://<机器IP>:8099`。账簿数据与访问保护配置分别持久化在 `./data` 和 `./config` 两个目录，升级容器不会丢数据。
+**用 compose 启动**（`docker-compose.yml` 面向绿联 UGOS Pro，已配好目录映射、权限、时区与健康检查）：
 
-也可以直接用 `docker run` 跑：
+```bash
+docker compose up -d
+```
+
+默认使用预构建镜像 `git-book:alpine-20261106`，并把账簿数据与访问保护配置分别持久化到宿主机：
+
+| 容器目录 | 宿主机目录 | 用途 |
+| --- | --- | --- |
+| `/data` | `/volume1/docker/gift-book/data` | 账簿数据 |
+| `/config` | `/volume1/docker/gift-book/config` | 访问保护配置 |
+
+在普通 Linux / Windows 上运行时，把 `volumes` 里的 `/volume1/docker/gift-book/...` 改成自己的路径，并把 `image` 改成刚构建的 `gift-book:latest` 即可。也可以直接用 `docker run` 跑：
 
 ```bash
 docker run -d --name gift-book \
@@ -74,7 +87,7 @@ docker run -d --name gift-book \
   gift-book:latest
 ```
 
-`docker-compose.yml` 里预留了 `GIFTBOOK_SETUP_TOKEN`（首次开启访问保护要求的口令）和 `GIFTBOOK_TRUST_PROXY`（位于受信任反向代理之后时开启），按需取消注释即可。
+浏览器打开 `http://<机器IP>:8099`。账簿数据与访问保护配置分别持久化在数据、配置两个目录，升级容器不会丢数据。`docker-compose.yml` 里还预留了 `GIFTBOOK_SETUP_TOKEN`（首次开启访问保护要求的口令）和 `GIFTBOOK_TRUST_PROXY`（位于受信任反向代理之后时开启），按需取消注释即可。
 
 ### 方式三：从源码构建
 

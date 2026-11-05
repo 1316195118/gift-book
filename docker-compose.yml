@@ -2,7 +2,7 @@ name: gift-book
 
 services:
   gift-book:
-    image: git-book:native-20261105-1226          # 镜像名
+    image: git-book:alpine-20261106               # 镜像名（Alpine 带 shell，支持健康检查）
     container_name: gift-book                       # 容器名
     user: "1000:10"                                 # 权限：容器以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
     ports:
@@ -29,7 +29,7 @@ services:
         limits:
           cpus: "2"                                 # CPU 核数上限
           memory: 512M                              # 内存上限
-    # 健康检查：需镜像内含 wget（仓库 Alpine 镜像可用）；scratch 原生镜像请删除本段
+    # 健康检查：镜像已内置 busybox wget，可直接使用
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/api/ping"]
       interval: 30s
