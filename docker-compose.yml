@@ -2,8 +2,9 @@ name: gift-book
 
 services:
   gift-book:
-    image: git-book:native-20261105-1226          # 镜像名（用仓库 Dockerfile 构建时改 gift-book:latest，并加 build: .）
+    image: git-book:native-20261105-1226          # 镜像名
     container_name: gift-book                       # 容器名
+    user: "1000:10"                                 # 权限：容器以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
     ports:
       - "8099:8099"                                 # 宿主机:容器 端口映射
     environment:
