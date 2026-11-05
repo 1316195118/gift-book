@@ -1,22 +1,94 @@
-# 电子礼簿 · Gift Book (Go + Vue)
+# 电子礼簿 · Gift Book
 
-红白喜事记礼金，数据只留在你自己的机器上。**一个可执行文件**即可运行：内嵌前端、纯 JSON 文件存储、无数据库、无外部服务。
+红白喜事记礼金，数据 100% 留在你自己的机器上。一个可执行文件（或一个 Docker 容器）即可运行：内嵌前端、纯 JSON 文件存储、无数据库、无外部服务、无需注册。
 
 > 本仓库是旧版（PHP + 单文件 `index.html`）的重写：界面、配色、封面、竖排礼簿、导出与离线逻辑保持一致，后端换成 Go，前端换成 Vue 3 工程化实现。
+
+## 特点
+
+- **隐私优先**：礼金内容在浏览器端用管理密码加密后才上传，服务端只存密文，从不接触明文
+- **红白双主题**：红事「囍」、白事「奠」两套独立配色与封面，互不串色
+- **竖排礼簿**：传统竖排版式，金额实时转中文大写，同名 / 同额自动提醒
+- **导出打印**：Excel 明细、A4 横向 PDF 礼簿、Word 文档，打印字号 / 页边距可调
+- **扫描录入**：可选内置 OCR，拍纸质礼簿自动识别并加密导入
+- **离线可用**：断网时暂存加密记录，恢复后按 `requestId` 自动去重补传
+- **安全防护**：整站访问密码 + 单本账簿管理密码 + IP 防爆破
+- **备份迁移**：一键导出整站 zip，换机器导入即恢复
+
+## 界面预览
+
+| 红事首页 | 白事首页 |
+| --- | --- |
+| ![红事首页](docs/images/home-red.png) | ![白事首页](docs/images/home-white.png) |
+
+| 新建账簿 | 记账页 |
+| --- | --- |
+| ![新建账簿](docs/images/setup.png) | ![记账页](docs/images/ledger.png) |
+
+| 统计 | 手机端 |
+| --- | --- |
+| ![统计](docs/images/stats.png) | ![手机端](docs/images/mobile.png) |
 
 ---
 
 ## 快速开始
 
-### 直接运行
+### 方式一：直接运行二进制
 
-```
-giftbook.exe                 # Windows，数据存到可执行文件旁的 data/
-./giftbook-linux-amd64       # Linux x86_64
-./giftbook-linux-arm64       # Linux ARM64（NAS、树莓派）
+```bash
+# Windows
+giftbook.exe
+
+# Linux x86_64
+./giftbook-linux-amd64
+
+# Linux ARM64（NAS、树莓派）
+./giftbook-linux-arm64
 ```
 
-浏览器打开 `http://<机器IP>:8099`。
+浏览器打开 `http://<机器IP>:8099`，数据默认写到可执行文件旁的 `data/`。
+
+### 方式二：Docker 部署
+
+仓库内置了 `Dockerfile` 和 `docker-compose.yml`，一条命令构建并启动：
+
+```bash
+git clone https://github.com/1316195118/git-book.git
+cd git-book
+docker compose up -d --build
+```
+
+浏览器打开 `http://<机器IP>:8099`。账簿数据与访问保护配置分别持久化在 `./data` 和 `./config` 两个目录，升级容器不会丢数据。
+
+也可以直接用 `docker run` 跑：
+
+```bash
+docker run -d --name gift-book \
+  -p 8099:8099 \
+  -v "$(pwd)/data:/data" \
+  -v "$(pwd)/config:/config" \
+  -e TZ=Asia/Shanghai \
+  --restart unless-stopped \
+  gift-book:latest
+```
+
+`docker-compose.yml` 里预留了 `GIFTBOOK_SETUP_TOKEN`（首次开启访问保护要求的口令）和 `GIFTBOOK_TRUST_PROXY`（位于受信任反向代理之后时开启），按需取消注释即可。
+
+### 方式三：从源码构建
+
+需要 Go 1.24+ 与 Node 20+：
+
+```bash
+build.bat          # Windows：安装依赖 → 构建前端 → 编译 giftbook.exe
+./build.sh         # Linux/macOS
+```
+
+或分步：
+
+```bash
+cd web && npm install && npm run build && cd ..
+node scripts/build.mjs        # 同步产物并编译
+```
 
 ### 常用参数
 
@@ -30,22 +102,6 @@ giftbook.exe                 # Windows，数据存到可执行文件旁的 data/
 | `-version` | — | 打印版本 |
 
 环境变量 `GIFTBOOK_DATA_DIR` / `GIFTBOOK_CONFIG_DIR` 等价于对应参数。
-
-### 从源码构建
-
-需要 Go 1.24+ 与 Node 20+：
-
-```
-build.bat          # Windows：安装依赖 → 构建前端 → 编译 giftbook.exe
-./build.sh         # Linux/macOS
-```
-
-或分步：
-
-```
-cd web && npm install && npm run build && cd ..
-node scripts/build.mjs        # 同步产物并编译
-```
 
 ---
 

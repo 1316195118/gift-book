@@ -1,0 +1,17 @@
+.git
+.gitignore
+.edge*
+.shots*
+build/
+rundata/
+data/
+config/
+backups/
+web/node_modules
+web/dist
+webapp/dist
+giftbook
+giftbook.exe
+giftbook.exe~
+*.log
+*.exe~

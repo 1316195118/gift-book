@@ -1,0 +1,19 @@
+name: gift-book
+
+services:
+  gift-book:
+    build: .
+    image: gift-book:latest
+    container_name: gift-book
+    restart: unless-stopped
+    ports:
+      - "8099:8099"
+    volumes:
+      - ./data:/data
+      - ./config:/config
+    environment:
+      - TZ=Asia/Shanghai
+      # 首次开启访问保护时要求的口令（建议改成足够长的随机字符串）
+      # - GIFTBOOK_SETUP_TOKEN=please-change-me
+      # 位于受信任的反向代理之后时开启，让 X-Forwarded-For 参与防爆破
+      # - GIFTBOOK_TRUST_PROXY=1
