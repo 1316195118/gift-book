@@ -52,30 +52,64 @@ giftbook.exe
 
 ### 方式二：Docker 部署
 
-仓库内置了多阶段构建的 `Dockerfile` 和面向 NAS 的 `docker-compose.yml`。最终镜像为 Alpine 精简镜像，内置 shell 与 `wget`，健康检查开箱即用。
+公开镜像已发布到 GitHub Container Registry，新建 `docker-compose.yml` 粘贴以下内容即可部署，无需下载源码：
 
-**从源码构建镜像**（需要 Docker，Dockerfile 会自动安装前端依赖、编译 Go 并产出镜像）：
+```yaml
+name: gift-book
 
-```bash
-git clone https://github.com/1316195118/git-book.git
-cd git-book
-docker build -t gift-book:latest .
+services:
+  gift-book:
+    image: ghcr.io/1316195118/gift-book:alpine-20261106   # 公开镜像，免登录直接拉取
+    container_name: gift-book                               # 容器名
+    user: "1000:10"                                         # 权限：以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
+    ports:
+      - "8099:8099"                                         # 宿主机:容器 端口映射
+    environment:
+      - TZ=Asia/Shanghai                                    # 时区
+      # - GIFTBOOK_SETUP_TOKEN=change-me                    # 首次开启访问保护时要求的口令
+      # - GIFTBOOK_TRUST_PROXY=1                            # 位于受信任反向代理后开启
+    command:
+      - -addr
+      - 0.0.0.0                                             # 监听地址（接受局域网访问）
+      - -port
+      - "8099"                                              # 监听端口
+      - -data
+      - /data                                               # 账簿数据目录（容器内）
+      - -config
+      - /config                                             # 访问保护配置目录（容器内）
+    restart: unless-stopped                                 # 容器策略：开机自启 + 异常重启
+    volumes:
+      - /volume1/docker/gift-book/data:/data                # 账簿数据持久化
+      - /volume1/docker/gift-book/config:/config            # 访问保护配置持久化
+    deploy:
+      resources:
+        limits:
+          cpus: "2"                                         # CPU 核数上限
+          memory: 512M                                      # 内存上限
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 ```
-
-**用 compose 启动**（`docker-compose.yml` 面向绿联 UGOS Pro，已配好目录映射、权限、时区与健康检查）：
 
 ```bash
 docker compose up -d
 ```
 
-默认使用预构建镜像 `git-book:alpine-20261106`，并把账簿数据与访问保护配置分别持久化到宿主机：
+浏览器打开 `http://<机器IP>:8099`。
+
+- 镜像标签 `alpine-20261106` 与 `latest` 指向同一版：带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用。
+- 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
+- 账簿数据与访问保护配置分别持久化在数据、配置两个目录，升级容器不会丢数据：
 
 | 容器目录 | 宿主机目录 | 用途 |
 | --- | --- | --- |
 | `/data` | `/volume1/docker/gift-book/data` | 账簿数据 |
 | `/config` | `/volume1/docker/gift-book/config` | 访问保护配置 |
 
-在普通 Linux / Windows 上运行时，把 `volumes` 里的 `/volume1/docker/gift-book/...` 改成自己的路径，并把 `image` 改成刚构建的 `gift-book:latest` 即可。也可以直接用 `docker run` 跑：
+也可以直接用 `docker run`：
 
 ```bash
 docker run -d --name gift-book \
@@ -84,10 +118,16 @@ docker run -d --name gift-book \
   -v "$(pwd)/config:/config" \
   -e TZ=Asia/Shanghai \
   --restart unless-stopped \
-  gift-book:latest
+  ghcr.io/1316195118/gift-book:alpine-20261106
 ```
 
-浏览器打开 `http://<机器IP>:8099`。账簿数据与访问保护配置分别持久化在数据、配置两个目录，升级容器不会丢数据。`docker-compose.yml` 里还预留了 `GIFTBOOK_SETUP_TOKEN`（首次开启访问保护要求的口令）和 `GIFTBOOK_TRUST_PROXY`（位于受信任反向代理之后时开启），按需取消注释即可。
+如需自行构建镜像（需要 Docker，Dockerfile 会自动安装前端依赖、编译 Go 并产出镜像）：
+
+```bash
+git clone https://github.com/1316195118/git-book.git
+cd git-book
+docker build -t gift-book:latest .
+```
 
 ### 方式三：从源码构建
 
