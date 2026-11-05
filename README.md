@@ -59,7 +59,7 @@ name: gift-book
 
 services:
   gift-book:
-    image: ghcr.io/1316195118/git-book:alpine-20261106    # 公开镜像，免登录直接拉取
+    image: ghcr.io/1316195118/gift-book:alpine-20261106   # 公开镜像，免登录直接拉取
     container_name: gift-book                               # 容器名
     user: "1000:10"                                         # 权限：以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
     ports:
@@ -118,14 +118,14 @@ docker run -d --name gift-book \
   -v "$(pwd)/config:/config" \
   -e TZ=Asia/Shanghai \
   --restart unless-stopped \
-  ghcr.io/1316195118/git-book:alpine-20261106
+  ghcr.io/1316195118/gift-book:alpine-20261106
 ```
 
 如需自行构建镜像（需要 Docker，Dockerfile 会自动安装前端依赖、编译 Go 并产出镜像）：
 
 ```bash
-git clone https://github.com/1316195118/git-book.git
-cd git-book
+git clone https://github.com/1316195118/gift-book.git
+cd gift-book
 docker build -t gift-book:latest .
 ```
 
