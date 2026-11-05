@@ -1,0 +1,245 @@
+/* ==========================================================================
+   设计令牌 · 礼簿
+   --------------------------------------------------------------------------
+   取材于真实的礼簿：红事是洒金宣纸、朱砂印泥、赤金描边、石青彩画；
+   白事是素宣、墨、青黛、素银 —— 两套各自成立，互不借用对方的颜色。
+
+   · 配色各用三个色相，避免单色堆砌：
+       红事 朱砂 / 赤金 / 石青      白事 青黛 / 墨 / 苍
+   · 底色是「纸」，层次靠极细的界线，不靠投影；
+   · 圆角克制在 2–12px，接近纸页裁切；
+   · 一切尺寸落在 4px 栅格上，正文与底色对比度 ≥ 7:1。
+   ========================================================================== */
+
+:root {
+  /* ---- 字体 ---- */
+  --font-ui: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei UI",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --font-serif: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC",
+    "STSong", "SimSun", serif;
+  --font-kai: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "STSong", serif;
+
+  /* ---- 字号 ---- */
+  --fs-2xs: 10.5px;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 25px;
+  --fs-3xl: 31px;
+  --fs-4xl: 38px;
+
+  /* ---- 间距（4px 栅格） ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 28px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* ---- 圆角 ---- */
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* ---- 层级 ---- */
+  --z-base: 0;
+  --z-sticky: 20;
+  --z-float: 40;
+  --z-modal: 100;
+  --z-gate: 200;
+
+  /* ---- 动效：一套曲线，纸张落定的手感 ---- */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 420ms;
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in: cubic-bezier(.5, 0, .9, .4);
+}
+
+/* ==========================================================================
+   红事 · 洒金宣纸 / 朱砂 / 赤金 / 石青
+   ========================================================================== */
+
+:root,
+body.theme-festive {
+  --paper: #faf4e9;
+  --paper-deep: #f3e9d7;
+  --surface: #fffdf7;
+  --surface-sunken: #f7f0e2;
+
+  --ink: #241c14;
+  --ink-2: #4d4134;
+  /* muted 与 faint 都会拿去写正文旁的小字，所以两者都得过 4.5:1。
+     之前 faint 只有 2.8:1，提示语在纸底上几乎读不出来。 */
+  --muted: #6e604e;
+  --faint: #7f7360;
+  /* 纯装饰用的淡色：描边、图标、占位符，不承载文字信息 */
+  --faint-deco: #a69781;
+
+  --line: #e9ddc7;
+  --line-strong: #d7c7a7;
+
+  /* 主色：朱砂印泥 */
+  --accent: #ab2b21;
+  --accent-hover: #93211a;
+  --accent-press: #7b1712;
+  --accent-ink: #fffaf2;
+  --accent-soft: #f9eae4;
+  --accent-soft-2: #f1d6cc;
+
+  /* 第二色：赤金 —— 只用于描边、封面烫金、印记 */
+  --gold: #b0873d;
+  --gold-bright: #d6ae65;
+  --gold-soft: #f4e8cd;
+
+  /* 第三色：赭。本想用彩画里的石青，但它和白事的青黛几乎同色，
+     在红事页面上会让人以为点错了账簿，所以红事整体留在暖色一端：
+     朱砂定调、赤金提亮、赭色压住，冷色全部让给白事。 */
+  --azure: #8a6334;
+  --azure-soft: #f6ecd8;
+  --azure-line: #e2cfab;
+
+  --ok: #3d6b4f;
+  --ok-soft: #ecf3ed;
+  --warn: #8a6118;
+  --warn-soft: #fbf3e1;
+  --danger: #a8332a;
+  --danger-soft: #faeceb;
+
+  --shadow-1: 0 1px 2px rgb(60 38 18 / .06);
+  --shadow-2: 0 8px 26px rgb(60 38 18 / .08);
+  --shadow-3: 0 28px 70px rgb(44 26 12 / .2);
+  --ring: 0 0 0 3px rgb(171 43 33 / .15);
+
+  --selection: rgb(171 43 33 / .16);
+
+  /* 纸张纹理：洒金。红事专有 */
+  --fleck-1: rgb(176 135 61 / .5);
+  --fleck-2: rgb(214 174 101 / .42);
+  --fleck-3: rgb(171 43 33 / .13);
+  --paper-glow: rgb(214 174 101 / .22);
+  --paper-glow-2: rgb(171 43 33 / .05);
+
+  /* 打印：纸、墨、界栏、题头。白事另有一套，见下。 */
+  --print-paper: #fffdf9;
+  --print-ink: #1b1511;
+  --print-ink-2: #3a2a1c;
+  --print-faint: #8a7a63;
+  --print-title: #8a2a24;
+  --print-rule: rgb(140 42 36 / .44);
+  --print-rule-strong: rgb(140 42 36 / .5);
+  --print-band: #f7ece9;
+
+  /* 首页礼簿插图：红绸封面 + 烫金 */
+  --hero-book: #8e241d;
+  --hero-book-2: #6d1813;
+  --hero-book-page: #f6eedd;
+  --hero-book-edge: #decfb2;
+  --hero-book-line: rgb(228 190 124 / .62);
+  --hero-book-ink: #f1d9a6;
+  --hero-book-spine: #6a1510;
+}
+
+/* ==========================================================================
+   白事 · 素宣 / 墨 / 青黛 / 苍
+   没有红，没有金，没有任何喜庆元素
+   ========================================================================== */
+
+body.theme-solemn {
+  --paper: #f2f3f2;
+  --paper-deep: #e8eae9;
+  --surface: #fbfcfb;
+  --surface-sunken: #eef0ef;
+
+  --ink: #1a1f21;
+  --ink-2: #3c4448;
+  --muted: #5f686c;
+  --faint: #6c7579;
+  --faint-deco: #99a1a4;
+
+  --line: #dde1e1;
+  --line-strong: #c3caca;
+
+  /* 主色：青黛 */
+  --accent: #33475a;
+  --accent-hover: #27384a;
+  --accent-press: #1d2b39;
+  --accent-ink: #fbfcfd;
+  --accent-soft: #eaeef2;
+  --accent-soft-2: #d9e1e8;
+
+  /* 第二色：素银，替掉红事的赤金 */
+  --gold: #7e8a90;
+  --gold-bright: #a3adb2;
+  --gold-soft: #e7eaeb;
+
+  /* 第三色：苍 —— 青灰偏绿，用于数据与提示 */
+  --azure: #4e6b63;
+  --azure-soft: #eaefed;
+  --azure-line: #cbd6d2;
+
+  --ok: #4e6b5e;
+  --ok-soft: #eceff0;
+  --warn: #6f6038;
+  --warn-soft: #f2f0e8;
+  /* 白事页面不出现红字：删除这类动作改用暖炭色，
+     危险性靠描边和「删除」二字说清楚，不靠一抹红。 */
+  --danger: #6a4f4b;
+  --danger-soft: #efeceb;
+
+  --shadow-1: 0 1px 2px rgb(26 31 33 / .06);
+  --shadow-2: 0 8px 26px rgb(26 31 33 / .07);
+  --shadow-3: 0 28px 70px rgb(18 22 24 / .22);
+  --ring: 0 0 0 3px rgb(51 71 90 / .16);
+
+  --selection: rgb(51 71 90 / .17);
+
+  /* 纸张纹理：素宣的帘纹，没有洒金 */
+  --fleck-1: transparent;
+  --fleck-2: transparent;
+  --fleck-3: transparent;
+  --paper-glow: rgb(120 136 142 / .14);
+  --paper-glow-2: rgb(51 71 90 / .04);
+
+  /* 打印：白事印在素白纸上，题头与界栏都是墨青，不见一点红 */
+  --print-paper: #ffffff;
+  --print-ink: #14191b;
+  --print-ink-2: #333c40;
+  --print-faint: #6f7a7e;
+  --print-title: #2b3a46;
+  --print-rule: rgb(51 71 90 / .42);
+  --print-rule-strong: rgb(51 71 90 / .5);
+  --print-band: #eef1f3;
+
+  /* 首页礼簿插图：素绢封面 + 墨线 */
+  --hero-book: #e4e7e6;
+  --hero-book-2: #d2d7d6;
+  --hero-book-page: #f8f9f8;
+  --hero-book-edge: #d6dbda;
+  --hero-book-line: rgb(51 71 90 / .42);
+  --hero-book-ink: #2b3a46;
+  --hero-book-spine: #cdd3d2;
+}
+
+/* 旧变量名统一接到新令牌，避免历史规则取到过期值 */
+:root,
+body.theme-festive,
+body.theme-solemn {
+  --accent-2: var(--accent-hover);
+  --ink-soft: var(--ink-2);
+  --border: var(--line);
+  --paper-2: var(--paper-deep);
+  --field-invalid: var(--danger);
+}

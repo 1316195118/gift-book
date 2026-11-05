@@ -1,0 +1,592 @@
+/* ==========================================================================
+   礼簿封面
+   --------------------------------------------------------------------------
+   画的是一本线装礼簿，不是一张红色卡片。由外到内：
+     书脊订线 → 绸面织纹 → 烫金双框 → 四角回纹 → 团花圆章 → 题名 → 朱印
+
+   红事：大红绸面、赤金烫印、朱砂落印。
+   白事：素绢本白、墨青细线、不着一金一红。
+   所有尺寸用容器查询单位（cqi）等比缩放，从 64px 缩略图到整页打印都不叠字。
+   ========================================================================== */
+
+.ledger-cover {
+  /* 红绸：面上有光，边上压暗。整体往亮里调 ——
+     喜事的红要鲜亮，压得太暗会发褐，像旧账本而不是新礼簿。 */
+  --cover-bg: #ab2e23;
+  --cover-bg-deep: #7d1c13;
+  --cover-bg-lit: #c7432f;
+  --cover-ink: #fbeed2;
+  --cover-line: rgb(238 208 150 / .6);
+  --cover-gold: #e4c287;
+  --cover-gold-deep: #b48b45;
+  --cover-faint: rgb(251 238 210 / .66);
+  --cover-stitch: rgb(251 238 210 / .52);
+  --cover-seal-bg: #8a1d14;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3.4%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 9% 8% 12% 15%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 2px 6px 6px 2px;
+  color: var(--cover-ink);
+  container-type: inline-size;
+
+  /* 绸面：中心受光，四边入暗，再压一层经纬织纹 */
+  background-color: var(--cover-bg);
+  background-image:
+    radial-gradient(120% 92% at 58% 14%, var(--cover-bg-lit), transparent 62%),
+    radial-gradient(110% 92% at 18% 112%, var(--cover-bg-deep), transparent 56%);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / .22),
+    inset 0 0 28px rgb(62 10 5 / .22);
+}
+
+/* 经纬织纹：两道互相垂直的极细斜线，近看是绸，远看只是质感。
+   data-weave="1" 的款式织纹明显些，其余只留极淡一层 */
+.ledger-cover::after {
+  background-image:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / .018) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / .022) 0 1px, transparent 1px 5px);
+}
+
+.ledger-cover[data-weave="1"]::after {
+  background-image:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / .035) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / .045) 0 1px, transparent 1px 4px);
+}
+
+/* ---- 白事：素绢，无金无红 ---- */
+
+.ledger-cover[data-theme="white"] {
+  --cover-bg: #eceeec;
+  --cover-bg-deep: #d9dedb;
+  --cover-bg-lit: #f7f8f7;
+  --cover-ink: #2b3a46;
+  --cover-line: rgb(51 71 90 / .34);
+  --cover-gold: #76858c;
+  --cover-gold-deep: #5d6c73;
+  --cover-faint: rgb(43 58 70 / .6);
+  --cover-stitch: rgb(51 71 90 / .3);
+  --cover-seal-bg: #33475a;
+
+  background-image:
+    radial-gradient(118% 88% at 62% 16%, var(--cover-bg-lit), transparent 62%),
+    radial-gradient(130% 110% at 20% 108%, var(--cover-bg-deep), transparent 58%);
+  box-shadow:
+    inset 0 0 0 1px rgb(51 71 90 / .2),
+    inset 0 0 30px rgb(51 71 90 / .07);
+}
+
+/* 素绢的织纹比红绸更细、更淡：浅底上的白线很容易变成明显的斜网格，
+   所以把对比压到刚好看得出是织物的程度，线距也拉开。 */
+.ledger-cover[data-theme="white"]::after {
+  background-image:
+    repeating-linear-gradient(45deg, rgb(51 71 90 / .022) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / .3) 0 1px, transparent 1px 7px);
+}
+
+/* ---- 书脊与订线 ---- */
+
+.cover-spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10%;
+  max-width: 34px;
+  background:
+    linear-gradient(90deg,
+      rgb(0 0 0 / .3) 0%,
+      rgb(0 0 0 / .1) 42%,
+      rgb(255 255 255 / .05) 72%,
+      rgb(0 0 0 / .14) 100%);
+  border-right: 1px solid rgb(0 0 0 / .18);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 11%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ledger-cover[data-theme="white"] .cover-spine {
+  background:
+    linear-gradient(90deg,
+      rgb(51 71 90 / .14) 0%,
+      rgb(51 71 90 / .05) 42%,
+      rgb(255 255 255 / .6) 72%,
+      rgb(51 71 90 / .08) 100%);
+  border-right: 1px solid rgb(51 71 90 / .14);
+}
+
+/* 四枚订孔，穿线处略亮 */
+.cover-spine i {
+  width: 22%;
+  max-width: 5px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--cover-stitch);
+  opacity: .72;
+}
+
+/* ---- 烫金双框 ---- */
+
+.ledger-cover::before,
+.ledger-cover::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* 外框：金线。用 border-image 做出受光不匀的烫金 */
+.ledger-cover::before {
+  inset: 5% 5.5% 5% 15.5%;
+  border: 1px solid transparent;
+  border-image: linear-gradient(135deg,
+      var(--cover-gold) 0%,
+      var(--cover-gold-deep) 28%,
+      var(--cover-gold) 52%,
+      var(--cover-gold-deep) 78%,
+      var(--cover-gold) 100%) 1;
+  opacity: .9;
+  z-index: 1;
+}
+
+/* 内框 / 织纹承载层 */
+.ledger-cover::after {
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* 双框：金线之内再退 3px 画一道细线，中间留出素地 */
+.ledger-cover[data-frame="double"]::before {
+  outline: 1px solid var(--cover-line);
+  outline-offset: -4px;
+}
+
+.ledger-cover[data-frame="thick"]::before {
+  border-width: 3px;
+  border-style: double;
+  outline: 1px solid var(--cover-line);
+  outline-offset: -5px;
+}
+
+.ledger-cover[data-frame="single"]::before {
+  inset: 5.6% 6% 5.6% 16%;
+}
+
+.ledger-cover[data-frame="none"]::before {
+  display: none;
+}
+
+/* 条幅式：上下留白，左右收窄，像贴了一条题签 */
+.ledger-cover[data-frame="strip"]::before {
+  inset: 5% 18% 5% 24%;
+}
+
+/* ---- 四角回纹 ---- */
+
+.cover-corner {
+  position: absolute;
+  width: 12%;
+  max-width: 38px;
+  aspect-ratio: 1;
+  color: var(--cover-gold);
+  opacity: .62;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cover-corner-tl { top: 7%; left: 17.5%; }
+.cover-corner-tr { top: 7%; right: 7%; transform: scaleX(-1); }
+.cover-corner-bl { bottom: 7%; left: 17.5%; transform: scaleY(-1); }
+.cover-corner-br { bottom: 7%; right: 7%; transform: scale(-1, -1); }
+
+.ledger-cover[data-frame="strip"] .cover-corner { display: none; }
+
+/* ---- 顶部题签 ---- */
+
+.cover-toplabel {
+  position: absolute;
+  top: 7.5%;
+  left: 57%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border: 1px solid var(--cover-line);
+  border-radius: 1px;
+  background: linear-gradient(var(--cover-bg-deep), var(--cover-bg));
+  color: var(--cover-gold);
+  font-family: var(--font-serif);
+  font-size: clamp(7px, 2.9cqi, 10px);
+  line-height: 1.5;
+  letter-spacing: .3em;
+  text-indent: .3em;
+  white-space: nowrap;
+  z-index: 3;
+}
+
+/* ---- 团花圆章 ---- */
+
+.cover-medallion {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38%;
+  max-width: 112px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: var(--cover-ink);
+  font-family: var(--font-kai);
+  font-size: clamp(21px, 9.5cqi, 38px);
+  font-weight: 500;
+  line-height: 1;
+  z-index: 2;
+
+  /* 外圈放射花瓣：团花的底 */
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgb(220 182 120 / .2) 0deg 4deg,
+      transparent 4deg 11.25deg
+    );
+  box-shadow:
+    inset 0 0 0 1px var(--cover-gold),
+    0 0 0 1px rgb(220 182 120 / .22);
+}
+
+.ledger-cover[data-theme="white"] .cover-medallion {
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgb(51 71 90 / .1) 0deg 4deg,
+      transparent 4deg 11.25deg
+    );
+  box-shadow:
+    inset 0 0 0 1px var(--cover-gold),
+    0 0 0 1px rgb(51 71 90 / .12);
+}
+
+/* 内圈素地，把字托出来 */
+.cover-medallion::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border: 1px solid var(--cover-line);
+  border-radius: 50%;
+  background: var(--cover-bg);
+  box-shadow: inset 0 0 12px rgb(0 0 0 / .18);
+  z-index: -1;
+}
+
+.ledger-cover[data-theme="white"] .cover-medallion::before {
+  box-shadow: inset 0 0 10px rgb(51 71 90 / .06);
+}
+
+/* ---- 流苏 ---- */
+
+.cover-tassel {
+  flex: none;
+  width: 6.5%;
+  max-width: 19px;
+  height: auto;
+  margin-top: -1.6%;
+  color: var(--cover-gold);
+  opacity: .66;
+  z-index: 2;
+}
+
+/* 白事不挂流苏 */
+.ledger-cover[data-theme="white"] .cover-tassel { display: none; }
+
+/* ---- 文字 ---- */
+
+.cover-edition,
+.cover-name,
+.cover-blessing,
+.cover-meta {
+  position: relative;
+  z-index: 2;
+}
+
+.cover-edition {
+  color: var(--cover-faint);
+  font-family: var(--font-ui);
+  font-size: clamp(7px, 2.8cqi, 10px);
+  line-height: 1.4;
+  letter-spacing: .36em;
+  text-indent: .36em;
+  white-space: nowrap;
+}
+
+.cover-name {
+  max-width: 100%;
+  color: var(--cover-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(14px, 6.2cqi, 23px);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: .14em;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+  text-shadow: 0 1px 0 rgb(0 0 0 / .18);
+}
+
+.ledger-cover[data-theme="white"] .cover-name {
+  text-shadow: none;
+}
+
+.cover-blessing {
+  max-width: 94%;
+  overflow: hidden;
+  color: var(--cover-gold);
+  font-family: var(--font-kai);
+  font-size: clamp(7.5px, 2.9cqi, 10.5px);
+  line-height: 1.7;
+  letter-spacing: .18em;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: .94;
+}
+
+.cover-meta {
+  max-width: 94%;
+  color: var(--cover-faint);
+  font-size: clamp(7.5px, 2.8cqi, 10px);
+  line-height: 1.7;
+  letter-spacing: .04em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* ---- 朱印 ---- */
+
+.cover-seal {
+  position: absolute;
+  right: 7%;
+  bottom: 6.5%;
+  display: grid;
+  place-items: center;
+  width: 12%;
+  max-width: 34px;
+  aspect-ratio: 1;
+  border-radius: 1px;
+  background: var(--cover-seal-bg);
+  color: var(--cover-ink);
+  font-family: var(--font-kai);
+  font-size: clamp(9px, 4cqi, 15px);
+  line-height: 1;
+  transform: rotate(-3deg);
+  opacity: .9;
+  z-index: 3;
+  box-shadow:
+    inset 0 0 0 1px var(--cover-gold),
+    inset 0 0 8px rgb(0 0 0 / .3);
+}
+
+/* 白事封面的墨底朱印：印文要反白，否则深字压在深底上看不见 */
+.ledger-cover[data-theme="white"] .cover-seal {
+  color: var(--cover-bg-lit);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / .28),
+    inset 0 0 8px rgb(0 0 0 / .22);
+}
+
+/* ---- 竖排版式 ---- */
+
+.ledger-cover[data-layout="vertical"] .cover-seal { display: none; }
+
+@container (min-width: 180px) {
+  .ledger-cover[data-layout="vertical"] {
+    gap: 2.6%;
+  }
+
+  .ledger-cover[data-layout="vertical"] .cover-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40%;
+    padding: 2.4% 3.6%;
+    border-left: 1px solid var(--cover-line);
+    border-right: 1px solid var(--cover-line);
+    font-size: clamp(14px, 5.4cqi, 21px);
+    letter-spacing: .24em;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+  }
+
+  .ledger-cover[data-layout="vertical"] .cover-medallion {
+    width: 22%;
+    max-width: 64px;
+  }
+
+  .ledger-cover[data-layout="vertical"] .cover-tassel {
+    display: none;
+  }
+}
+
+/* 无框缎面：靠题名下的一道金线立住，不靠圆章 */
+.ledger-cover[data-frame="none"] {
+  padding: 11% 9% 13% 16%;
+}
+
+.ledger-cover[data-frame="none"] .cover-name::after {
+  content: "";
+  display: block;
+  width: 34%;
+  height: 1px;
+  margin: 7% auto 0;
+  background: linear-gradient(90deg, transparent, var(--cover-gold), transparent);
+}
+
+/* 没有圆章的款式：改贴一张题签，让封面中心不至于空着 */
+.ledger-cover:not(:has(.cover-medallion)) .cover-name {
+  padding: 9% 11%;
+  border: 1px solid var(--cover-line);
+  border-radius: 1px;
+  background: rgb(0 0 0 / .14);
+  box-shadow: inset 0 0 14px rgb(0 0 0 / .14);
+}
+
+.ledger-cover[data-theme="white"]:not(:has(.cover-medallion)) .cover-name {
+  background: rgb(255 255 255 / .55);
+  box-shadow: inset 0 0 12px rgb(51 71 90 / .07);
+}
+
+/* ---- 缩略图场景 ---- */
+
+/* 模板页封面：只保留圆章与题名 */
+.tpl-cover .ledger-cover {
+  padding: 13% 10% 15% 17%;
+  gap: 0;
+  justify-content: center;
+}
+
+.tpl-cover .cover-seal,
+.tpl-cover .cover-meta,
+.tpl-cover .cover-blessing {
+  display: none;
+}
+
+.tpl-cover .cover-edition {
+  order: -1;
+  margin-bottom: 10%;
+  font-size: clamp(6px, 3.2cqi, 8px);
+}
+
+.tpl-cover .cover-medallion {
+  width: 42%;
+  max-width: none;
+  margin-bottom: 8%;
+}
+
+.tpl-cover .cover-tassel {
+  width: 5.5%;
+  margin: -4% 0 5%;
+}
+
+.tpl-cover .cover-name {
+  padding-bottom: 3%;
+  font-size: clamp(12px, 8cqi, 17px);
+  letter-spacing: .06em;
+}
+
+/* 创建页封面样式选择器：迷你缩略图 */
+.cover-style-thumb .ledger-cover {
+  padding: 7% 6% 9% 14%;
+  gap: 2%;
+}
+
+.cover-style-thumb .cover-blessing,
+.cover-style-thumb .cover-edition,
+.cover-style-thumb .cover-toplabel,
+.cover-style-thumb .cover-seal,
+.cover-style-thumb .cover-corner,
+.cover-style-thumb .cover-tassel {
+  display: none;
+}
+
+.cover-style-thumb .cover-spine i {
+  display: none;
+}
+
+.cover-style-thumb .cover-medallion,
+.cover-style-thumb .ledger-cover[data-layout="vertical"] .cover-medallion {
+  width: 46%;
+  max-width: none;
+  font-size: clamp(13px, 14cqi, 20px);
+}
+
+.cover-style-thumb .cover-name,
+.cover-style-thumb .ledger-cover[data-layout="vertical"] .cover-name {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  font-size: clamp(8px, 7cqi, 10px);
+  letter-spacing: .02em;
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+}
+
+/* 创建页右侧大预览 */
+#preview-cover {
+  aspect-ratio: 3 / 4;
+  border-radius: 2px 6px 6px 2px;
+  overflow: hidden;
+  box-shadow: var(--shadow-2);
+}
+
+#preview-cover .ledger-cover {
+  min-height: 0;
+  gap: 5%;
+  padding: 11% 9% 14% 16%;
+}
+
+#preview-cover .cover-edition {
+  display: none;
+}
+
+#preview-cover .cover-medallion {
+  width: 27%;
+  max-width: 64px;
+  font-size: clamp(20px, 8.6cqi, 34px);
+}
+
+#preview-cover .cover-name {
+  font-size: clamp(15px, 7.2cqi, 21px);
+  line-height: 1.45;
+}
+
+#preview-cover .cover-blessing,
+#preview-cover .cover-meta {
+  font-size: clamp(8px, 3.2cqi, 10px);
+}
+
+#preview-cover .cover-seal {
+  width: 11%;
+  max-width: 28px;
+  font-size: 12px;
+}
+
+/* 打印时封面铺满整页 */
+#print-view .ledger-cover {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: 6mm;
+  padding: 6% 8% 6% 13%;
+  border-radius: 0;
+}
