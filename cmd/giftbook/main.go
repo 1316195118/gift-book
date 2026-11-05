@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -75,7 +76,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("无法打开数据目录 %s: %v", dataDir, err)
 	}
-	authMgr, err := auth.New(configDir)
+	trustProxy := envBool("GIFTBOOK_TRUST_PROXY")
+	authMgr, err := auth.NewWithOptions(configDir, auth.Options{
+		TrustProxy: trustProxy,
+		SetupToken: strings.TrimSpace(os.Getenv("GIFTBOOK_SETUP_TOKEN")),
+	})
 	if err != nil {
 		log.Fatalf("无法打开配置目录 %s: %v", configDir, err)
 	}
@@ -168,6 +173,11 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envBool(key string) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	return value == "1" || value == "true" || value == "yes"
 }
 
 func openBrowser(url string) {

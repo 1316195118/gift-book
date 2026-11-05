@@ -457,12 +457,11 @@
   }
 
   function randomSalt() {
-    const salt = new Uint8Array(8);
-    if (global.crypto && typeof global.crypto.getRandomValues === "function") {
-      global.crypto.getRandomValues(salt);
-    } else {
-      for (let i = 0; i < 8; i += 1) salt[i] = Math.floor(Math.random() * 256);
+    if (!global.crypto || typeof global.crypto.getRandomValues !== "function") {
+      throw new Error("当前浏览器不支持安全随机数，无法加密");
     }
+    const salt = new Uint8Array(8);
+    global.crypto.getRandomValues(salt);
     return salt;
   }
 

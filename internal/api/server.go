@@ -56,6 +56,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/ping", s.handlePing)
 	mux.HandleFunc("GET /api/build", s.handleBuild)
+	mux.HandleFunc("GET /api/capabilities", s.handleCapabilities)
 	mux.HandleFunc("GET /api/auth", s.handleAuthState)
 	mux.HandleFunc("POST /api/auth", s.handleLogin)
 	mux.HandleFunc("PUT /api/auth", s.handleUpdateAuth)
@@ -149,6 +150,16 @@ func (s *Server) handleBuild(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]string{
 		"build":   s.build,
 		"version": s.version,
+	}})
+}
+
+// handleCapabilities 报告服务端能力，供前端按需启用入口（例如 OCR）。
+func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
+		"build":   s.build,
+		"version": s.version,
+		"ocr":     s.ocr.Enabled(),
 	}})
 }
 

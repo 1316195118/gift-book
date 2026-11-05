@@ -41,6 +41,7 @@ export async function bootstrap({ skipAuth = false } = {}) {
   if (!skipAuth) {
     const auth = await api.authState()
     st.authEnabled = Boolean(auth.enabled)
+    st.authSetupRequired = Boolean(auth.setupRequired)
     st.authChecked = true
     if (auth.enabled && !auth.authenticated) {
       st.authGate = true
@@ -72,6 +73,12 @@ export async function refreshBuildInfo() {
     st.version = info.data?.version || ''
   } catch {
     /* 忽略 */
+  }
+  try {
+    const caps = await api.capabilities()
+    if (typeof caps.data?.ocr === 'boolean') st.ocrAvailable = caps.data.ocr
+  } catch {
+    /* 忽略：能力探测失败时保留默认值，避免误藏可用功能 */
   }
 }
 

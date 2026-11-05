@@ -32,11 +32,11 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		migrated, valid := ledger.Migrate(event)
 		if !s.requireLedgerKey(w, r, event) {
 			status = -1
-			return migrated && valid, false, errors.New("rejected")
+			return false, false, errors.New("rejected")
 		}
+		migrated, valid := ledger.Migrate(event)
 		out = make(map[string]map[string]any, len(gifts))
 		for id, gift := range gifts {
 			out[id] = publicGift(gift)
@@ -96,11 +96,11 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		migrated, valid := ledger.Migrate(event)
 		if !s.requireLedgerKey(w, r, event) {
 			status = -1
-			return migrated && valid, false, errors.New("rejected")
+			return false, false, errors.New("rejected")
 		}
+		migrated, valid := ledger.Migrate(event)
 		if requestID != "" {
 			for _, existing := range gifts {
 				if value, _ := existing["requestId"].(string); value == requestID {
@@ -172,11 +172,11 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		migrated, valid := ledger.Migrate(event)
 		if !s.requireLedgerKey(w, r, event) {
 			status = -1
-			return migrated && valid, false, errors.New("rejected")
+			return false, false, errors.New("rejected")
 		}
+		migrated, valid := ledger.Migrate(event)
 		gift, ok := gifts[giftID]
 		if !ok {
 			status, message = http.StatusNotFound, "礼物不存在"
@@ -231,11 +231,11 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		migrated, valid := ledger.Migrate(event)
 		if !s.requireLedgerKey(w, r, event) {
 			status = -1
-			return migrated && valid, false, errors.New("rejected")
+			return false, false, errors.New("rejected")
 		}
+		migrated, valid := ledger.Migrate(event)
 		if _, ok := gifts[giftID]; !ok {
 			status, message = http.StatusNotFound, "礼物不存在"
 			return migrated && valid, false, errors.New(message)

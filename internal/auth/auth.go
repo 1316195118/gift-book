@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,16 +22,29 @@ import (
 )
 
 const (
-	cookieName     = "ledger_auth"
-	cookieLifetime = 7 * 24 * time.Hour
-	pbkdf2Rounds   = 210000
-	minPasswordLen = 8
+	cookieName      = "ledger_auth"
+	cookieLifetime  = 7 * 24 * time.Hour
+	pbkdf2Rounds    = 210000
+	minPasswordLen  = 8
+	maxThrottleRows = 10000
 )
 
 // Manager 管理访问保护状态与防爆破记录。
 type Manager struct {
-	configDir string
-	mu        sync.Mutex
+	configDir  string
+	trustProxy bool
+	setupToken string
+	mu         sync.Mutex
+}
+
+// Options 是构造 Manager 的可选参数。
+type Options struct {
+	// TrustProxy 为 true 时才允许使用 X-Forwarded-For / X-Forwarded-Proto。
+	// 仅在应用确实位于受信任的反向代理之后时开启；直接暴露时保持 false。
+	TrustProxy bool
+	// SetupToken 非空时，从「未开启访问保护」到「开启」这一步需要提供同样的口令，
+	// 防止局域网内任何人抢先把访问保护打开并设置密码。留空则保持旧行为（无额外校验）。
+	SetupToken string
 }
 
 // State 是持久化的访问保护状态。
@@ -45,10 +59,15 @@ type State struct {
 
 // New 创建访问保护管理器。
 func New(configDir string) (*Manager, error) {
+	return NewWithOptions(configDir, Options{})
+}
+
+// NewWithOptions 创建访问保护管理器。
+func NewWithOptions(configDir string, opts Options) (*Manager, error) {
 	if err := os.MkdirAll(configDir, 0o775); err != nil {
 		return nil, err
 	}
-	return &Manager{configDir: configDir}, nil
+	return &Manager{configDir: configDir, trustProxy: opts.TrustProxy, setupToken: opts.SetupToken}, nil
 }
 
 func (m *Manager) statePath() string    { return filepath.Join(m.configDir, "auth-state.json") }
@@ -87,6 +106,13 @@ func (m *Manager) Enabled() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.loadState().Enabled
+}
+
+// SetupTokenRequired 报告「开启访问保护」这一步是否需要额外口令。
+func (m *Manager) SetupTokenRequired() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.setupToken != "" && !m.loadState().Enabled
 }
 
 // Unreadable 报告状态文件是否损坏。
@@ -175,7 +201,7 @@ func (m *Manager) SetCookie(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Unix(expiry, 0),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   isHTTPS(r),
+		Secure:   m.isHTTPS(r),
 	})
 }
 
@@ -189,13 +215,16 @@ func (m *Manager) ClearCookie(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   isHTTPS(r),
+		Secure:   m.isHTTPS(r),
 	})
 }
 
-func isHTTPS(r *http.Request) bool {
+func (m *Manager) isHTTPS(r *http.Request) bool {
 	if r.TLS != nil {
 		return true
+	}
+	if !m.trustProxy {
+		return false
 	}
 	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
@@ -208,16 +237,20 @@ var ErrWrongPassword = errors.New("wrong password")
 // ErrTooWeak 表示新密码长度不足。
 var ErrTooWeak = errors.New("password too weak")
 
+// ErrSetupToken 表示开启访问保护所需的初始口令不正确或缺失。
+var ErrSetupToken = errors.New("setup token required")
+
 // UpdateRequest 描述一次访问保护设置变更。
 type UpdateRequest struct {
 	Enabled         bool
 	Password        string
 	CurrentPassword string
+	SetupToken      string
 }
 
 // VerifyOrFail 校验密码并计入失败次数。返回的 retryAfter>0 表示已被锁定。
 func (m *Manager) VerifyOrFail(r *http.Request, password string) (ok bool, fails int, retryAfter time.Duration) {
-	ip := ClientIP(r)
+	ip := m.ClientIP(r)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	th := m.throttleStatus(ip)
@@ -248,6 +281,11 @@ func (m *Manager) Update(r *http.Request, req UpdateRequest) error {
 		return ErrWrongPassword
 	}
 	if req.Enabled {
+		if !st.Enabled && m.setupToken != "" {
+			if subtle.ConstantTimeCompare([]byte(m.setupToken), []byte(req.SetupToken)) != 1 {
+				return ErrSetupToken
+			}
+		}
 		if st.Enabled && req.Password == "" {
 			// 保持现有密码不变，仅轮换会话密钥并续签 Cookie。
 			st.Secret = newSecret()
@@ -353,8 +391,33 @@ func (m *Manager) throttleFail(ip string) thrustRow {
 			delete(data, key)
 		}
 	}
+	if len(data) > maxThrottleRows {
+		m.pruneThrottle(data)
+	}
 	m.writeThrottle(data)
 	return row
+}
+
+// pruneThrottle 在来源过多时删除最久未活动的记录，避免防爆破文件无限膨胀。
+func (m *Manager) pruneThrottle(data map[string]thrustRow) {
+	type item struct {
+		key  string
+		last int64
+	}
+	items := make([]item, 0, len(data))
+	for key, row := range data {
+		items = append(items, item{key: key, last: row.Last})
+	}
+	for len(items) > maxThrottleRows {
+		oldest := 0
+		for i := 1; i < len(items); i++ {
+			if items[i].last < items[oldest].last {
+				oldest = i
+			}
+		}
+		delete(data, items[oldest].key)
+		items = append(items[:oldest], items[oldest+1:]...)
+	}
 }
 
 func (m *Manager) throttleClear(ip string) {
@@ -413,19 +476,26 @@ func (m *Manager) ThrottleFails(ip string) int {
 	return 0
 }
 
-// ClientIP 返回请求来源 IP。
-func ClientIP(r *http.Request) string {
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		if idx := strings.IndexByte(fwd, ','); idx > 0 {
-			return strings.TrimSpace(fwd[:idx])
+// ClientIP 返回请求来源 IP。默认只认连接的远端地址；
+// 只有开启 TrustProxy 后才读取 X-Forwarded-For。
+func (m *Manager) ClientIP(r *http.Request) string {
+	if m.trustProxy {
+		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+			if idx := strings.IndexByte(fwd, ','); idx > 0 {
+				return strings.TrimSpace(fwd[:idx])
+			}
+			return strings.TrimSpace(fwd)
 		}
-		return strings.TrimSpace(fwd)
 	}
-	host := r.RemoteAddr
-	if idx := strings.LastIndexByte(host, ':'); idx > 0 {
-		return host[:idx]
+	return remoteIP(r.RemoteAddr)
+}
+
+func remoteIP(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		return strings.Trim(host, "[]")
 	}
-	return host
+	return addr
 }
 
 // ExportState 返回用于整库备份的访问保护状态（不含防爆破记录）。
@@ -449,9 +519,13 @@ func (m *Manager) ImportState(raw []byte) error {
 	if err := json.Unmarshal(raw, &st); err != nil {
 		return err
 	}
+	if err := validateState(st); err != nil {
+		return err
+	}
 	if st.Iterations <= 0 {
 		st.Iterations = pbkdf2Rounds
 	}
+	st.Unreadable = false
 	payload, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err
@@ -463,4 +537,44 @@ func (m *Manager) ImportState(raw []byte) error {
 		return err
 	}
 	return os.Rename(tmp, m.statePath())
+}
+
+// ValidateState 只校验备份里的访问保护状态是否合法，不落盘。
+// 供导入备份时在写入数据前先行拒绝恶意配置。
+func (m *Manager) ValidateState(raw []byte) error {
+	var st State
+	if err := json.Unmarshal(raw, &st); err != nil {
+		return errors.New("访问保护状态损坏")
+	}
+	return validateState(st)
+}
+
+func validateState(st State) error {
+	if st.Iterations != 0 && (st.Iterations < 100000 || st.Iterations > 10000000) {
+		return errors.New("访问保护状态非法")
+	}
+	if st.Unreadable {
+		return errors.New("访问保护状态不可用")
+	}
+	if st.Salt != "" {
+		if _, err := base64.StdEncoding.DecodeString(st.Salt); err != nil {
+			return errors.New("访问保护盐值非法")
+		}
+	}
+	if st.Hash != "" {
+		if _, err := base64.StdEncoding.DecodeString(st.Hash); err != nil {
+			return errors.New("访问保护摘要非法")
+		}
+	}
+	if st.Secret != "" {
+		if _, err := hex.DecodeString(st.Secret); err != nil {
+			return errors.New("访问保护会话密钥非法")
+		}
+	}
+	if st.Enabled {
+		if st.Salt == "" || st.Hash == "" || st.Secret == "" {
+			return errors.New("访问保护状态不完整")
+		}
+	}
+	return nil
 }

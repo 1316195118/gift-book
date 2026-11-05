@@ -13,10 +13,12 @@ import (
 func (s *Server) handleAuthState(w http.ResponseWriter, r *http.Request) {
 	enabled := s.auth.Enabled()
 	authenticated := s.auth.Check(r)
+	setupRequired := s.auth.SetupTokenRequired()
 	writeJSON(w, http.StatusOK, response{
 		Success:       true,
 		Enabled:       &enabled,
 		Authenticated: &authenticated,
+		SetupRequired: &setupRequired,
 	})
 }
 
@@ -63,6 +65,7 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 		Enabled         *bool  `json:"enabled"`
 		Password        string `json:"password"`
 		CurrentPassword string `json:"currentPassword"`
+		SetupToken      string `json:"setupToken"`
 	}
 	if err := decodeJSON(r, &body); err != nil || body.Enabled == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -89,7 +92,12 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	updating := auth.UpdateRequest{Enabled: *body.Enabled, Password: body.Password, CurrentPassword: body.CurrentPassword}
+	updating := auth.UpdateRequest{
+		Enabled:         *body.Enabled,
+		Password:        body.Password,
+		CurrentPassword: body.CurrentPassword,
+		SetupToken:      body.SetupToken,
+	}
 	if !*body.Enabled && s.auth.Enabled() {
 		ok, _, _ := s.auth.VerifyOrFail(r, body.CurrentPassword)
 		if !ok {
@@ -103,6 +111,8 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusBadRequest, "访问密码至少 8 位")
 		case errors.Is(err, auth.ErrWrongPassword):
 			fail(w, http.StatusUnauthorized, "当前访问密码不正确")
+		case errors.Is(err, auth.ErrSetupToken):
+			fail(w, http.StatusUnauthorized, "设置口令不正确，无法开启访问保护")
 		default:
 			fail(w, http.StatusBadRequest, err.Error())
 		}

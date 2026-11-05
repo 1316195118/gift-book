@@ -41,7 +41,7 @@
             <button id="stats-btn" class="main-tool" type="button" @click="openStats">统计</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
             <button id="print-btn" class="main-tool" type="button" @click="openPrint">打印</button>
-            <button id="ocr-btn" class="main-tool" type="button" @click="openOcr">扫描礼簿</button>
+            <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
             <button id="export-btn" class="main-tool main-tool-primary" type="button" @click="openExport">导出</button>
           </div>
         </div>

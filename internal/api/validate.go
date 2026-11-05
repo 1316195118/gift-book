@@ -57,7 +57,7 @@ func validDateTime(value string) bool {
 }
 
 var coverStylePattern = regexp.MustCompile(`^[a-z0-9-]{0,32}$`)
-var imagePattern = regexp.MustCompile(`^data:image/[A-Za-z0-9.+-]+;base64,`)
+var imagePattern = regexp.MustCompile(`^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]*)$`)
 
 func validImage(value any) bool {
 	if value == nil {
@@ -70,10 +70,15 @@ func validImage(value any) bool {
 	if text == "" {
 		return true
 	}
-	if len(text) > maxCoverImageSize || !imagePattern.MatchString(text) {
+	if len(text) > maxCoverImageSize {
 		return false
 	}
-	return strings.Contains(text, ",") && len(text) > len(imagePattern.FindString(text))
+	match := imagePattern.FindStringSubmatch(text)
+	if match == nil || strings.TrimSpace(match[2]) == "" {
+		return false
+	}
+	decoded, err := decodeBase64(strings.TrimSpace(match[2]))
+	return err == nil && len(decoded) > 0
 }
 
 // validateAmount 把金额规范化为 float64，并做上下限与（可选）两位小数检查。
