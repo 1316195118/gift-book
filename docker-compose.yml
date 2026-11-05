@@ -1,65 +1,37 @@
-# 电子礼簿 · Gift Book —— Docker Compose
-# 对照 NAS（Synology Container Manager）上的实际格式整理，字段与顺序保持一致。
-
 name: gift-book
 
 services:
   gift-book:
-    # 使用的镜像名。
-    # NAS 上用的是预构建镜像 git-book:native-<日期-时间>；
-    # 这里额外声明 build: 指向仓库根目录的 Dockerfile，
-    # 直接 docker compose up -d --build 就能从源码一键构建并打上 gift-book:latest 标签。
-    # 如果像 NAS 那样已经单独 docker build 好了镜像，可以删掉下面这行 build，只保留 image。
-    image: gift-book:latest
-    build: .
-
-    # 容器名：NAS 上固定叫 gift-book，便于 docker exec / docker logs 直接引用。
-    container_name: gift-book
-
-    # 启动参数：列表写法，等价于命令行
-    #   giftbook -addr 0.0.0.0 -port 8099 -data /data -config /config
-    #   -addr    监听地址，0.0.0.0 表示接受局域网访问；只本机用可改 127.0.0.1
-    #   -port    容器内监听端口，要和下面 ports 映射保持一致
-    #   -data    账簿数据目录（容器内路径，对应 volumes 里的 /data）
-    #   -config  访问保护配置目录（容器内路径，对应 volumes 里的 /config）
+    image: git-book:native-20261105-1226          # 镜像名（用仓库 Dockerfile 构建时改 gift-book:latest，并加 build: .）
+    container_name: gift-book                       # 容器名
+    ports:
+      - "8099:8099"                                 # 宿主机:容器 端口映射
+    environment:
+      - TZ=Asia/Shanghai                            # 时区
+      # - GIFTBOOK_SETUP_TOKEN=change-me            # 首次开启访问保护时要求的口令
+      # - GIFTBOOK_TRUST_PROXY=1                    # 位于受信任反向代理后开启
     command:
       - -addr
-      - 0.0.0.0
+      - 0.0.0.0                                     # 监听地址（0.0.0.0 接受局域网访问）
       - -port
-      - "8099"
+      - "8099"                                      # 监听端口
       - -data
-      - /data
+      - /data                                       # 账簿数据目录（容器内）
       - -config
-      - /config
-
-    # 端口映射：宿主机端口:容器端口。
-    # 改左边就能换宿主机端口，例如 "18099:8099" 就是局域网用 18099 访问。
-    ports:
-      - "8099:8099"
-
-    # 数据持久化：宿主机目录:容器目录。
-    # NAS 上对应 /volume1/docker/gift-book/data 和 /volume1/docker/gift-book/config；
-    # 换到其它机器时改成你自己的绝对路径，或保留 ./data、./config 相对路径。
+      - /config                                     # 访问保护配置目录（容器内）
+    restart: unless-stopped                         # 容器策略：开机自启 + 异常重启
     volumes:
-      - ./data:/data
-      - ./config:/config
-
-    # 环境变量（可选，按需取消注释）。
-    environment:
-      - TZ=Asia/Shanghai
-      # 首次开启「访问保护」时要求的口令，防止局域网内别人抢先设置密码。
-      # - GIFTBOOK_SETUP_TOKEN=please-change-me-to-a-long-random-string
-      # 位于受信任反向代理之后时设为 1，让 X-Forwarded-For 参与防爆破与 HTTPS 判断。
-      # - GIFTBOOK_TRUST_PROXY=1
-
-    # 资源限制：与 NAS 上一致，限制 2 核 CPU / 512MB 内存。
-    # 注意：普通 docker compose 会忽略 deploy 段（它属于 Swarm 编排）；
-    # Synology Container Manager 会读取它并作为容器资源限制生效。
+      - /volume1/docker/gift-book/data:/data        # 账簿数据持久化
+      - /volume1/docker/gift-book/config:/config    # 访问保护配置持久化
     deploy:
       resources:
         limits:
-          cpus: "2"
-          memory: 512M
-
-    # 重启策略：开机自启 + 容器异常退出时自动重启。
-    restart: unless-stopped
+          cpus: "2"                                 # CPU 核数上限
+          memory: 512M                              # 内存上限
+    # 健康检查：需镜像内含 wget（仓库 Alpine 镜像可用）；scratch 原生镜像请删除本段
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
