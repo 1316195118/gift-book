@@ -17,6 +17,10 @@
         <label for="access-confirm" class="field-label">确认新密码</label>
         <input v-model="confirm" type="password" id="access-confirm" placeholder="再次输入" autocomplete="new-password" />
       </div>
+      <div v-if="!initialEnabled && st.authSetupRequired" class="field">
+        <label for="access-setup-token" class="field-label">设置口令 <span class="opt">部署时配置</span></label>
+        <input v-model="setupToken" type="password" id="access-setup-token" placeholder="开启访问保护需要此口令" autocomplete="new-password" />
+      </div>
     </div>
     <div v-if="error" class="access-error" role="alert">{{ error }}</div>
     <p class="access-tip">访问保护与单本账簿的管理密码相互独立。开启后请把密码记在安全的地方。</p>
@@ -40,6 +44,7 @@ const enabled = ref(props.enabled)
 const current = ref('')
 const next = ref('')
 const confirm = ref('')
+const setupToken = ref('')
 const error = ref('')
 const busy = ref(false)
 
@@ -52,6 +57,7 @@ async function save() {
   if (busy.value) return
   if (enabled.value) {
     if (!initialEnabled && !next.value) return (error.value = '请设置访问密码')
+    if (!initialEnabled && st.authSetupRequired && !setupToken.value) return (error.value = '请输入设置口令')
     if (next.value && next.value.length < 8) return (error.value = '访问密码至少 8 位')
     if (next.value !== confirm.value) return (error.value = '两次输入的密码不一致')
     busy.value = true
@@ -59,6 +65,7 @@ async function save() {
       const payload = { enabled: true }
       if (next.value) payload.password = next.value
       if (initialEnabled && current.value) payload.currentPassword = current.value
+      if (!initialEnabled && st.authSetupRequired) payload.setupToken = setupToken.value
       await api.updateAuth(payload)
       st.authEnabled = true
       closeModal()

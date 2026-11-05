@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"giftbook/internal/auth"
 	"giftbook/internal/ledger"
 	"giftbook/internal/store"
 )
@@ -333,7 +332,7 @@ func (s *Server) requireLedgerKey(w http.ResponseWriter, r *http.Request, event 
 	if !ledger.ValidKey(key) {
 		key = ""
 	}
-	ip := "ledger:" + auth.ClientIP(r)
+	ip := "ledger:" + s.auth.ClientIP(r)
 	if s.auth.ThrottleLocked(ip) {
 		retry := s.auth.ThrottleRetryAfter(ip)
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))

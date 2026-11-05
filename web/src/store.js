@@ -27,9 +27,11 @@ export const state = reactive({
   netHealth: { level: 'bad', text: '检测中' },
   version: '',
   build: '',
+  ocrAvailable: true,
 
   // 认证
   authEnabled: false,
+  authSetupRequired: false,
   authChecked: false,
   authGate: false,
 

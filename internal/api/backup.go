@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
-	"net/url"
 	"time"
 
 	"giftbook/internal/store"
@@ -20,6 +20,9 @@ const (
 	backupFormat  = "giftbook-backup"
 	backupVersion = 1
 	maxBackupSize = 512 << 20
+	maxZipEntries = 10000
+	maxEntrySize  = 64 << 20
+	maxTotalSize  = 512 << 20
 )
 
 // backupManifest 是备份包里的 manifest.json。
@@ -98,6 +101,166 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 
 // ---- POST /api/backup 导入 zip ----
 
+// parsedBackup 是解析并校验后的备份包内容。
+type parsedBackup struct {
+	manifest  backupManifest
+	events    map[string]store.Record
+	gifts     map[string]map[string]store.Record
+	authState []byte
+}
+
+func (p *parsedBackup) accept(name string, content []byte) error {
+	switch {
+	case name == "manifest.json":
+		if err := json.Unmarshal(content, &p.manifest); err != nil {
+			return errors.New("备份清单损坏")
+		}
+	case name == "data/events.json":
+		if err := json.Unmarshal(content, &p.events); err != nil {
+			return errors.New("账簿数据损坏")
+		}
+	case strings.HasPrefix(name, "data/gifts_") && strings.HasSuffix(name, ".json"):
+		id := strings.TrimSuffix(strings.TrimPrefix(name, "data/gifts_"), ".json")
+		if !store.ValidID(id) {
+			return errors.New("备份包包含无效的账簿ID")
+		}
+		var items map[string]store.Record
+		if err := json.Unmarshal(content, &items); err != nil {
+			return errors.New("礼金数据损坏")
+		}
+		if p.gifts == nil {
+			p.gifts = map[string]map[string]store.Record{}
+		}
+		p.gifts[id] = items
+	case name == "config/auth-state.json":
+		p.authState = content
+	}
+	return nil
+}
+
+// normalize 校验结构并把每本账簿的 ID 与字段规范化，丢弃孤儿礼金表。
+func (p *parsedBackup) normalize() error {
+	if p.gifts == nil {
+		p.gifts = map[string]map[string]store.Record{}
+	}
+	for id, event := range p.events {
+		if !store.ValidID(id) {
+			return errors.New("备份包包含无效的账簿ID")
+		}
+		if _, ok := event["id"]; !ok {
+			event["id"] = id
+		}
+		if err := validateEventBody(event, nil); err != nil {
+			return errors.New("账簿字段无效：" + err.Error())
+		}
+		if _, ok := p.gifts[id]; !ok {
+			p.gifts[id] = map[string]store.Record{}
+		}
+	}
+	for id := range p.gifts {
+		if _, ok := p.events[id]; !ok {
+			delete(p.gifts, id)
+		}
+	}
+	for _, items := range p.gifts {
+		for giftID, gift := range items {
+			if !store.ValidID(giftID) {
+				return errors.New("备份包包含无效的礼金ID")
+			}
+			if cipher, ok := gift["encryptedContent"]; ok {
+				text, isString := cipher.(string)
+				if !isString || validateCipher(text) != nil {
+					return errors.New("备份包包含无效的加密内容")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// parseBackupZip 解析并校验备份包：限制条目数、单条大小与解压总量，
+// 拒绝路径穿越，并在写入前校验账簿、礼金与访问保护状态。
+func (s *Server) parseBackupZip(data []byte) (*parsedBackup, error) {
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, errors.New("不是有效的备份包")
+	}
+	if len(reader.File) > maxZipEntries {
+		return nil, errors.New("备份包条目过多")
+	}
+	out := &parsedBackup{}
+	var total int64
+	for _, entry := range reader.File {
+		name := filepath.ToSlash(entry.Name)
+		if strings.Contains(name, "..") || strings.HasPrefix(name, "/") {
+			return nil, errors.New("备份包路径不合法")
+		}
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		if entry.UncompressedSize64 > maxEntrySize {
+			return nil, errors.New("备份包单个文件过大")
+		}
+		if entry.UncompressedSize64 > 0 {
+			total += int64(entry.UncompressedSize64)
+			if total > maxTotalSize {
+				return nil, errors.New("备份包解压后过大")
+			}
+		}
+		rc, err := entry.Open()
+		if err != nil {
+			return nil, errors.New("备份包内容损坏")
+		}
+		content, err := io.ReadAll(io.LimitReader(rc, maxEntrySize+1))
+		rc.Close()
+		if err != nil {
+			return nil, errors.New("备份包内容损坏")
+		}
+		if int64(len(content)) > maxEntrySize {
+			return nil, errors.New("备份包单个文件过大")
+		}
+		if err := out.accept(name, content); err != nil {
+			return nil, err
+		}
+	}
+	if out.manifest.Format != backupFormat {
+		return nil, errors.New("不是电子礼簿的备份包")
+	}
+	if out.manifest.Version > backupVersion {
+		return nil, errors.New("备份包来自更新版本，请先升级服务端")
+	}
+	if out.events == nil {
+		return nil, errors.New("备份包缺少账簿数据")
+	}
+	if err := out.normalize(); err != nil {
+		return nil, err
+	}
+	if len(out.authState) > 0 {
+		if err := s.auth.ValidateState(out.authState); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// applyBackup 用校验过的数据整体替换现有账簿，并恢复访问保护状态。
+func (s *Server) applyBackup(p *parsedBackup) (map[string]any, error) {
+	if err := s.store.ReplaceAll(p.events, p.gifts); err != nil {
+		return nil, errors.New("导入失败：" + err.Error())
+	}
+	if len(p.authState) > 0 {
+		if err := s.auth.ImportState(p.authState); err != nil {
+			return nil, errors.New("访问保护状态导入失败：" + err.Error())
+		}
+	}
+	return map[string]any{
+		"events":    len(p.events),
+		"gifts":     countGifts(p.gifts),
+		"createdAt": p.manifest.CreatedAt,
+		"hasAuth":   len(p.authState) > 0,
+	}, nil
+}
+
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupSize)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
@@ -116,105 +279,18 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "读取备份包失败")
 		return
 	}
-	reader, err := zip.NewReader(bytes.NewReader(buf), int64(len(buf)))
+	parsed, err := s.parseBackupZip(buf)
 	if err != nil {
-		fail(w, http.StatusBadRequest, "不是有效的备份包")
+		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	var manifest backupManifest
-	var events map[string]store.Record
-	gifts := map[string]map[string]store.Record{}
-	var authState []byte
-
-	for _, entry := range reader.File {
-		name := filepath.ToSlash(entry.Name)
-		if strings.Contains(name, "..") {
-			fail(w, http.StatusBadRequest, "备份包路径不合法")
-			return
-		}
-		rc, err := entry.Open()
-		if err != nil {
-			fail(w, http.StatusBadRequest, "备份包内容损坏")
-			return
-		}
-		content, err := io.ReadAll(io.LimitReader(rc, maxBackupSize))
-		rc.Close()
-		if err != nil {
-			fail(w, http.StatusBadRequest, "备份包内容损坏")
-			return
-		}
-		switch {
-		case name == "manifest.json":
-			if err := json.Unmarshal(content, &manifest); err != nil {
-				fail(w, http.StatusBadRequest, "备份清单损坏")
-				return
-			}
-		case name == "data/events.json":
-			if err := json.Unmarshal(content, &events); err != nil {
-				fail(w, http.StatusBadRequest, "账簿数据损坏")
-				return
-			}
-		case strings.HasPrefix(name, "data/gifts_") && strings.HasSuffix(name, ".json"):
-			id := strings.TrimSuffix(strings.TrimPrefix(name, "data/gifts_"), ".json")
-			var items map[string]store.Record
-			if err := json.Unmarshal(content, &items); err != nil {
-				fail(w, http.StatusBadRequest, "礼金数据损坏")
-				return
-			}
-			gifts[id] = items
-		case name == "config/auth-state.json":
-			authState = content
-		}
-	}
-
-	if manifest.Format != backupFormat {
-		fail(w, http.StatusBadRequest, "不是电子礼簿的备份包")
+	result, err := s.applyBackup(parsed)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if manifest.Version > backupVersion {
-		fail(w, http.StatusBadRequest, "备份包来自更新版本，请先升级服务端")
-		return
-	}
-	if events == nil {
-		fail(w, http.StatusBadRequest, "备份包缺少账簿数据")
-		return
-	}
-	// 校验每个账簿 ID 合法，并把缺失的礼金表补成空表。
-	for id, event := range events {
-		if !store.ValidID(id) {
-			fail(w, http.StatusBadRequest, "备份包包含无效的账簿ID")
-			return
-		}
-		if _, ok := event["id"]; !ok {
-			event["id"] = id
-		}
-		if _, ok := gifts[id]; !ok {
-			gifts[id] = map[string]store.Record{}
-		}
-	}
-	// 丢掉没有对应账簿的礼金表，避免恢复后出现孤儿文件。
-	for id := range gifts {
-		if _, ok := events[id]; !ok {
-			delete(gifts, id)
-		}
-	}
-
-	if err := s.store.ReplaceAll(events, gifts); err != nil {
-		fail(w, http.StatusInternalServerError, "导入失败："+err.Error())
-		return
-	}
-	if len(authState) > 0 {
-		_ = s.auth.ImportState(authState)
-	}
-	_ = header
-	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
-		"events":     len(events),
-		"gifts":      countGifts(gifts),
-		"createdAt":  manifest.CreatedAt,
-		"hasAuth":    len(authState) > 0,
-		"sourceName": header.Filename,
-	}})
+	result["sourceName"] = header.Filename
+	writeJSON(w, http.StatusOK, response{Success: true, Data: result})
 }
 
 func countGifts(gifts map[string]map[string]store.Record) int {
@@ -245,86 +321,11 @@ func (s *Server) handleBackupInfo(w http.ResponseWriter, r *http.Request) {
 // restoreZip 解析备份包并整体替换现有数据，返回恢复条数。
 // 上传导入与从备份列表还原共用这条路径。
 func (s *Server) restoreZip(data []byte) (map[string]any, error) {
-	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	parsed, err := s.parseBackupZip(data)
 	if err != nil {
-		return nil, errors.New("不是有效的备份包")
+		return nil, err
 	}
-	var manifest backupManifest
-	var events map[string]store.Record
-	gifts := map[string]map[string]store.Record{}
-	var authState []byte
-
-	for _, entry := range reader.File {
-		name := filepath.ToSlash(entry.Name)
-		if strings.Contains(name, "..") {
-			return nil, errors.New("备份包路径不合法")
-		}
-		rc, err := entry.Open()
-		if err != nil {
-			return nil, errors.New("备份包内容损坏")
-		}
-		content, err := io.ReadAll(io.LimitReader(rc, maxBackupSize))
-		rc.Close()
-		if err != nil {
-			return nil, errors.New("备份包内容损坏")
-		}
-		switch {
-		case name == "manifest.json":
-			if err := json.Unmarshal(content, &manifest); err != nil {
-				return nil, errors.New("备份清单损坏")
-			}
-		case name == "data/events.json":
-			if err := json.Unmarshal(content, &events); err != nil {
-				return nil, errors.New("账簿数据损坏")
-			}
-		case strings.HasPrefix(name, "data/gifts_") && strings.HasSuffix(name, ".json"):
-			id := strings.TrimSuffix(strings.TrimPrefix(name, "data/gifts_"), ".json")
-			var items map[string]store.Record
-			if err := json.Unmarshal(content, &items); err != nil {
-				return nil, errors.New("礼金数据损坏")
-			}
-			gifts[id] = items
-		case name == "config/auth-state.json":
-			authState = content
-		}
-	}
-	if manifest.Format != backupFormat {
-		return nil, errors.New("不是电子礼簿的备份包")
-	}
-	if manifest.Version > backupVersion {
-		return nil, errors.New("备份包来自更新版本，请先升级服务端")
-	}
-	if events == nil {
-		return nil, errors.New("备份包缺少账簿数据")
-	}
-	for id, event := range events {
-		if !store.ValidID(id) {
-			return nil, errors.New("备份包包含无效的账簿ID")
-		}
-		if _, ok := event["id"]; !ok {
-			event["id"] = id
-		}
-		if _, ok := gifts[id]; !ok {
-			gifts[id] = map[string]store.Record{}
-		}
-	}
-	for id := range gifts {
-		if _, ok := events[id]; !ok {
-			delete(gifts, id)
-		}
-	}
-	if err := s.store.ReplaceAll(events, gifts); err != nil {
-		return nil, errors.New("导入失败：" + err.Error())
-	}
-	if len(authState) > 0 {
-		_ = s.auth.ImportState(authState)
-	}
-	return map[string]any{
-		"events":    len(events),
-		"gifts":     countGifts(gifts),
-		"createdAt": manifest.CreatedAt,
-		"hasAuth":   len(authState) > 0,
-	}, nil
+	return s.applyBackup(parsed)
 }
 
 // handleExportEvent 导出单本账簿：账簿信息 + 该账簿的礼金密文。

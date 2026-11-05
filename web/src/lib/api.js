@@ -33,7 +33,7 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
       body: data ? JSON.stringify(data) : undefined,
     })
 
-    if (response.status === 401) {
+    if (response.status === 401 && !options.skipAuthRedirect) {
       authGateHandler()
       throw new ApiError('未登录或登录已过期', { code: 'UNAUTHORIZED', status: 401 })
     }
@@ -71,12 +71,14 @@ export const api = {
 
   build: () => apiRequest('/api/build'),
 
+  capabilities: () => apiRequest('/api/capabilities'),
+
   authState: () =>
     fetch('/api/auth', { credentials: 'same-origin', cache: 'no-store' })
       .then((r) => r.json())
       .catch(() => ({ enabled: false, authenticated: true })),
 
-  login: (password) => apiRequest('/api/auth', 'POST', { password }),
+  login: (password) => apiRequest('/api/auth', 'POST', { password }, { skipAuthRedirect: true }),
 
   updateAuth: (payload) => apiRequest('/api/auth', 'PUT', payload),
 
