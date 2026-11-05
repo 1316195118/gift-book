@@ -27,7 +27,7 @@
 *.log
 
 # ---- 本地调试产物 ----
-/.shots/
+/.shots*/
 /.edge-profile/
 # 无头浏览器的用户数据目录，动辄几百 MB，且含 Cookie
 /.edge*/
@@ -40,4 +40,3 @@
 .idea/
 .DS_Store
 Thumbs.db
-/.shots-ui/
