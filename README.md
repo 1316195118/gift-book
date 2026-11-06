@@ -59,7 +59,7 @@ name: gift-book
 
 services:
   gift-book:
-    image: ghcr.io/1316195118/gift-book:alpine-20261106   # 公开镜像，免登录直接拉取
+    image: ghcr.io/1316195118/gift-book:latest            # 公开镜像，免登录直接拉取
     container_name: gift-book                               # 容器名
     user: "1000:10"                                         # 权限：以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
     ports:
@@ -100,7 +100,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像标签 `alpine-20261106` 与 `latest` 指向同一版：带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `alpine-20261106`。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与访问保护配置分别持久化在数据、配置两个目录，升级容器不会丢数据：
 
@@ -118,7 +118,7 @@ docker run -d --name gift-book \
   -v "$(pwd)/config:/config" \
   -e TZ=Asia/Shanghai \
   --restart unless-stopped \
-  ghcr.io/1316195118/gift-book:alpine-20261106
+  ghcr.io/1316195118/gift-book:latest
 ```
 
 如需自行构建镜像（需要 Docker，Dockerfile 会自动安装前端依赖、编译 Go 并产出镜像）：
