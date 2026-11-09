@@ -8,15 +8,35 @@ import { loadEvents, showHome } from '../bootstrap.js'
 import { verifyLedgerPassword, ledgerKeyOf } from './actions.js'
 import { buildVoiceGroups, voiceHint, previewVoice } from './voice.js'
 import { getVoiceOptions, saveVoiceOptions, qrStorageKey } from './prefs.js'
+import { soundEnabled, setSoundEnabled, playTap } from './sound.js'
+import { motionPreference, setMotionPreference } from './feedback.js'
 import { showQrDialog } from './qr-dialog.js'
 import { label, hint, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
 
+// 设置弹窗由 Vue 异步挂载，关闭再打开时内容 DOM 会被替换。
+// 偏好开关用 document 级 change 委托，避免绑到已被换掉的旧节点上。
+let prefsHandlersBound = false
+function bindFeedbackPrefs() {
+  if (prefsHandlersBound) return
+  prefsHandlersBound = true
+  document.addEventListener('change', (event) => {
+    const el = event.target
+    if (el?.id === 'edit-sound-enabled') {
+      setSoundEnabled(el.checked)
+      if (el.checked) playTap() // 打开时即时试听一声
+    } else if (el?.id === 'edit-motion-full') {
+      setMotionPreference(el.checked ? 'full' : 'system')
+    }
+  })
+}
+
 export function openSettings({ section = 'general' } = {}) {
   const ev = st.currentEvent
   if (!ev) return
   if (section === 'delete') return deleteEventFlow()
+  bindFeedbackPrefs()
   const copy = copyOf(ev, st.homeCategory)
   const startDate = ev.startDateTime ? ev.startDateTime.slice(0, 10) : ''
   const startTime = ev.startDateTime ? ev.startDateTime.slice(11, 16) : ''
@@ -96,6 +116,25 @@ export function openSettings({ section = 'general' } = {}) {
           ${hint('尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。')}
         </div>
         <button type="button" id="edit-qr-btn" class="themed-button-secondary field-action">设置 / 更换收款码</button>
+      </section>
+
+      <section class="settings-section">
+        <h4 class="settings-title">交互反馈</h4>
+        <div class="voice-toggle-row">
+          <div>
+            <div class="voice-toggle-main">点击、落印与建簿提示音</div>
+            <div class="field-hint">Web Audio 合成的轻音效，无外部音频文件；系统开启「减弱动态效果」时自动静音</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="edit-sound-enabled" ${soundEnabled() ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+        <div class="voice-toggle-row">
+          <div>
+            <div class="voice-toggle-main">始终播放完整动效</div>
+            <div class="field-hint">忽略系统「减弱动态效果」，落印、建簿动效与点击涟漪照常播放；白事不出现任何喜庆元素</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="edit-motion-full" ${motionPreference() === 'full' ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+        ${hint('设备级偏好：切换后立即生效并保存在本机，不随账簿保存，也不影响账簿数据。')}
       </section>
 
       <section class="settings-section">

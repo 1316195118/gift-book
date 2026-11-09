@@ -172,7 +172,8 @@ import { state as st } from '../store.js'
 import { copyOf } from '../lib/content.js'
 import { formatCurrency } from '../lib/crypto.js'
 import { showHome, syncEventTotal } from '../bootstrap.js'
-import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails } from '../lib/actions.js'
+import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verifyLedgerPassword } from '../lib/actions.js'
+import { writeLocked } from '../lib/prefs.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'
 import {
@@ -225,8 +226,6 @@ async function onUnlockSubmit() {
   unlocking.value = true
   unlockError.value = ''
   try {
-    const { verifyLedgerPassword } = await import('../lib/actions.js')
-    const { writeLocked } = await import('../lib/prefs.js')
     const result = await verifyLedgerPassword(st.currentEvent.id, unlockPassword.value)
     if (result.ok) {
       st.locked = false

@@ -1,5 +1,5 @@
 // 页面级动作：首页各按钮、账簿打开/解锁、导出入口等。
-import { state as st, NO_PASSWORD_KEY, hashPassword, NO_PASSWORD_HASH } from '../store.js'
+import { state as st, NO_PASSWORD_KEY, hashPassword, NO_PASSWORD_HASH, applyLargeText } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './modal.js'
 import { showTemplates, showSetup, showHome, loadEvents, startSession, endSession } from '../bootstrap.js'
@@ -13,7 +13,7 @@ export { showTemplates, showSetup, showHome }
 export const versionLabel = () => st.version || '--'
 
 export function toggleLargeText() {
-  import('../store.js').then(({ applyLargeText }) => applyLargeText(!st.largeText))
+  applyLargeText(!st.largeText)
 }
 
 export function switchCategory(next) {

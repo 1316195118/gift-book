@@ -5,7 +5,7 @@ import {
   NO_PASSWORD_KEY, NO_PASSWORD_HASH, LedgerCrypto,
 } from './store.js'
 import { api, setAuthGateHandler, setLedgerKeyResolver, ApiError } from './lib/api.js'
-import { cacheEventList, readCache } from './lib/offline.js'
+import { cacheEventList, readCache, queueFor, cacheLedgerGifts, cacheLedgerVerifier } from './lib/offline.js'
 import { categoryForEvent, eventTheme, isSolemnEvent } from './lib/content.js'
 import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeText } from './lib/prefs.js'
 import { ledgerKeyForEvent } from './store.js'
@@ -252,7 +252,6 @@ export async function loadGiftsForCurrentEvent() {
       if (i + batchSize < encryptedGifts.length) await new Promise((resolve) => setTimeout(resolve, 0))
     }
     if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
-    const { queueFor } = await import('./lib/offline.js')
     const pending = queueFor(eventId)
       .map((item) => ({
         id: item.qid,
@@ -282,7 +281,6 @@ export async function loadGiftsForCurrentEvent() {
       setSyncStatus(`当前离线，显示的是本机缓存的 ${decrypted.length} 条记录；新录入会暂存，联网后自动补传。`, true)
     } else {
       setSyncStatus('')
-      const { cacheLedgerGifts } = await import('./lib/offline.js')
       cacheLedgerGifts(eventId, encryptedGifts)
       syncEventTotal()
     }
@@ -359,7 +357,6 @@ export async function ensureCipher() {
     }
     if (!st.currentEvent || st.currentEvent.id !== event.id || st.currentPassword !== password) return null
     currentCipher = { eventId: event.id, password, keys }
-    const { cacheLedgerVerifier } = await import('./lib/offline.js')
     cacheLedgerVerifier(event.id, LedgerCrypto.hmacSha256Hex2(keys.mac, 'giftbook-offline-verify'))
     return currentCipher
   })()

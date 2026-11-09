@@ -2,7 +2,7 @@
 import { state as st } from '../store.js'
 import { readLocked, writeLocked } from './prefs.js'
 import { verifyLedgerPassword } from './actions.js'
-import { openModal, alert as showAlert, afterModalRender } from './modal.js'
+import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 
 export function restoreLocked() {
   if (st.currentEvent) st.locked = readLocked(st.currentEvent.id)
@@ -38,7 +38,6 @@ export async function toggleLedgerLock() {
           if (result.ok) {
             st.locked = false
             writeLocked(st.currentEvent.id, false)
-            const { closeModal } = await import('./modal.js')
             closeModal()
             return
           }

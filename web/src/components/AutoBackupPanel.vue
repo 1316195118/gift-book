@@ -69,7 +69,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../lib/api.js'
-import { closeModal } from '../lib/modal.js'
+import { openModal, closeModal } from '../lib/modal.js'
 import { state as st } from '../store.js'
 import { verifyLedgerPassword } from '../lib/actions.js'
 
@@ -175,7 +175,7 @@ function confirmRestore(label) {
           : '<label class="field-label" for="restore-text">请输入「还原」两个字以继续</label><input id="restore-text" type="text" placeholder="还原" autocomplete="off" />'}
         <div class="access-error hidden" id="restore-error" role="alert"></div>
       </div>`
-    import('../lib/modal.js').then(({ openModal }) => {
+    {
       const fail = (msg) => {
         const el = document.getElementById('restore-error')
         if (el) { el.textContent = msg; el.classList.remove('hidden') }
@@ -204,7 +204,7 @@ function confirmRestore(label) {
           },
         },
       ])
-    })
+    }
   })
 }
 
@@ -250,12 +250,10 @@ async function restoreFromFile(file) {
 
 async function askDelete(file) {
   const ok = await new Promise((resolve) => {
-    import('../lib/modal.js').then(({ openModal }) => {
-      openModal('删除备份', { type: 'html', html: `<p>确定删除备份「${file.name}」吗？</p><p class="confirm-note">删除后无法恢复，但其他备份不受影响。</p>` }, [
-        { text: '取消', class: 'modal-btn-ghost', handler: () => resolve(false) },
-        { text: '删除', class: 'modal-btn-danger', handler: () => resolve(true) },
-      ])
-    })
+    openModal('删除备份', { type: 'html', html: `<p>确定删除备份「${file.name}」吗？</p><p class="confirm-note">删除后无法恢复，但其他备份不受影响。</p>` }, [
+      { text: '取消', class: 'modal-btn-ghost', handler: () => resolve(false) },
+      { text: '删除', class: 'modal-btn-danger', handler: () => resolve(true) },
+    ])
   })
   if (!ok) return
   try {
