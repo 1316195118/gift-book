@@ -11,15 +11,6 @@ services:
       - TZ=Asia/Shanghai                            # 时区
       # - GIFTBOOK_SETUP_TOKEN=change-me            # 首次开启访问保护时要求的口令
       # - GIFTBOOK_TRUST_PROXY=1                    # 位于受信任反向代理后开启
-    command:
-      - -addr
-      - 0.0.0.0                                     # 监听地址（0.0.0.0 接受局域网访问）
-      - -port
-      - "8099"                                      # 监听端口
-      - -data
-      - /data                                       # 账簿数据目录（容器内）
-      - -config
-      - /config                                     # 配置、自动备份包目录（容器内）
     restart: unless-stopped                         # 容器策略：开机自启 + 异常重启
     volumes:
       - /volume1/docker/gift-book/data:/data        # 账簿数据持久化

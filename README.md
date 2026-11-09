@@ -68,15 +68,6 @@ services:
       - TZ=Asia/Shanghai                                    # 时区
       # - GIFTBOOK_SETUP_TOKEN=change-me                    # 首次开启访问保护时要求的口令
       # - GIFTBOOK_TRUST_PROXY=1                            # 位于受信任反向代理后开启
-    command:
-      - -addr
-      - 0.0.0.0                                             # 监听地址（接受局域网访问）
-      - -port
-      - "8099"                                              # 监听端口
-      - -data
-      - /data                                               # 账簿数据目录（容器内）
-      - -config
-      - /config                                             # 配置、自动备份包目录（容器内）
     restart: unless-stopped                                 # 容器策略：开机自启 + 异常重启
     volumes:
       - /volume1/docker/gift-book/data:/data                # 账簿数据持久化
@@ -100,7 +91,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `alpine-20261106`。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `alpine-20261110`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
