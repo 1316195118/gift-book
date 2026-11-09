@@ -1,12 +1,13 @@
 # 电子礼簿 · Gift Book
 
-红白喜事礼金登记，数据只留在自己的 NAS / 本机。Go 单文件二进制内嵌前端、纯 JSON 存储，零第三方依赖、无数据库、无需注册；也可用单个容器从 GHCR 公开镜像一键部署。
+红白喜事礼金登记，数据只留在自己的 NAS / 本机。Go 单文件二进制 + Vue 3 前端（Vite 构建，产物由 `//go:embed` 内嵌），纯 JSON 存储、无数据库、无需注册；也可用单个容器从 GHCR 公开镜像一键部署。
 
-> 由旧版（PHP 单页）重写而来：界面与流程保持一致，后端改为 Go（纯标准库），前端改为零第三方依赖的自研原生 JS/CSS。OCR 识别保留第三方组件，见 `ocr/THIRD_PARTY.md`。
+> 由旧版（PHP 单页）重写而来：界面与流程保持一致，后端改为 Go（纯标准库），前端为 Vue 3 + Vite，构建产物 `webapp/dist/` 嵌入单一可执行文件。OCR 识别保留第三方组件，见 `ocr/THIRD_PARTY.md`。
 
 ## 特性
 
-- **零依赖部署**：Go 单文件二进制内嵌前端，没有 npm install、没有打包步骤；也可用单容器 / GHCR 公开镜像一键运行
+- **前后端一体**：Vue 3 + Vite 构建 → `//go:embed` 嵌入 Go 单文件二进制；也可用单容器 / GHCR 公开镜像一键运行
+- **音效与点击反馈**：落印、喜字金点、点击涟漪与 Web Audio 合成音效，遵循系统减动效偏好，白事不出现喜庆元素
 - **隐私优先**：礼金在浏览器端加密后上传，服务端只存密文，不接触明文
 - **红白双主题**：红事「囍」、白事「奠」两套配色与封面，互不串色
 - **竖排礼簿**：传统竖排，金额实时转大写，同名 / 同额自动提醒
@@ -93,7 +94,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `alpine-20261110`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `vue3-20261110`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
@@ -114,7 +115,7 @@ docker run -d --name gift-book \
   ghcr.io/1316195118/gift-book:latest
 ```
 
-如需自行构建镜像（需要 Docker；前端已内嵌，Dockerfile 只需编译 Go，无需 Node/npm）：
+如需自行构建镜像（需要 Docker；Dockerfile 为 Node / Go / Alpine 三阶段，分别构建 Vue 前端、编译 Go、产出运行镜像）：
 
 ```bash
 git clone https://github.com/1316195118/gift-book.git
@@ -131,12 +132,12 @@ build.bat          # Windows：编译 giftbook.exe
 ./build.sh         # Linux/macOS：产出无后缀的 giftbook
 ```
 
-前端 `ui/` 是自研原生 JS/CSS，由 `//go:embed all:ui` 直接嵌入二进制，**没有 npm install、没有打包步骤**。产物落在仓库根目录：Windows 是 `giftbook.exe`，Linux/macOS 是 `giftbook`（发布包里的 `giftbook-linux-amd64` 等是另行交叉编译重命名的）。
+前端 `web/` 是 Vue 3 源码，`npm run build` 产出 `web/dist/`，构建脚本拷到 `webapp/dist/`（由 `//go:embed all:webapp/dist` 嵌入二进制）。产物落在仓库根目录：Windows 是 `giftbook.exe`，Linux/macOS 是 `giftbook`（发布包里的 `giftbook-linux-amd64` 等是另行交叉编译重命名的）。
 
 或分步：
 
 ```bash
-node scripts/build.mjs        # 写 ui/build.json 构建号 → go build
+node scripts/build.mjs        # npm run build → webapp/dist → 写 build.json → go build
 # 或最简：go build -o giftbook ./cmd/giftbook
 ```
 
@@ -233,12 +234,12 @@ internal/api/        HTTP 接口、静态资源、OCR 桥接、备份
 internal/auth/       访问保护、Cookie、防爆破
 internal/ledger/     账簿管理密码校验
 internal/store/      JSON 文件存储（原子写、事务、回收站）
-ui/                  自研前端源码（原生 ES Modules + CSS，零依赖，Go embed 目录）
-ui/app.js            根控制器：页面切换与全局浮层
-ui/views/            首页 / 模板 / 创建 / 记账四个页面
-ui/components/       弹窗、离线提示、收款码、访问闸门
-ui/lib/              自研逻辑库（加解密、离线队列、导出、打印、OCR 等）
-ui/styles/           设计系统 CSS（沿用旧版视觉，含大字/打印/动效）
+web/                 Vue 3 前端源码（Vite 构建）
+web/src/views/       首页 / 模板 / 创建 / 记账四个页面
+web/src/components/  弹窗、离线提示、收款码、访问闸门
+web/src/lib/         逻辑库（加解密、离线队列、导出、打印、OCR、动效与音效）
+web/src/styles/      设计系统 CSS（含 motion.css 交互层）
+webapp/dist/         构建产物（Go embed 目录，内容不入库、仅保留 .gitkeep）
 scripts/build.mjs    统一构建脚本
 scripts/api-test.mjs 接口端到端测试
 scripts/ui-check.mjs 无头浏览器界面验证
@@ -276,7 +277,7 @@ BASE=http://127.0.0.1:18299 node scripts/api-test.mjs
 PVE_HOST=192.168.1.10 GB_PW='<root 密码>' scripts/deploy-pve.sh
 ```
 
-写入构建号 → 交叉编译 linux/amd64 → scp 到宿主机 → **停容器**（二进制正在执行，直接覆盖会报 `Text file busy`）→ `pct push` 替换 → `docker compose up -d` → 健康检查。
+`npm run build` 产出前端 → 拷入 `webapp/dist/` 并写构建号 → 交叉编译 linux/amd64 → scp 到宿主机 → **停容器**（二进制正在执行，直接覆盖会报 `Text file busy`）→ `pct push` 替换 → `docker compose up -d` → 健康检查。
 
 | 变量 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- |
@@ -303,7 +304,7 @@ AUDIT_WIDTHS=320,768 LARGE_TEXT=1 STRESS=1 MOTION=no-preference \
 msedge --headless=new --remote-debugging-port=9334 --user-data-dir=/tmp/edge-ui about:blank
 ```
 
-调界面不需要打包工具链：`ui/` 是浏览器直接加载的原生 ES Modules，改完源码重新 `go build` 一次即可（秒级）。若想完全跳过编译，可用任意静态服务器托管 `ui/` 并把 `/api` 反代到已运行的后端（例如 `./giftbook -port 18099`）；注意 ES Modules 必须经 HTTP 加载，不能用 `file://` 直接打开 `index.html`。
+调界面用 Vite 开发服务器：`cd web && npm run dev`（默认 5173，`/api` 已配置代理到后端 8099），改源码即时热更新，不必反复编译 Go。要验最终产物时跑 `node scripts/build.mjs` 重新生成 `webapp/dist/` 并编译二进制。
 
 ---
 
@@ -321,7 +322,7 @@ OCR 依赖的第三方组件**不随本仓库分发**，各自按其许可证单
 
 ## 界面定制
 
-样式按职责分层，加载顺序就是层叠顺序（见 `ui/index.html`），后面的文件只做加法：
+样式按职责分层，加载顺序就是层叠顺序（见 `web/src/main.js` 的 import 顺序），后面的文件只做加法：
 
 | 文件 | 负责 |
 | --- | --- |
@@ -334,19 +335,18 @@ OCR 依赖的第三方组件**不随本仓库分发**，各自按其许可证单
 | `styles/cover.css` | 礼簿封面（屏幕、预览、打印共用一套） |
 | `styles/ocr.css`、`styles/print.css` | 扫描界面、打印版式 |
 | `styles/motion.css` | 动效与「减弱动态效果」适配（叠加层） |
-| `styles/design.css` | 大字模式、弹窗细节等最终覆盖（叠加层，必须最后加载） |
 
-改配色只动 `tokens.css`；改版面动 `screens.css`；改封面动 `cover.css`。`motion.css` 与 `design.css` 是最后加载的覆盖层，调整样式层级时不要把它们前移。
+改配色只动 `tokens.css`；改版面动 `screens.css`；改封面动 `cover.css`。`motion.css` 是最后加载的覆盖层，调整样式层级时不要把它前移。
 
 ### 动效与交互反馈
 
-动效统一收在 `motion.css`（交互反馈与节奏层），逻辑在 `ui/lib/feedback.js`，零第三方依赖：
+交互反馈统一收在 `web/src/styles/motion.css`（最后加载的叠加层）与 `web/src/lib/feedback.js` / `sound.js`：
 
-- **页面切换**：`app.js` 按页面层级给 `#view-root` 写 `data-direction`，往里走从右侧进入、返回首页从左侧回、进入记账页是「翻开账簿」的略重位移。
-- **点击反馈**：全局涟漪用独立一层裁剪（宿主只加 `position: relative`，不改 `overflow`，不会切掉下拉菜单）；按钮悬停抬升、按下沉降沿用原有物理反馈。
-- **操作提示**：`notify / success / info / warn / error` 生成右上角堆叠 toast，最多三条、带进度条、悬停暂停、可手动关闭。错误仍用弹窗（更醒目），toast 只报成功与状态变化。
-- **异步与数值**：`withBusy()` 统一处理按钮禁用、忙碌文案与 spinner；`pulse()` 用于总额变化、封面选定等「值变了」的强调；礼簿翻页按方向做一次落纸反馈。
-- **降级**：`prefers-reduced-motion: reduce` 与打印时，新增动效全部关闭（涟漪不生成、toast 不做位移、spinner 静态），`base.css` 另把所有时长归零。
+- **落印**：录入成功在录入面板落「囍 / 寿 / 奠」印；红事 + 完整动效为金色印光（`is-festive`），减动效下改纯淡入淡出（`is-static`），白事一律素印。
+- **喜庆反馈**：红事创建账簿成功撒一枚「囍」与 8 个金点；白事、失败、减动效一律不生成（JS 判断 + CSS 兜底）。
+- **点击指向**：全局 `pointerdown` 委托生成以点击位置为中心的涟漪，按钮悬停抬升、按下沉降；独立裁剪层不改宿主 `overflow`，不会切掉下拉菜单。
+- **音效**：`sound.js` 用 Web Audio API 合成三种短音（点击「嗒」、落印「咚」、红事建簿「叮咚」），零外部音频资源；白事只用低沉素音，减动效或 `giftbook_sound=off` 时完全静音。
+- **降级**：所有 `@media (prefers-reduced-motion: reduce)` 块都带 `:root:not(.motion-full)` 守卫，系统开减动效时用户仍可显式选完整动效；打印时喜庆元素与涟漪全部隐藏。
 
 ### 两套主题互不借色
 
