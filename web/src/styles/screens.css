@@ -1182,6 +1182,13 @@ body.theme-solemn .hero-book-art .book {
   background: var(--surface);
 }
 
+/* <details> 收起时浏览器会隐藏非 summary 子元素，但上面的 display:flex 会覆盖掉
+   这条默认规则，导致折叠内容仍渲染并溢出表单，盖住下方/右侧的封面预览区。
+   显式补一条隐藏，展开时仍恢复 flex 布局。 */
+.setup-more:not([open]) > .setup-more-body {
+  display: none;
+}
+
 .setup-file {
   padding: 7px;
 }
@@ -2853,13 +2860,5 @@ body.theme-solemn .hero-book-art .book {
   }
 }
 
-/* 大字模式：整体放大，但不超过视口 */
-html.large-text {
-  font-size: 17px;
-}
-
-@media (max-width: 640px) {
-  html.large-text {
-    font-size: 16px;
-  }
-}
+/* 大字模式的字号覆盖统一放在 large-text.css：
+   全站字号走 px 的 --fs-* 令牌，改这里 html 的 font-size 不会生效。 */

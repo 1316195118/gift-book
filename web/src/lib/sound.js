@@ -14,14 +14,15 @@ function quietByMotion() {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+// 提示音默认关闭：只有用户在「设置 → 交互反馈」里显式开启才写 'on'。
 const SOUND_KEY = 'giftbook_sound'
 let ctx = null
 
 export function soundEnabled() {
   try {
-    return localStorage.getItem(SOUND_KEY) !== 'off'
+    return localStorage.getItem(SOUND_KEY) === 'on'
   } catch {
-    return true
+    return false
   }
 }
 

@@ -9,6 +9,7 @@ import './styles/screens.css'
 import './styles/cover.css'
 import './styles/ocr.css'
 import './styles/print.css'
+import './styles/large-text.css'
 import './styles/motion.css'
 
 import { createApp } from 'vue'
