@@ -10,9 +10,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"giftbook/internal/auth"
 	"giftbook/internal/store"
@@ -29,9 +32,11 @@ type testEnv struct {
 	server *httptest.Server
 	store  *store.Store
 	auth   *auth.Manager
+	api    *Server
+	dir    string
 }
 
-func newEnv(t *testing.T) *testEnv {
+func newEnv(t *testing.T, extra ...Options) *testEnv {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -47,10 +52,15 @@ func newEnv(t *testing.T) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	handler := New(Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.0.0"}).Handler()
-	srv := httptest.NewServer(handler)
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.0.0"}
+	if len(extra) > 0 {
+		opts.StrictOrigin = extra[0].StrictOrigin
+	}
+	srvAPI := New(opts)
+	srv := httptest.NewServer(srvAPI.Handler())
+	t.Cleanup(srvAPI.StopAutoBackup)
 	t.Cleanup(srv.Close)
-	return &testEnv{server: srv, store: st, auth: authMgr}
+	return &testEnv{server: srv, store: st, auth: authMgr, api: srvAPI, dir: dir}
 }
 
 func (e *testEnv) do(t *testing.T, method, path string, body any, headers map[string]string) (*http.Response, map[string]any) {
@@ -419,5 +429,170 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if res.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("api cache header: %s", res.Header.Get("Cache-Control"))
+	}
+}
+
+// 单本账簿导出必须是一个完整可解压的 zip，且长度头与实际内容一致。
+func TestExportEventZipIsComplete(t *testing.T) {
+	env := newEnv(t)
+	id := env.createEvent(t, "导出测试", noPassKey)
+	res, err := http.Get(env.server.URL + "/api/events/" + id + "/export")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("export status %d", res.StatusCode)
+	}
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := res.Header.Get("Content-Length"), itoa(len(raw)); got != want {
+		t.Fatalf("Content-Length = %q, want %q", got, want)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("导出的不是完整 zip: %v", err)
+	}
+	names := map[string]bool{}
+	for _, f := range zr.File {
+		names[f.Name] = true
+	}
+	for _, want := range []string{"manifest.json", "data/events.json", "data/gifts_" + id + ".json"} {
+		if !names[want] {
+			t.Fatalf("导出包缺少 %s，实际条目 %v", want, names)
+		}
+	}
+}
+
+// 备份文件名校验：只认 auto- 开头的 zip，三处接口共用同一套规则。
+func TestAutoBackupNameValidation(t *testing.T) {
+	for _, name := range []string{"auto-20261106-180900.zip", "auto-test-a.zip"} {
+		if !safeBackupName(name) {
+			t.Fatalf("应允许 %q", name)
+		}
+	}
+	for _, name := range []string{"", "backup.zip", "auto-20261106.zip.bak", "../auto-x.zip", "auto-../x.zip", `auto-x\y.zip`} {
+		if safeBackupName(name) {
+			t.Fatalf("应拒绝 %q", name)
+		}
+	}
+	env := newEnv(t)
+	res, _ := env.do(t, "DELETE", "/api/autobackup/file/backup.zip", nil, nil)
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("删除非自动备份应返回 400，实际 %d", res.StatusCode)
+	}
+}
+
+// 严格 Origin 模式：默认兼容（同 host 不同端口放行），开启后要求 host:port 一致。
+func TestStrictOriginMode(t *testing.T) {
+	body := map[string]any{"name": "x", "passwordHash": noPassKey}
+	otherPort := map[string]string{"Origin": "http://127.0.0.1:1"}
+
+	loose := newEnv(t)
+	res, _ := loose.do(t, "POST", "/api/events", body, otherPort)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("兼容模式应放行同 host 不同端口，实际 %d", res.StatusCode)
+	}
+
+	strict := newEnv(t, Options{StrictOrigin: true})
+	res, _ = strict.do(t, "POST", "/api/events", body, otherPort)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("严格模式应拒绝不同端口，实际 %d", res.StatusCode)
+	}
+	res, _ = strict.do(t, "POST", "/api/events", body, map[string]string{"Origin": strict.server.URL})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("严格模式同源应放行，实际 %d", res.StatusCode)
+	}
+}
+
+// 外部替换状态文件后，进程内缓存必须失效，不能一直用旧状态。
+func TestStateCacheSeesExternalChange(t *testing.T) {
+	env := newEnv(t)
+	if env.auth.Enabled() {
+		t.Fatal("初始应为未开启保护")
+	}
+	state := `{"enabled":true,"iterations":210000,"salt":"YQ==","hash":"Yg==","secret":"ab"}`
+	if err := os.WriteFile(filepath.Join(env.dir, "auth-state.json"), []byte(state), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !env.auth.Enabled() {
+		t.Fatal("外部修改状态文件后缓存应失效")
+	}
+}
+
+// 请求体里夹带第二份 JSON 应被拒绝。
+func TestDecodeJSONRejectsTrailingPayload(t *testing.T) {
+	env := newEnv(t)
+	body := `{"name":"x","passwordHash":"` + noPassKey + `"} {"extra":1}`
+	req, err := http.NewRequest(http.MethodPost, env.server.URL+"/api/events", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("尾部多余 JSON 应返回 400，实际 %d", res.StatusCode)
+	}
+}
+
+// 停止后台定时备份应立即返回，不能还卡在长达数小时的 Sleep 里。
+func TestStopAutoBackupReturns(t *testing.T) {
+	env := newEnv(t)
+	env.api.StartAutoBackup()
+	done := make(chan struct{})
+	go func() {
+		env.api.StopAutoBackup()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("StopAutoBackup 未及时返回")
+	}
+}
+
+// 定时器与「立即备份」并发时，同名临时文件不能互相踩，产出的 zip 必须完整。
+func TestConcurrentAutoBackup(t *testing.T) {
+	env := newEnv(t)
+	const n = 6
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		go func() { errs <- env.api.runAutoBackup() }()
+	}
+	for i := 0; i < n; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("runAutoBackup: %v", err)
+		}
+	}
+	dir := filepath.Join(env.dir, "backups")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zips := 0
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("残留临时文件 %s", e.Name())
+		}
+		if !strings.HasSuffix(e.Name(), ".zip") {
+			continue
+		}
+		zips++
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw))); err != nil {
+			t.Fatalf("备份包 %s 损坏: %v", e.Name(), err)
+		}
+	}
+	if zips == 0 {
+		t.Fatal("没有生成任何备份")
 	}
 }

@@ -129,7 +129,7 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, id strin
 
 func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := decodeJSON(r, &body); err != nil || body == nil {
+	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
@@ -201,7 +201,7 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id string) {
 	var body map[string]any
-	if err := decodeJSON(r, &body); err != nil || body == nil {
+	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
@@ -252,7 +252,6 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 
 func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id string) {
 	var trashDir string
-	var eventCopy map[string]any
 	err := s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
 		event, ok := events[id]
 		if !ok {
@@ -266,7 +265,6 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 			return false, inputError{http.StatusInternalServerError, "删除失败：" + err.Error()}
 		}
 		trashDir = dir
-		eventCopy = event
 		delete(events, id)
 		return true, nil
 	})
@@ -283,7 +281,6 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 		if trashDir != "" {
 			s.store.RestoreTrashedGifts(id, trashDir)
 		}
-		_ = eventCopy
 		fail(w, http.StatusInternalServerError, "删除失败")
 		return
 	}

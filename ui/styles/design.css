@@ -1,0 +1,157 @@
+/* ==========================================================================
+   design.css · 设计系统修订层
+   --------------------------------------------------------------------------
+   最后加载，只做加法。这里收三类东西：
+     1. 压力场景（320px / 大字 / 长文本）下实测到的重叠与挡字；
+     2. 「大字」模式原本只改根字号、而全站字号是 px，等于无效的修正；
+     3. 若干处视觉层次与设计语言的一致性收口。
+   所有颜色只取 tokens.css 的变量，红白两套主题自动成立。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 大字模式：真正放大
+   原来的 html.large-text { font-size: 17px } 只改根字号，
+   而全站字号都是 px 写死，按钮点了几乎没有变化。改为覆写字号令牌，
+   让所有引用 var(--fs-*) 的正文、标签、按钮一起放大。
+   装饰性的硬编码小字（印章、角标等）保持原尺寸，避免撑破版面。
+   -------------------------------------------------------------------------- */
+
+html.large-text {
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-base: 16px;
+  --fs-md: 17px;
+  --fs-lg: 19px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 35px;
+  --fs-4xl: 43px;
+}
+
+/* --------------------------------------------------------------------------
+   2. 超窄屏（≤380px）：长文本与弹窗底部不再互相挤压
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 380px) {
+  /* 明细窗：标签与长姓名/长金额分成两行，操作按钮另起一行靠右，
+     避免行内元素的跨行盒互相压住（实测 320px 重叠 32×19）。 */
+  #modal-content .flex.justify-between.items-center.p-2 {
+    flex-wrap: wrap;
+    row-gap: var(--sp-1);
+  }
+
+  #modal-content .flex.justify-between.items-center.p-2 > div {
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #modal-content .flex.justify-between.items-center.p-2 > div > span.text-lg {
+    display: block;
+    margin-top: 2px;
+    margin-left: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #modal-content .flex.justify-between.items-center.p-2 > button {
+    flex: none;
+    margin-left: auto;
+  }
+
+  /* 明细窗：收紧区块间距，避免 320px 下弹窗顶到 80% 屏高 */
+  #modal-content .space-y-4.text-left > * + * {
+    margin-top: var(--sp-2);
+  }
+
+  /* 设置窗：底部「起报金额」提示原本第二行落在滚动区外、被操作栏盖住。
+     收紧区块与字段间距，让提示完整留在首屏可见区。 */
+  #modal-content .settings-form {
+    gap: var(--sp-3);
+  }
+
+  #modal-content .settings-section {
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+
+  #modal-content .field-hint {
+    line-height: 1.5;
+  }
+
+  /* 大字 + 超窄屏是最紧的组合：再收一档，保证辅助提示完整留在首屏。 */
+  html.large-text #modal-content {
+    padding: var(--sp-3);
+  }
+
+  html.large-text #modal-content .settings-form {
+    gap: var(--sp-2);
+  }
+
+  html.large-text #modal-content .settings-section {
+    gap: 6px;
+    padding: var(--sp-2);
+  }
+
+  html.large-text #modal-content .field {
+    gap: 5px;
+  }
+
+  html.large-text #modal-content .field-hint {
+    line-height: 1.4;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. 统计窗：把灰圆角块收回「纸 + 细线」的语言
+   右侧两块汇总是数据重点，用主题色数字和细分隔线表达，
+   不再用与纸面无关的底色块抢注意力。
+   -------------------------------------------------------------------------- */
+
+#modal-content .flex.justify-between.p-3.bg-gray-100 {
+  align-items: baseline;
+  padding: var(--sp-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+#modal-content .flex.justify-between.p-3.bg-gray-100:first-child {
+  border-top: 1px solid var(--line);
+}
+
+#modal-content .flex.justify-between.p-3.bg-gray-100 .themed-text {
+  color: var(--accent);
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+
+/* 「按收款方式统计」逐行落线，金额用等宽数字对齐 */
+#modal-content ul.space-y-2 > li.flex.justify-between {
+  padding-bottom: 5px;
+  border-bottom: 1px dashed var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+#modal-content ul.space-y-2 > li.flex.justify-between > span:last-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   4. 顶栏工具：从「几乎看不见的淡灰小字」提到可读的次级文字
+   只改颜色，不动字号与间距，避免影响 52 组合的几何体检。
+   -------------------------------------------------------------------------- */
+
+.home-topbar .net-chip,
+.home-topbar .version-chip {
+  color: var(--muted);
+}
+
+.home-help-btn:hover,
+.home-topbar .net-chip:hover,
+.home-topbar .version-chip:hover {
+  color: var(--ink);
+}

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,12 +30,37 @@ const (
 	maxThrottleRows = 10000
 )
 
+// fileStamp 用「是否存在 + 大小 + 修改时间」判断磁盘文件是否变化。
+type fileStamp struct {
+	exists bool
+	size   int64
+	modNS  int64
+}
+
+func statFile(path string) fileStamp {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fileStamp{}
+	}
+	return fileStamp{exists: true, size: info.Size(), modNS: info.ModTime().UnixNano()}
+}
+
 // Manager 管理访问保护状态与防爆破记录。
+// 状态与防爆破表在进程内缓存，按文件 stamp 失效：自身写入立即刷新缓存，
+// 外部改动（例如手工替换配置文件）也能被下一次 stat 发现，不会读到过期状态。
 type Manager struct {
 	configDir  string
 	trustProxy bool
 	setupToken string
 	mu         sync.Mutex
+
+	stateCache  State
+	stateStamp  fileStamp
+	stateLoaded bool
+
+	throttleCache  map[string]thrustRow
+	throttleStamp  fileStamp
+	throttleLoaded bool
 }
 
 // Options 是构造 Manager 的可选参数。
@@ -73,20 +99,40 @@ func NewWithOptions(configDir string, opts Options) (*Manager, error) {
 func (m *Manager) statePath() string    { return filepath.Join(m.configDir, "auth-state.json") }
 func (m *Manager) throttlePath() string { return filepath.Join(m.configDir, "auth-throttle.json") }
 
-// loadState 读取状态；文件存在但损坏时保持锁定，绝不退化为“未开启保护”。
+// loadState 读取状态；文件存在但损坏或不可读时保持锁定，绝不退化为「未开启保护」。
+// 调用方须持有 m.mu。
 func (m *Manager) loadState() State {
-	raw, err := os.ReadFile(m.statePath())
-	if err != nil {
-		return State{Iterations: pbkdf2Rounds}
+	stamp := statFile(m.statePath())
+	if m.stateLoaded && stamp == m.stateStamp {
+		return m.stateCache
 	}
-	var st State
-	if err := json.Unmarshal(raw, &st); err != nil {
-		return State{Enabled: true, Iterations: pbkdf2Rounds, Unreadable: true}
+	st := State{Iterations: pbkdf2Rounds}
+	if stamp.exists {
+		raw, err := os.ReadFile(m.statePath())
+		if err != nil {
+			st = State{Enabled: true, Iterations: pbkdf2Rounds, Unreadable: true}
+		} else {
+			var parsed State
+			if err := json.Unmarshal(raw, &parsed); err != nil {
+				st = State{Enabled: true, Iterations: pbkdf2Rounds, Unreadable: true}
+			} else {
+				st = parsed
+				if st.Iterations <= 0 {
+					st.Iterations = pbkdf2Rounds
+				}
+			}
+		}
 	}
-	if st.Iterations <= 0 {
-		st.Iterations = pbkdf2Rounds
-	}
+	m.setCachedState(st, stamp)
 	return st
+}
+
+// setCachedState 由写入路径调用，写完不必再解析一次文件。
+// 调用方须持有 m.mu。
+func (m *Manager) setCachedState(st State, stamp fileStamp) {
+	m.stateCache = st
+	m.stateStamp = stamp
+	m.stateLoaded = true
 }
 
 func (m *Manager) saveState(st State) error {
@@ -98,7 +144,11 @@ func (m *Manager) saveState(st State) error {
 	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, m.statePath())
+	if err := os.Rename(tmp, m.statePath()); err != nil {
+		return err
+	}
+	m.setCachedState(st, statFile(m.statePath()))
+	return nil
 }
 
 // Enabled 报告是否开启了访问保护。
@@ -333,26 +383,49 @@ type thrustRow struct {
 	Last    int64 `json:"last"`
 }
 
+// readThrottle 读防爆破表；缓存按文件 stamp 失效，避免每次校验都读盘+解析。
+// 调用方须持有 m.mu。
 func (m *Manager) readThrottle() map[string]thrustRow {
-	out := map[string]thrustRow{}
-	raw, err := os.ReadFile(m.throttlePath())
-	if err != nil {
-		return out
+	stamp := statFile(m.throttlePath())
+	if m.throttleLoaded && stamp == m.throttleStamp {
+		return m.throttleCache
 	}
-	_ = json.Unmarshal(raw, &out)
+	out := map[string]thrustRow{}
+	if stamp.exists {
+		raw, err := os.ReadFile(m.throttlePath())
+		if err == nil {
+			_ = json.Unmarshal(raw, &out)
+		}
+		if out == nil {
+			out = map[string]thrustRow{}
+		}
+	}
+	m.throttleCache = out
+	m.throttleStamp = stamp
+	m.throttleLoaded = true
 	return out
 }
 
+// writeThrottle 写回并刷新缓存；任何失败都让缓存失效，下次强制重读文件，
+// 避免内存里留下与磁盘不一致的失败计数。调用方须持有 m.mu。
 func (m *Manager) writeThrottle(data map[string]thrustRow) {
 	payload, err := json.Marshal(data)
 	if err != nil {
+		m.throttleLoaded = false
 		return
 	}
 	tmp := m.throttlePath() + ".tmp"
 	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
+		m.throttleLoaded = false
 		return
 	}
-	_ = os.Rename(tmp, m.throttlePath())
+	if err := os.Rename(tmp, m.throttlePath()); err != nil {
+		m.throttleLoaded = false
+		return
+	}
+	m.throttleCache = data
+	m.throttleStamp = statFile(m.throttlePath())
+	m.throttleLoaded = true
 }
 
 func (m *Manager) throttleStatus(ip string) thrustRow {
@@ -408,15 +481,10 @@ func (m *Manager) pruneThrottle(data map[string]thrustRow) {
 	for key, row := range data {
 		items = append(items, item{key: key, last: row.Last})
 	}
-	for len(items) > maxThrottleRows {
-		oldest := 0
-		for i := 1; i < len(items); i++ {
-			if items[i].last < items[oldest].last {
-				oldest = i
-			}
-		}
-		delete(data, items[oldest].key)
-		items = append(items[:oldest], items[oldest+1:]...)
+	// 按最后活动时间升序，一次排序后删掉最旧的一批，避免 O(n²) 反复扫描。
+	sort.Slice(items, func(i, j int) bool { return items[i].last < items[j].last })
+	for i := 0; i < len(items)-maxThrottleRows; i++ {
+		delete(data, items[i].key)
 	}
 }
 
@@ -536,7 +604,11 @@ func (m *Manager) ImportState(raw []byte) error {
 	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, m.statePath())
+	if err := os.Rename(tmp, m.statePath()); err != nil {
+		return err
+	}
+	m.setCachedState(st, statFile(m.statePath()))
+	return nil
 }
 
 // ValidateState 只校验备份里的访问保护状态是否合法，不落盘。

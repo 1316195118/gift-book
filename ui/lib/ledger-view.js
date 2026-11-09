@@ -1,0 +1,105 @@
+// 记账页主界面：录入、礼簿渲染、汇总、工具栏（原生 JS，零第三方依赖）。
+import { state as st } from '../store.js'
+import { copyOf } from './content.js'
+import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
+import {
+  submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
+  showQrDialog,
+} from './ledger-actions.js'
+
+const ITEMS_PER_PAGE = 12
+const PAYMENT_TYPES = ['现金', '支付宝', '微信', '其他']
+
+// 录入表单状态：纯对象即可，输入不触发整体重渲染（避免输入框丢焦点）。
+export const entry = { name: '', amount: '', type: '现金', remarks: '' }
+
+export function resetEntry() {
+  entry.name = ''
+  entry.amount = ''
+  entry.type = '现金'
+  entry.remarks = ''
+}
+
+export const PAYMENT_OPTIONS = PAYMENT_TYPES
+export { ITEMS_PER_PAGE }
+
+export function pageItems(gifts = st.gifts, page = st.currentPage) {
+  return gifts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+}
+
+export function totalPages(gifts = st.gifts) {
+  return Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1
+}
+
+export function computeStats(gifts = st.gifts) {
+  const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 } }
+  gifts.forEach(({ data }) => {
+    if (!data) return
+    result.totalAmount += Number(data.amount) || 0
+    result.byType[data.type] = (result.byType[data.type] || 0) + (Number(data.amount) || 0)
+  })
+  return result
+}
+
+export function amountPreview(value) {
+  const amount = Number(value)
+  return !Number.isFinite(amount) || amount <= 0 ? '输入金额后显示大写' : `大写：${amountToChinese(amount)}`
+}
+
+export function isLateGift(gift) {
+  const data = gift?.data
+  if (!data) return false
+  if (data.late === true) return true
+  if (data.late === false) return false
+  const ev = st.currentEvent
+  const at = data.timestamp ? new Date(data.timestamp).getTime() : NaN
+  if (!ev || !Number.isFinite(at)) return false
+  const start = ev.startDateTime ? new Date(ev.startDateTime).getTime() : NaN
+  const end = ev.endDateTime ? new Date(ev.endDateTime).getTime() : NaN
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false
+  return at < start || at > end
+}
+
+function nameCell(gift, index) {
+  if (!gift?.data) return `<div class="book-cell name-cell" data-gift-index="${index}"></div>`
+  const data = gift.data
+  const modified = Array.isArray(data.history) && data.history.length > 0
+  const chars = Array.from(String(data.name ?? ''))
+  const shown = chars.slice(0, 24)
+  const len = shown.length > 3 ? 'long' : String(shown.length)
+  const nameHtml = shown.map((ch) => `<span>${escapeHtml(ch)}</span>`).join('') + (chars.length > shown.length ? '<span>…</span>' : '')
+  const marks = `<div class="mark">${data.remarks ? '<p>*已备注</p>' : ''}${modified ? '<p>*已修改</p>' : ''}${gift.pending ? '<p class="mark-pending">*待同步</p>' : ''}</div>`
+  const late = isLateGift(gift) ? '<div class="late-mark">*补录</div>' : ''
+  const tip = modified
+    ? `${data.name} · 已修改 ${data.history.length} 次，最后一次 ${new Date(data.timestamp).toLocaleString('zh-CN')}`
+    : `${data.name} · 录入于 ${new Date(data.timestamp).toLocaleString('zh-CN')}`
+  return `<div class="book-cell name-cell" data-gift-index="${index}" title="${escapeHtml(tip)}">${late}<div class="name${String(data.name).length > 4 ? ' scale' : ''}" data-len="${len}" style="--name-chars:${shown.length + (chars.length > shown.length ? 1 : 0)}">${nameHtml}</div>${marks}</div>`
+}
+
+function amountCell(gift, index) {
+  if (!gift?.data) return `<div class="book-cell amount-cell" data-gift-index="${index}"></div>`
+  const chinese = amountToChinese(gift.data.amount)
+  const cnClass = chinese.length > 18 ? ' scale tiny' : chinese.length > 8 ? ' scale' : ''
+  return `<div class="book-cell amount-cell" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? ' scale' : ''}">${formatCurrency(gift.data.amount)}</div></div>`
+}
+
+export function bookMarkup() {
+  const copy = copyOf(st.currentEvent, st.homeCategory)
+  const items = pageItems()
+  const rows = { name: [], type: [], amount: [] }
+  for (let i = 0; i < ITEMS_PER_PAGE; i += 1) {
+    const gift = items[i]
+    const index = (st.currentPage - 1) * ITEMS_PER_PAGE + i
+    rows.name.push(nameCell(gift, index))
+    rows.type.push(`<div class="book-cell type-cell">${escapeHtml(copy.bookType)}</div>`)
+    rows.amount.push(amountCell(gift, index))
+  }
+  return `<div class="gift-book-row">${rows.name.join('')}</div><div class="gift-book-row flex-1">${rows.type.join('')}</div><div class="gift-book-row">${rows.amount.join('')}</div>`
+}
+
+export {
+  submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
+  showQrDialog,
+}

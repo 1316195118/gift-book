@@ -192,15 +192,24 @@ const AUDIT = `
       }
       return null;
     })();
-    let inView = true;
-    if (scroller) {
-      const sr = rect(scroller);
-      inView = r.bottom > sr.top + 1 && r.top < sr.bottom - 1 && r.right > sr.left + 1 && r.left < sr.right - 1;
-    }
-
-    const cx = r.left + Math.min(r.width / 2, 40);
-    const cy = r.top + r.height / 2;
-    if (inView && cx > 0 && cy > 0 && cx < innerWidth && cy < innerHeight) {
+    // 逐行判断：多行文字若某行已被卷进滚动区外，用户滚动即可看到，
+    // 不该算「被底部按钮挡住」。用 Range 量真实行盒，比整块 rect 精确。
+    const lineRects = (() => {
+      const rg = document.createRange();
+      rg.selectNodeContents(el);
+      return [...rg.getClientRects()].filter((x) => x.width > 2 && x.height > 2);
+    })();
+    for (const pr of lineRects.length ? lineRects : [r]) {
+      let visible = true;
+      if (scroller) {
+        const sr = rect(scroller);
+        // 只有整行都落在可视区内才判遮挡；跨在边界上的行，用户滚动即可看全。
+        visible = pr.top >= sr.top - 1 && pr.bottom <= sr.bottom + 1 &&
+          pr.left >= sr.left - 1 && pr.right <= sr.right + 1;
+      }
+      const cx = pr.left + Math.min(pr.width / 2, 40);
+      const cy = pr.top + pr.height / 2;
+      if (!visible || cx <= 0 || cy <= 0 || cx >= innerWidth || cy >= innerHeight) continue;
       // pointer-events:none 的装饰层本来就命中不到，命中结果没有意义
       const hit = cs.pointerEvents === 'none' ? null : document.elementFromPoint(cx, cy);
       if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
@@ -209,6 +218,7 @@ const AUDIT = `
         const opaque = (hbg && hbg.a > 0.3) || hcs.backdropFilter !== 'none';
         if (opaque && hcs.pointerEvents !== 'none') {
           add('covered', el, '被 <' + hit.tagName.toLowerCase() + ' class="' + String(hit.className || '').slice(0, 40) + '"> 盖住');
+          break;
         }
       }
     }
@@ -387,6 +397,13 @@ const AUDIT = `
 
 await send('Page.enable')
 await send('Runtime.enable')
+// 无头浏览器默认可能带 prefers-reduced-motion: reduce，量到的是「关掉动画」的版面。
+// MOTION=no-preference 可在动画真实生效的状态下复检，确保进场位移不会造成重叠。
+if (process.env.MOTION === 'no-preference') {
+  await send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+  })
+}
 
 const report = []
 async function audit(label) {
@@ -420,6 +437,14 @@ async function gotoHome(category) {
     await click('#modal-actions .modal-btn-primary')
     await sleep(700)
   }
+  // LARGE_TEXT=1 打开「大字」模式再量一遍，这是最容易撑破版面的状态。
+  if (process.env.LARGE_TEXT === '1') {
+    const on = await evaluate(`document.documentElement.classList.contains('large-text')`)
+    if (!on) {
+      await click('.home-topbar .large-text-toggle')
+      await sleep(450)
+    }
+  }
 }
 
 async function run(category, w, h, vp) {
@@ -445,7 +470,9 @@ async function run(category, w, h, vp) {
   await audit(`${tag}/创建页（展开）`)
   await shot(`${tag}-04-setup-open`)
 
-  const name = (category === 'white' ? '追思' : '喜宴') + Date.now().toString(36).slice(-4)
+  const stress = process.env.STRESS === '1'
+  const name = (category === 'white' ? '追思' : '喜宴') +
+    (stress ? '府上亲属追思礼仪簿超长名称压力测试' : Date.now().toString(36).slice(-4))
   await setVal('event-name', name)
   await setVal('event-location', category === 'white' ? '追思厅' : '宴会厅')
   await sleep(300)
@@ -454,9 +481,13 @@ async function run(category, w, h, vp) {
   await audit(`${tag}/记账页`)
   await shot(`${tag}-05-main`)
 
-  // 录两笔，一笔长名字一笔长备注，专挑容易撑破的
+  // 录两笔，一笔长名字一笔长备注，专挑容易撑破的；STRESS=1 时进一步加长。
+  const firstGift = stress ? '欧阳文忠先生府上亲属代表' : (category === 'white' ? '欧阳文忠先生' : '王小明')
+  const firstRemark = stress
+    ? '男方同事，长备注测试长备注测试长备注测试长备注测试长备注测试长备注测试'
+    : '男方同事，长备注测试长备注测试'
   for (const [gname, amount, remark] of [
-    [category === 'white' ? '欧阳文忠先生' : '王小明', '1888', '男方同事，长备注测试长备注测试'],
+    [firstGift, '1888', firstRemark],
     [category === 'white' ? '李四' : '张三', '666', ''],
   ]) {
     await setVal('guest-name', gname)
@@ -498,10 +529,13 @@ async function run(category, w, h, vp) {
   await shot(`${tag}-13-home-recent`)
 }
 
-const VIEWPORTS = [
-  ['desktop', 1440, 1000],
-  ['mobile', 390, 844],
-]
+// AUDIT_WIDTHS=320,390,768,1440 可覆盖更多断点；默认保留桌面/手机两档。
+const VIEWPORTS = process.env.AUDIT_WIDTHS
+  ? process.env.AUDIT_WIDTHS.split(',').map((w) => [`w${w.trim()}`, Number(w.trim()), 900])
+  : [
+      ['desktop', 1440, 1000],
+      ['mobile', 390, 844],
+    ]
 
 for (const [vp, w, h] of VIEWPORTS) {
   for (const cat of ['red', 'white']) {

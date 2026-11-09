@@ -33,7 +33,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Password string `json:"password"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
@@ -67,7 +67,7 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 		CurrentPassword string `json:"currentPassword"`
 		SetupToken      string `json:"setupToken"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Enabled == nil {
+	if err := decodeJSON(w, r, &body); err != nil || body.Enabled == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}

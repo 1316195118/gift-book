@@ -1,4 +1,4 @@
-// Package backup 负责整站备份的打包，以及按计划自动备份到数据目录。
+// Package backup 负责整站备份的打包，以及按计划自动备份到配置目录。
 package backup
 
 import (
@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,11 +33,12 @@ type Manifest struct {
 	HasAuth   bool   `json:"hasAuth"`
 }
 
-// Build 把全部账簿打包成 zip 字节流。
-func Build(st *store.Store, buildLabel string, authEnabled bool, authState []byte) ([]byte, Manifest, error) {
+// Write 把全部账簿以 zip 格式流式写入 w，内存占用与数据量无关。
+// 服务端定时备份走这里，避免整库 zip 全部驻留内存。
+func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, authState []byte) (Manifest, error) {
 	events, gifts, err := st.BackupAll()
 	if err != nil {
-		return nil, Manifest{}, fmt.Errorf("读取账簿失败: %w", err)
+		return Manifest{}, fmt.Errorf("读取账簿失败: %w", err)
 	}
 	total := 0
 	for _, items := range gifts {
@@ -52,10 +54,9 @@ func Build(st *store.Store, buildLabel string, authEnabled bool, authState []byt
 		HasAuth:   authEnabled,
 	}
 
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
+	zw := zip.NewWriter(w)
 	writeJSON := func(name string, value any) error {
-		w, err := zw.Create(name)
+		entry, err := zw.Create(name)
 		if err != nil {
 			return err
 		}
@@ -63,14 +64,14 @@ func Build(st *store.Store, buildLabel string, authEnabled bool, authState []byt
 		if err != nil {
 			return err
 		}
-		_, err = w.Write(payload)
+		_, err = entry.Write(payload)
 		return err
 	}
 	if err := writeJSON("manifest.json", manifest); err != nil {
-		return nil, manifest, err
+		return manifest, err
 	}
 	if err := writeJSON("data/events.json", events); err != nil {
-		return nil, manifest, err
+		return manifest, err
 	}
 	ids := make([]string, 0, len(gifts))
 	for id := range gifts {
@@ -79,15 +80,29 @@ func Build(st *store.Store, buildLabel string, authEnabled bool, authState []byt
 	sort.Strings(ids)
 	for _, id := range ids {
 		if err := writeJSON("data/gifts_"+store.SanitizeID(id)+".json", gifts[id]); err != nil {
-			return nil, manifest, err
+			return manifest, err
 		}
 	}
 	if len(authState) > 0 {
-		if w, err := zw.Create("config/auth-state.json"); err == nil {
-			_, _ = w.Write(authState)
+		entry, err := zw.Create("config/auth-state.json")
+		if err != nil {
+			return manifest, err
+		}
+		if _, err := entry.Write(authState); err != nil {
+			return manifest, err
 		}
 	}
 	if err := zw.Close(); err != nil {
+		return manifest, err
+	}
+	return manifest, nil
+}
+
+// Build 生成 zip 字节流，供测试与需要内存缓冲的场景使用。
+func Build(st *store.Store, buildLabel string, authEnabled bool, authState []byte) ([]byte, Manifest, error) {
+	var buf bytes.Buffer
+	manifest, err := Write(&buf, st, buildLabel, authEnabled, authState)
+	if err != nil {
 		return nil, manifest, err
 	}
 	return buf.Bytes(), manifest, nil
@@ -100,7 +115,7 @@ type Entry struct {
 	ModTime time.Time `json:"modTime"`
 }
 
-// List 列出数据目录 backups/ 下的自动备份，最新的在前。
+// List 列出 dir/backups/ 下的自动备份（正常部署时 dir 为配置目录），最新的在前。
 func List(dir string) ([]Entry, error) {
 	path := filepath.Join(dir, "backups")
 	items, err := os.ReadDir(path)
@@ -125,7 +140,7 @@ func List(dir string) ([]Entry, error) {
 	return out, nil
 }
 
-// Prune 只保留最近 keep 个自动备份，返回删除的数量。
+// Prune 只保留 dir/backups/ 里最近 keep 个自动备份，返回删除的数量。
 func Prune(dir string, keep int) (int, error) {
 	if keep <= 0 {
 		return 0, nil

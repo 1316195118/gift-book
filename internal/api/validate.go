@@ -15,10 +15,7 @@ import (
 
 var base64Std = base64.StdEncoding
 
-const (
-	noPassPasswordKey = "giftbook-local-nopass"
-	maxCoverImageSize = 5 * 1024 * 1024
-)
+const maxCoverImageSize = 5 * 1024 * 1024
 
 var dateTimeLayout = "2006-01-02T15:04"
 

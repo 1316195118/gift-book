@@ -31,7 +31,7 @@ var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
 	flagAddr    = flag.String("addr", "0.0.0.0", "监听地址")
 	flagData    = flag.String("data", "", "数据目录（默认可执行文件旁的 data/）")
-	flagConfig  = flag.String("config", "", "配置目录（默认数据目录）")
+	flagConfig  = flag.String("config", "", "配置目录（默认可执行文件旁的 config/）")
 	flagOpen    = flag.Bool("open", false, "启动后打开浏览器")
 	flagVersion = flag.Bool("version", false, "显示版本后退出")
 )
@@ -44,27 +44,40 @@ func main() {
 	}
 
 	baseDir := executableDir()
+	// 显式指定目录（参数或环境变量）意味着自定义部署或测试实例，
+	// 此时不做旧目录迁移，避免把 rundata/ 复制到临时目录里。
+	customDirs := false
 	dataDir := *flagData
-	if dataDir == "" {
-		if env := os.Getenv("GIFTBOOK_DATA_DIR"); env != "" {
-			dataDir = env
-		} else {
-			dataDir = filepath.Join(baseDir, "data")
-		}
+	if dataDir != "" {
+		customDirs = true
+	} else if env := os.Getenv("GIFTBOOK_DATA_DIR"); env != "" {
+		dataDir = env
+		customDirs = true
+	} else {
+		dataDir = filepath.Join(baseDir, "data")
 	}
 	configDir := *flagConfig
-	if configDir == "" {
-		if env := os.Getenv("GIFTBOOK_CONFIG_DIR"); env != "" {
-			configDir = env
-		} else {
-			configDir = dataDir
-		}
+	if configDir != "" {
+		customDirs = true
+	} else if env := os.Getenv("GIFTBOOK_CONFIG_DIR"); env != "" {
+		configDir = env
+		customDirs = true
+	} else {
+		// 配置与数据分开：data/ 只放账簿 JSON，其余全部放 config/。
+		configDir = filepath.Join(baseDir, "config")
 	}
 	if abs, err := filepath.Abs(dataDir); err == nil {
 		dataDir = abs
 	}
 	if abs, err := filepath.Abs(configDir); err == nil {
 		configDir = abs
+	}
+
+	// 旧版把 events.json、认证状态、备份包都放在 rundata/。默认目录启动时检测一次，
+	// 复制到新的 data/ + config/；只复制不删除，失败不阻断启动。
+	// 必须在 store.Open 之前跑，那时 data/events.json 还没生成。
+	if !customDirs {
+		migrateLegacyLayout(baseDir, dataDir, configDir)
 	}
 
 	assets, err := fs.Sub(giftbook.Assets, giftbook.Dist)
@@ -92,13 +105,14 @@ func main() {
 	}
 
 	handler := api.New(api.Options{
-		Store:     st,
-		Auth:      authMgr,
-		Assets:    assets,
-		Build:     buildLabel(),
-		Version:   appVersion,
-		OCR:       ocr,
-		ConfigDir: configDir,
+		Store:        st,
+		Auth:         authMgr,
+		Assets:       assets,
+		Build:        buildLabel(),
+		Version:      appVersion,
+		OCR:          ocr,
+		ConfigDir:    configDir,
+		StrictOrigin: envBool("GIFTBOOK_STRICT_ORIGIN"),
 	})
 	handler.StartAutoBackup()
 
@@ -124,7 +138,9 @@ func main() {
 		}()
 	}
 
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
@@ -134,11 +150,14 @@ func main() {
 		if err := server.Shutdown(ctx); err != nil {
 			log.Printf("停止失败: %v", err)
 		}
+		// 等后台定时备份收尾，避免进程退出时留下半个 zip。
+		handler.StopAutoBackup()
 	}()
 
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("服务启动失败: %v", err)
 	}
+	<-stopped
 	log.Println("已停止")
 }
 
@@ -153,7 +172,7 @@ func executableDir() string {
 	return filepath.Dir(exe)
 }
 
-// buildLabel 返回嵌入前端的构建号（web/dist/build.json 里的 build 字段）。
+// buildLabel 返回嵌入前端的构建号（ui/build.json 里的 build 字段）。
 func buildLabel() string {
 	raw, err := fs.ReadFile(giftbook.Assets, giftbook.Dist+"/build.json")
 	if err != nil {

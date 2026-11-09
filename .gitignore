@@ -9,15 +9,9 @@
 /giftbook-windows-*
 /build/
 
-# ---- 前端 ----
-/web/node_modules/
-/web/dist/
-
-# 前端产物由构建生成，但目录本身要留着：
-# embed.go 的 //go:embed all:webapp/dist 在目录不存在时无法编译。
-# 同样要锚在根上，裸写 dist/ 会匹配任意层级的 dist 目录。
-/webapp/dist/*
-!/webapp/dist/.gitkeep
+# ---- 前端（自研原生 JS/CSS）----
+# ui/ 由 embed.go 的 //go:embed all:ui 直接嵌入二进制，是源码、必须入库。
+# 没有构建产物目录，也不需要 npm / Vite；旧版 Vue 前端（web/）与产物（webapp/）已删除。
 
 # ---- 运行数据（含真实礼金记录，绝不入库）----
 /data/
@@ -33,6 +27,16 @@
 /.edge*/
 /.vite*
 /.tmp-*
+
+# ---- OCR 第三方产物（不入库，按各自许可证单独获取）----
+# 模型与 Python 依赖是第三方作品，体积大且各有许可，绝不能提交进本仓库。
+# 清单与分发注意事项见 ocr/THIRD_PARTY.md。
+/ocr/models/
+/ocr/venv/
+/ocr/__pycache__/
+/ocr/*.onnx
+/ocr/*.tgz
+/ocr/*.whl
 
 # ---- 编辑器 / 系统 ----
 /.claude/

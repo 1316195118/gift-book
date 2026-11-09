@@ -13,6 +13,9 @@ CT_ID="${CT_ID:-100}"
 APP_URL="${APP_URL:-}"
 REMOTE_BIN="${REMOTE_BIN:-/opt/giftbook-go/giftbook}"
 SERVICE="${SERVICE:-giftbook}"
+# 容器化部署（优先）：compose 目录与容器名
+DOCKER_DIR="${DOCKER_DIR:-/opt/gift-book-docker}"
+CONTAINER="${CONTAINER:-gift-book}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
@@ -31,17 +34,9 @@ chmod +x "$ask"
 export SSH_ASKPASS="$ask" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o ConnectTimeout=15)
 
-# 1. 前端
-if [ "${1:-}" != "--skip-web" ]; then
-  echo "▸ 构建前端"
-  (cd web && npm run build)
-fi
-rm -rf webapp/dist
-mkdir -p webapp/dist
-cp -r web/dist/* webapp/dist/
-# 目录要留在仓库里，embed 才编译得过（内容本身不入库）
-touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.0.0"}' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+# 1. 构建号（前端 ui/ 为自研原生 JS/CSS，直接嵌入，无需 npm / Vite 打包）
+echo "▸ 写入构建号"
+printf '{"build":"%s","version":"2.0.0"}\n' "$(date +%Y%m%d-%H%M)" > ui/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"
@@ -51,14 +46,25 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o bui
 echo "▸ 上传到 $PVE_HOST"
 scp "${SSH_OPTS[@]}" build/giftbook-linux-amd64 "$PVE_USER@$PVE_HOST:/tmp/giftbook.new"
 
-# 4. 推进容器并重启
-echo "▸ 推进 CT $CT_ID 并重启服务"
-ssh "${SSH_OPTS[@]}" "$PVE_USER@$PVE_HOST" "
-  set -e
-  pct push $CT_ID /tmp/giftbook.new $REMOTE_BIN.new --perms 0755
-  pct exec $CT_ID -- sh -c 'mv $REMOTE_BIN.new $REMOTE_BIN && systemctl restart $SERVICE && sleep 1 && systemctl is-active $SERVICE'
-  rm -f /tmp/giftbook.new
-"
+# 4. 部署：优先走 Docker 容器；没有容器时回退旧的 systemd 方式
+#    容器里二进制正在执行，直接覆盖会报 Text file busy，必须先 compose down。
+echo "▸ 部署到 CT $CT_ID"
+ssh "${SSH_OPTS[@]}" "$PVE_USER@$PVE_HOST" \
+  "CT_ID='$CT_ID' DOCKER_DIR='$DOCKER_DIR' CONTAINER='$CONTAINER' REMOTE_BIN='$REMOTE_BIN' SERVICE='$SERVICE' bash -s" <<'REMOTE'
+set -e
+if pct exec "$CT_ID" -- docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
+  echo "▸ Docker 容器部署（先停容器，避免 Text file busy）"
+  pct exec "$CT_ID" -- sh -c "cd '$DOCKER_DIR' && docker compose down"
+  pct push "$CT_ID" /tmp/giftbook.new "$DOCKER_DIR/giftbook" --perms 0755
+  pct exec "$CT_ID" -- sh -c "cd '$DOCKER_DIR' && docker compose up -d"
+  pct exec "$CT_ID" -- sh -c "docker inspect '$CONTAINER' --format '{{.State.Status}}'"
+else
+  echo "▸ systemd 部署（旧方式）"
+  pct push "$CT_ID" /tmp/giftbook.new "$REMOTE_BIN.new" --perms 0755
+  pct exec "$CT_ID" -- sh -c "mv '$REMOTE_BIN.new' '$REMOTE_BIN' && systemctl restart '$SERVICE' && sleep 1 && systemctl is-active '$SERVICE'"
+fi
+rm -f /tmp/giftbook.new
+REMOTE
 
 # 5. 确认（设了 APP_URL 才查）
 if [ -n "$APP_URL" ]; then

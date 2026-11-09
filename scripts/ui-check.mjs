@@ -108,7 +108,7 @@ async function main() {
   await sleep(500)
   const whiteTitle = await evaluate(`document.querySelector('#home-title')?.textContent || ''`)
   check('白事首页切换', whiteTitle.includes('白事'), whiteTitle)
-  // 主题挂在 body 上（App.vue 的 setBodyTheme），不在页面容器上
+  // 主题挂在 body 上（store.js 的 setBodyTheme），不在页面容器上
   const whiteClass = await evaluate(`document.body.className`)
   check('白事样式类生效', whiteClass.includes('theme-solemn'), whiteClass)
   await shot('02-home-white')

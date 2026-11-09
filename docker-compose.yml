@@ -19,11 +19,11 @@ services:
       - -data
       - /data                                       # 账簿数据目录（容器内）
       - -config
-      - /config                                     # 访问保护配置目录（容器内）
+      - /config                                     # 配置、自动备份包目录（容器内）
     restart: unless-stopped                         # 容器策略：开机自启 + 异常重启
     volumes:
       - /volume1/docker/gift-book/data:/data        # 账簿数据持久化
-      - /volume1/docker/gift-book/config:/config    # 访问保护配置持久化
+      - /volume1/docker/gift-book/config:/config    # 认证状态、自动备份包等持久化
     deploy:
       resources:
         limits:

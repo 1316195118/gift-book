@@ -1,27 +1,19 @@
 # syntax=docker/dockerfile:1
 
-# ---------- 1. 构建前端 ----------
-FROM node:20-alpine AS web
-WORKDIR /src
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
-COPY web/ ./
-RUN npm run build
-
-# ---------- 2. 编译 Go 二进制 ----------
+# ---------- 1. 编译 Go 二进制 ----------
+# 前端 ui/ 为自研原生 JS/CSS（零第三方依赖），通过 //go:embed all:ui 直接嵌入，
+# 无需 Node / npm / Vite 构建阶段。
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 COPY go.mod ./
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY embed.go ./
-RUN mkdir -p webapp/dist
-COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"docker","version":"2.0.0"}\n' > webapp/dist/build.json \
- && touch webapp/dist/.gitkeep \
+COPY ui/ ./ui/
+RUN printf '{"build":"docker","version":"2.0.0"}\n' > ui/build.json \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
-# ---------- 3. 运行镜像 ----------
+# ---------- 2. 运行镜像 ----------
 FROM alpine:3.20
 RUN apk add --no-cache tzdata ca-certificates
 ENV TZ=Asia/Shanghai

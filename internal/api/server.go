@@ -13,17 +13,23 @@ import (
 
 // Server 汇总所有依赖。
 type Server struct {
-	store     *store.Store
-	auth      *auth.Manager
-	assets    fs.FS
-	build     string
-	version   string
-	ocr       OCREngine
-	configDir string
+	store        *store.Store
+	auth         *auth.Manager
+	assets       fs.FS
+	build        string
+	version      string
+	ocr          OCREngine
+	configDir    string
+	strictOrigin bool
 
+	backupMu      sync.Mutex
 	lastBackupMu  sync.Mutex
 	lastBackupAt  time.Time
 	lastBackupErr string
+
+	stopAutoBackup chan struct{}
+	stopOnce       sync.Once
+	autoBackupWG   sync.WaitGroup
 }
 
 // Options 是构造 Server 的参数。
@@ -35,18 +41,23 @@ type Options struct {
 	Version   string
 	OCR       OCREngine
 	ConfigDir string
+	// StrictOrigin 为 true 时，写请求要求 Origin 的 host:port 与 Host 完全一致。
+	// 默认只比主机名，保持与旧版（含开发代理、同机不同端口前端）的兼容。
+	StrictOrigin bool
 }
 
 // New 创建 HTTP 服务。
 func New(opts Options) *Server {
 	return &Server{
-		store:     opts.Store,
-		auth:      opts.Auth,
-		assets:    opts.Assets,
-		build:     opts.Build,
-		version:   opts.Version,
-		ocr:       opts.OCR,
-		configDir: opts.ConfigDir,
+		store:          opts.Store,
+		auth:           opts.Auth,
+		assets:         opts.Assets,
+		build:          opts.Build,
+		version:        opts.Version,
+		ocr:            opts.OCR,
+		configDir:      opts.ConfigDir,
+		strictOrigin:   opts.StrictOrigin,
+		stopAutoBackup: make(chan struct{}),
 	}
 }
 
@@ -97,7 +108,7 @@ func (s *Server) Handler() http.Handler {
 
 // middle 是 API 通用前置检查：同源 + 访问保护。
 func (s *Server) middle(w http.ResponseWriter, r *http.Request) bool {
-	if !sameOrigin(r) {
+	if !s.sameOrigin(r) {
 		fail(w, http.StatusForbidden, "跨站请求已被拒绝")
 		return false
 	}

@@ -203,3 +203,24 @@ func TestJSONRoundTripPreservesUnknownFields(t *testing.T) {
 		t.Fatal("unknown field dropped")
 	}
 }
+
+// 新数据无法序列化时，必须在动旧数据之前失败，旧账簿保持原样。
+func TestReplaceAllRejectsUnserializableData(t *testing.T) {
+	s := newStore(t)
+	if err := s.WithEvents(func(events map[string]Record) (bool, error) {
+		events["e1"] = Record{"id": "e1"}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ReplaceAll(map[string]Record{"bad": {"x": func() {}}}, nil); err == nil {
+		t.Fatal("不可序列化的数据应被拒绝")
+	}
+	events, err := s.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := events["e1"]; !ok || len(events) != 1 {
+		t.Fatalf("旧数据被破坏: %v", events)
+	}
+}

@@ -3,11 +3,16 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 )
+
+// maxJSONBody 是单个 JSON 请求体的上限。
+const maxJSONBody = 32 << 20
 
 // response 与旧版接口保持一致：{success, data, message, code, duplicate}。
 type response struct {
@@ -41,7 +46,9 @@ func failCode(w http.ResponseWriter, status int, code, message string) {
 }
 
 // sameOrigin 拒绝带 Origin 头的跨站写请求；无 Origin（curl、旧浏览器）照常放行。
-func sameOrigin(r *http.Request) bool {
+// 默认只比主机名（与旧版一致）；开启 StrictOrigin 后要求 host:port 完全一致，
+// 堵住同机另一端口的页面发简单请求跨站写。
+func (s *Server) sameOrigin(r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 		return true
 	}
@@ -56,7 +63,10 @@ func sameOrigin(r *http.Request) bool {
 	if err != nil || parsed.Hostname() == "" {
 		return false
 	}
-	// 比较主机名（忽略端口、IPv6 方括号），与旧版 PHP 的行为一致。
+	if s.strictOrigin {
+		return strings.EqualFold(parsed.Host, r.Host)
+	}
+	// 兼容模式：比较主机名（忽略端口、IPv6 方括号），与旧版 PHP 的行为一致。
 	return strings.EqualFold(parsed.Hostname(), requestHostname(r))
 }
 
@@ -68,8 +78,20 @@ func requestHostname(r *http.Request) string {
 	return strings.Trim(host, "[]")
 }
 
-func decodeJSON(r *http.Request, dst any) error {
+// decodeJSON 读取并校验请求体。传入 ResponseWriter 让 MaxBytesReader
+// 在超限时终止读取并关闭连接；尾部多余内容一律拒绝，避免夹带第二份 JSON。
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	defer r.Body.Close()
-	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 32<<20))
-	return dec.Decode(dst)
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return errors.New("请求体包含多余内容")
+		}
+		return err
+	}
+	return nil
 }

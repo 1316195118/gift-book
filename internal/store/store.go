@@ -201,29 +201,107 @@ func (s *Store) BackupAll() (map[string]Record, map[string]map[string]Record, er
 }
 
 // ReplaceAll 用给定数据整体替换现有账簿（导入备份时使用）。
-// 原有文件先移到 .trash/import-<时间>/，失败可人工找回。
+// 先把全部新数据序列化并写成同目录临时文件，就绪后再把旧文件移进 .trash/、
+// 统一改名切换；切换阶段失败会删掉已切换的新文件并把旧文件放回。
 func (s *Store) ReplaceAll(events map[string]Record, gifts map[string]map[string]Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	type payload struct {
+		path string
+		data []byte
+	}
+	payloads := make([]payload, 0, 1+len(gifts))
+	raw, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		return err
+	}
+	payloads = append(payloads, payload{s.eventsPath(), raw})
+	for id, items := range gifts {
+		raw, err := json.MarshalIndent(items, "", "  ")
+		if err != nil {
+			return err
+		}
+		payloads = append(payloads, payload{s.giftsPath(id), raw})
+	}
+
+	type staged struct{ final, tmp string }
+	var ready []staged
+	dropTemps := func() {
+		for _, item := range ready {
+			_ = os.Remove(item.tmp)
+		}
+	}
+	for _, item := range payloads {
+		tmp := item.path + "." + randomSuffix() + ".import.tmp"
+		if err := writeRawFile(tmp, item.data); err != nil {
+			dropTemps()
+			return err
+		}
+		ready = append(ready, staged{item.path, tmp})
+	}
+
+	type moved struct{ from, to string }
+	var backedUp []moved
 	trash := filepath.Join(s.dir, ".trash", "import-"+time.Now().Format("20060102-150405"))
 	if existing, err := readMap(s.eventsPath()); err == nil && len(existing) > 0 {
-		if err := os.MkdirAll(trash, 0o770); err == nil {
-			_ = os.Rename(s.eventsPath(), filepath.Join(trash, "events.json"))
-			for id := range existing {
-				if _, err := os.Stat(s.giftsPath(id)); err == nil {
-					_ = os.Rename(s.giftsPath(id), filepath.Join(trash, "gifts_"+SanitizeID(id)+".json"))
+		if err := os.MkdirAll(trash, 0o770); err != nil {
+			// 旧数据没地方放时绝不切换，否则后续出错就再也无法回滚。
+			dropTemps()
+			return err
+		}
+		if _, err := os.Stat(s.eventsPath()); err == nil {
+			dst := filepath.Join(trash, "events.json")
+			if os.Rename(s.eventsPath(), dst) == nil {
+				backedUp = append(backedUp, moved{dst, s.eventsPath()})
+			}
+		}
+		for id := range existing {
+			src := s.giftsPath(id)
+			if _, err := os.Stat(src); err == nil {
+				dst := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
+				if os.Rename(src, dst) == nil {
+					backedUp = append(backedUp, moved{dst, src})
 				}
 			}
 		}
 	}
 
-	for id, items := range gifts {
-		if err := writeJSON(s.giftsPath(id), items); err != nil {
+	switched := make([]string, 0, len(ready))
+	for _, item := range ready {
+		if err := os.Rename(item.tmp, item.final); err != nil {
+			for _, path := range switched {
+				_ = os.Remove(path)
+			}
+			for _, old := range backedUp {
+				_ = os.Rename(old.from, old.to)
+			}
+			dropTemps()
 			return err
 		}
+		switched = append(switched, item.final)
 	}
-	return writeJSON(s.eventsPath(), events)
+	dropTemps() // 已改名的临时文件不再存在，Remove 无副作用
+	return nil
+}
+
+// writeRawFile 写一份不参与切换的临时文件，供 ReplaceAll 统一 rename。
+func writeRawFile(path string, payload []byte) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o664)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(payload); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return err
+	}
+	return f.Close()
 }
 
 // ---- 内部辅助 ----
@@ -274,8 +352,24 @@ func writeFileAtomic(path string, payload []byte) error {
 		return err
 	}
 	if err := f.Close(); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	syncDir(filepath.Dir(path))
+	return nil
+}
+
+// syncDir 在 rename 后刷目录项，让「写临时文件 → fsync → 原子改名」真正落盘。
+// Windows 无法对目录句柄 fsync，失败时静默忽略即可。
+func syncDir(dir string) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return
+	}
+	_ = f.Sync()
+	_ = f.Close()
 }

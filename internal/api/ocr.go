@@ -53,7 +53,7 @@ func (s *Server) handleOCR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 8<<20)
-	file, header, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		fail(w, http.StatusBadRequest, "图片上传失败，请使用 JPG、PNG 或 WebP 图片。")
 		return
@@ -87,11 +87,13 @@ func (s *Server) handleOCR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer os.RemoveAll(dir)
-	ext := filepath.Ext(header.Filename)
-	if ext == "" {
-		ext = ".jpg"
+	// 扩展名只按实际检测到的图片类型给，不取自用户上传的文件名。
+	exts := map[string]string{
+		"image/jpeg": ".jpg",
+		"image/png":  ".png",
+		"image/webp": ".webp",
 	}
-	imgPath := filepath.Join(dir, "upload"+ext)
+	imgPath := filepath.Join(dir, "upload"+exts[mimeType])
 	if err := os.WriteFile(imgPath, buf, 0o600); err != nil {
 		fail(w, http.StatusInternalServerError, "无法写入临时图片。")
 		return

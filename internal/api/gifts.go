@@ -58,7 +58,7 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := decodeJSON(r, &body); err != nil || body == nil {
+	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
@@ -143,7 +143,7 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID string) {
 	var body map[string]any
-	if err := decodeJSON(r, &body); err != nil || body == nil {
+	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}

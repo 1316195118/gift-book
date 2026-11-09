@@ -146,6 +146,32 @@ func writeOne(s *store.Store, dir string, i int) (string, error) {
 	return name, nil
 }
 
+// Write 应与 Build 产出同样的条目，但不需要把整包攒进内存。
+func TestWriteStreamsSameEntries(t *testing.T) {
+	s := newStore(t)
+	var buf bytes.Buffer
+	manifest, err := Write(&buf, s, "stream", true, []byte(`{"enabled":true}`))
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if manifest.Events != 1 || manifest.Gifts != 1 {
+		t.Fatalf("manifest wrong: %+v", manifest)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("not a zip: %v", err)
+	}
+	names := map[string]bool{}
+	for _, f := range reader.File {
+		names[f.Name] = true
+	}
+	for _, want := range []string{"manifest.json", "data/events.json", "data/gifts_e1.json", "config/auth-state.json"} {
+		if !names[want] {
+			t.Fatalf("missing %s in %v", want, names)
+		}
+	}
+}
+
 func filepathJoin(parts ...string) string { return filepath.Join(parts...) }
 func filepathDir(path string) string      { return filepath.Dir(path) }
 func mkdirAll(path string) error          { return os.MkdirAll(path, 0o775) }

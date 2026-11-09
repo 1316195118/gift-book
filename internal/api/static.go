@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 )
 
-// staticHandler 提供内嵌的 Vue 前端产物。前端使用 history 路由，未命中的路径回退到 index.html。
+// staticHandler 提供内嵌的自研前端（ui/，原生 JS/CSS，零第三方依赖）。
+// 页面由前端按状态切换，URL 不变；未命中的静态路径回退到 index.html。
 func (s *Server) staticHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clean := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
@@ -57,5 +57,3 @@ func isDirectory(fsys fs.FS, name string) bool {
 	info, err := fs.Stat(fsys, name)
 	return err == nil && info.IsDir()
 }
-
-var _ = time.Now

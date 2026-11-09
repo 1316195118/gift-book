@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -178,13 +179,27 @@ func (p *parsedBackup) normalize() error {
 	return nil
 }
 
-// parseBackupZip 解析并校验备份包：限制条目数、单条大小与解压总量，
-// 拒绝路径穿越，并在写入前校验账簿、礼金与访问保护状态。
+// parseBackupZip 解析内存里的备份包（测试与兼容入口）。
 func (s *Server) parseBackupZip(data []byte) (*parsedBackup, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, errors.New("不是有效的备份包")
 	}
+	return s.parseBackup(reader)
+}
+
+// parseBackupFile 从临时文件解析备份包，不把整个 zip 读进内存。
+func (s *Server) parseBackupFile(r io.ReaderAt, size int64) (*parsedBackup, error) {
+	reader, err := zip.NewReader(r, size)
+	if err != nil {
+		return nil, errors.New("不是有效的备份包")
+	}
+	return s.parseBackup(reader)
+}
+
+// parseBackup 校验备份包：限制条目数、单条大小与解压总量，
+// 拒绝路径穿越，并在写入前校验账簿、礼金与访问保护状态。
+func (s *Server) parseBackup(reader *zip.Reader) (*parsedBackup, error) {
 	if len(reader.File) > maxZipEntries {
 		return nil, errors.New("备份包条目过多")
 	}
@@ -274,12 +289,32 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	buf, err := io.ReadAll(file)
+	// 先流式落到临时文件，再由 zip.Reader 按需读取；不把整个备份包攒进内存。
+	tmp, err := os.CreateTemp("", "giftbook-restore-*.zip")
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "无法处理备份包")
+		return
+	}
+	defer os.Remove(tmp.Name())
+	size, err := io.Copy(tmp, io.LimitReader(file, maxBackupSize+1))
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
 	if err != nil {
 		fail(w, http.StatusBadRequest, "读取备份包失败")
 		return
 	}
-	parsed, err := s.parseBackupZip(buf)
+	if size > maxBackupSize {
+		fail(w, http.StatusRequestEntityTooLarge, "备份包过大")
+		return
+	}
+	parsedFile, err := os.Open(tmp.Name())
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "无法读取备份包")
+		return
+	}
+	defer parsedFile.Close()
+	parsed, err := s.parseBackupFile(parsedFile, size)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
@@ -318,10 +353,19 @@ func (s *Server) handleBackupInfo(w http.ResponseWriter, r *http.Request) {
 	}})
 }
 
-// restoreZip 解析备份包并整体替换现有数据，返回恢复条数。
-// 上传导入与从备份列表还原共用这条路径。
-func (s *Server) restoreZip(data []byte) (map[string]any, error) {
-	parsed, err := s.parseBackupZip(data)
+// restoreBackupFile 解析数据目录里的备份文件并整体替换现有数据，返回恢复条数。
+// 从备份列表还原走这条路径，同样不需要把 zip 全量读入内存。
+func (s *Server) restoreBackupFile(path string) (map[string]any, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := s.parseBackupFile(f, info.Size())
 	if err != nil {
 		return nil, err
 	}
@@ -355,12 +399,11 @@ func (s *Server) handleExportEvent(w http.ResponseWriter, r *http.Request, event
 		name = eventID
 	}
 	filename := sanitizeFilename(name) + ".zip"
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename*=UTF-8''`+urlEscape(filename))
-	w.Header().Set("Cache-Control", "no-store")
-
-	zw := zip.NewWriter(w)
-	writeJSON := func(entry string, value any) error {
+	// 先在内存里把整包写完，任何一步失败都能正常回错误响应；
+	// 单本账簿的数据量可控，避免直接往 ResponseWriter 写时出错却已发出 200。
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	writeEntry := func(entry string, value any) error {
 		out, err := zw.Create(entry)
 		if err != nil {
 			return err
@@ -381,10 +424,28 @@ func (s *Server) handleExportEvent(w http.ResponseWriter, r *http.Request, event
 		"name":      name,
 		"gifts":     len(gifts),
 	}
-	_ = writeJSON("manifest.json", manifest)
-	_ = writeJSON("data/events.json", map[string]store.Record{eventID: event})
-	_ = writeJSON("data/gifts_"+store.SanitizeID(eventID)+".json", gifts)
-	_ = zw.Close()
+	if err := writeEntry("manifest.json", manifest); err != nil {
+		fail(w, http.StatusInternalServerError, "导出失败")
+		return
+	}
+	if err := writeEntry("data/events.json", map[string]store.Record{eventID: event}); err != nil {
+		fail(w, http.StatusInternalServerError, "导出失败")
+		return
+	}
+	if err := writeEntry("data/gifts_"+store.SanitizeID(eventID)+".json", gifts); err != nil {
+		fail(w, http.StatusInternalServerError, "导出失败")
+		return
+	}
+	if err := zw.Close(); err != nil {
+		fail(w, http.StatusInternalServerError, "导出失败")
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename*=UTF-8''`+urlEscape(filename))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Length", itoa(buf.Len()))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(buf.Bytes())
 }
 
 // sanitizeFilename 去掉文件名里的非法字符。
