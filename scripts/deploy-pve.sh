@@ -34,9 +34,14 @@ chmod +x "$ask"
 export SSH_ASKPASS="$ask" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o ConnectTimeout=15)
 
-# 1. 构建号（前端 ui/ 为自研原生 JS/CSS，直接嵌入，无需 npm / Vite 打包）
-echo "▸ 写入构建号"
-printf '{"build":"%s","version":"2.0.0"}\n' "$(date +%Y%m%d-%H%M)" > ui/build.json
+# 1. 构建 Vue 3 前端 → webapp/dist（Go embed 目录）
+echo "▸ 构建前端（npm run build）"
+(cd web && npm run build)
+rm -rf webapp/dist/*
+mkdir -p webapp/dist
+cp -r web/dist/. webapp/dist/
+touch webapp/dist/.gitkeep
+printf '{"build":"%s","version":"2.0.0"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"

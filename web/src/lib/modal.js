@@ -1,0 +1,66 @@
+// 弹窗控制器：动作可以是函数，也可以是 { text, style, keepOpen, handler }。
+import { reactive } from 'vue'
+import { h } from 'vue'
+
+export const modal = reactive({
+  open: false,
+  title: '',
+  size: 'default',
+  theme: '',
+  body: null,
+  actions: [],
+  token: 0,
+})
+
+export function openModal(title, body, actions = [], options = {}) {
+  modal.token += 1
+  modal.title = title || ''
+  modal.body = body
+  modal.actions = actions
+  modal.size = options.size || 'default'
+  modal.theme = options.theme || ''
+  modal.open = true
+  return modal.token
+}
+
+export function closeModal(immediate = false) {
+  if (!modal.open) return
+  modal.open = false
+  if (immediate) {
+    modal.body = null
+    modal.actions = []
+  }
+}
+
+// 弹窗内容由 Vue 异步挂载；需要操作其中 DOM 的代码用这个助手等它进入文档。
+export function afterModalRender(callback) {
+  const run = () => requestAnimationFrame(() => requestAnimationFrame(callback))
+  run()
+}
+
+export function alert(title, message, callback = null) {
+  openModal(
+    title,
+    { type: 'html', html: `<p>${message}</p>` },
+    [
+      {
+        text: '确定',
+        class: 'themed-button-primary px-4 py-2 rounded',
+        handler: () => {
+          if (typeof callback === 'function') callback()
+        },
+      },
+    ],
+  )
+}
+
+export function confirm(title, message, onConfirm) {
+  openModal(
+    title,
+    { type: 'html', html: `<div class="confirm-body"><div class="confirm-sub">${message}</div></div>` },
+    [
+      { text: '取消', class: 'modal-btn-ghost' },
+      { text: '确定', class: 'modal-btn-primary', handler: onConfirm },
+    ],
+  )
+}

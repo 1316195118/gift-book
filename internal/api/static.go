@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// staticHandler 提供内嵌的自研前端（ui/，原生 JS/CSS，零第三方依赖）。
+// staticHandler 提供内嵌的 Vue 3 前端产物（webapp/dist，由 Vite 构建）。
 // 页面由前端按状态切换，URL 不变；未命中的静态路径回退到 index.html。
 func (s *Server) staticHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

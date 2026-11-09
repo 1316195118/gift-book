@@ -1,8 +1,14 @@
 @echo off
-rem 一键构建：写构建号 → 编译 Go 单文件可执行程序。
-rem 前端 ui/ 为自研原生 JS/CSS，由 //go:embed all:ui 直接嵌入，无需 npm install / Vite 打包。
+rem 一键构建：前端（Vite）→ 嵌入目录 → Go 单文件可执行程序
 setlocal
 cd /d "%~dp0"
+
+if not exist node_modules (
+  echo 安装前端依赖...
+  pushd web
+  call npm install
+  popd
+)
 
 node scripts\build.mjs
 if errorlevel 1 (

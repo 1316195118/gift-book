@@ -1,0 +1,171 @@
+/* ==========================================================================
+   motion.css · 最后加载的交互层（只做加法）
+   1. 按钮的悬停 / 按压「指向感」  2. 点击涟漪
+   3. 红事喜字与金点            4. 打印与减动效降级
+   所有颜色取 tokens.css 变量，红白两套主题自动成立、互不串色。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 统一的物理反馈：让「可点」和「已点」都看得见
+   -------------------------------------------------------------------------- */
+
+.btn,
+.themed-button-primary,
+.themed-button-secondary,
+.modal-btn-primary,
+.modal-btn-ghost,
+.modal-btn-danger,
+.setup-btn-primary,
+.setup-btn-ghost,
+.setup-submit,
+.home-create-btn,
+.home-side-help,
+.main-tool,
+.main-back,
+#submit-gift-btn,
+.cat-btn,
+.export-option,
+.tpl-card,
+.recent-item,
+.cover-style-item,
+[role="button"] {
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* 悬停：纸被指尖带起一点点，并补一道细内框指明可点 */
+.themed-button-primary:hover:not(:disabled),
+.modal-btn-primary:hover:not(:disabled),
+.setup-btn-primary:hover:not(:disabled),
+.setup-submit:hover:not(:disabled),
+#submit-gift-btn:hover:not(:disabled),
+.home-create-btn:hover:not(:disabled),
+.cat-btn:hover,
+.tpl-card:hover,
+.recent-item:hover,
+.cover-style-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+
+/* 按下：所有按钮沉一点，给出明确的确认反馈 */
+.btn:active:not(:disabled),
+.themed-button-primary:active:not(:disabled),
+.themed-button-secondary:active:not(:disabled),
+.modal-btn-primary:active:not(:disabled),
+.modal-btn-ghost:active:not(:disabled),
+.setup-btn-primary:active:not(:disabled),
+.setup-submit:active:not(:disabled),
+.home-create-btn:active:not(:disabled),
+.main-tool:active:not(:disabled),
+.main-back:active:not(:disabled),
+#submit-gift-btn:active:not(:disabled),
+.cat-btn:active,
+.export-option:active,
+.tpl-card:active,
+.recent-item:active {
+  transform: translateY(1px) scale(.985);
+}
+
+/* --------------------------------------------------------------------------
+   2. 点击涟漪：以点击位置为中心扩散，指向刚刚按下的地方
+   -------------------------------------------------------------------------- */
+
+.gb-ripple-host { position: relative; }
+
+.gb-ripple-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.gb-ripple-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .14;
+  transform: scale(0);
+  animation: gb-ripple 520ms var(--ease-out) forwards;
+}
+
+@keyframes gb-ripple {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   3. 红事喜字：创建账簿成功时的一枚「囍」与少量金点向外散开
+   白事由 JS 按 occasion 判断不生成，CSS 这里再做一层兜底屏蔽。
+   -------------------------------------------------------------------------- */
+
+.gb-celebrate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 160;
+}
+
+body.theme-solemn .gb-celebrate,
+body[data-occasion="white"] .gb-celebrate { display: none !important; }
+
+.gb-celebrate-mark {
+  font-family: var(--font-kai);
+  font-size: clamp(64px, 12vmin, 128px);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 30px rgb(232 176 74 / .4);
+  animation: gb-celebrate-mark 1100ms var(--ease-out) both;
+}
+
+@keyframes gb-celebrate-mark {
+  0%   { opacity: 0; transform: scale(.62) rotate(-8deg); }
+  26%  { opacity: 1; transform: scale(1.06) rotate(-3deg); }
+  52%  { opacity: 1; transform: scale(1) rotate(-3deg); }
+  100% { opacity: 0; transform: scale(1.14) rotate(-3deg); }
+}
+
+.gb-celebrate-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: rgb(226 178 84 / .92);
+  box-shadow: 0 0 10px rgb(232 176 74 / .6);
+  opacity: 0;
+  animation: gb-celebrate-dot 780ms var(--ease-out) var(--gb-delay, 0ms) both;
+}
+
+/* rotate 在前、translateY 在后：八个点沿各自角度向外散开。 */
+@keyframes gb-celebrate-dot {
+  0%   { opacity: 0; transform: rotate(var(--gb-angle, 0deg)) translateY(-8px) scale(.35); }
+  22%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--gb-angle, 0deg)) translateY(-118px) scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   4. 打印与减动效降级
+   -------------------------------------------------------------------------- */
+
+@media print {
+  .gb-celebrate,
+  .gb-ripple-layer { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.motion-full) .gb-ripple-layer { display: none !important; }
+  :root:not(.motion-full) .gb-celebrate { display: none !important; }
+  :root:not(.motion-full) .btn,
+  :root:not(.motion-full) .tpl-card,
+  :root:not(.motion-full) [role="button"] { transition: none !important; }
+}
