@@ -218,11 +218,15 @@ OCR 引擎不在二进制里。默认读取可执行文件旁的 `ocr/` 目录�
 
 ```
 ocr/
+├── engine.py           # 模型加载、SHA256 校验、构建期 manifest
 ├── recognize.py        # 输入图片路径，stdout 输出 {"success":true,"data":{"lines":[...]}}
-└── venv/bin/python     # 或 Windows 的 venv\Scripts\python.exe
+├── requirements.txt    # 固定的第三方依赖版本
+├── THIRD_PARTY.md      # 第三方组件清单与许可证说明
+├── models/             # 模型权重（不入库，构建期获取）
+└── venv/bin/python     # 依赖环境（不入库；Windows 为 venv\Scripts\python.exe）
 ```
 
-也可用环境变量 `GIFTBOOK_OCR_PYTHON`、`GIFTBOOK_OCR_SCRIPT` 指定。未配置时界面会明确提示「当前部署未内置 OCR」，其余功能不受影响。
+4 个自写源码文件已随仓库提供；`models/` 与 `venv/` 体积大且各有许可，由 `.gitignore` 排除，需按 `ocr/THIRD_PARTY.md` 自行准备。也可用环境变量 `GIFTBOOK_OCR_PYTHON`、`GIFTBOOK_OCR_SCRIPT` 指定。未配置时界面会明确提示「当前部署未内置 OCR」，其余功能不受影响。
 
 ---
 
