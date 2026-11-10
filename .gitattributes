@@ -1,0 +1,4 @@
+# Windows 上 core.autocrlf=true 会把检出文件转成 CRLF，
+# 导致本机 `gofmt -l` 误报（仓库里存的其实已是规范 LF）。
+# 强制 Go 源码在工作区也保持 LF，让格式检查在任何平台结果一致。
+*.go text eol=lf
