@@ -125,3 +125,52 @@ export const writeLocked = (eventId, locked) => {
 }
 
 export const qrStorageKey = (eventId) => `giftbook_qr_${eventId || ''}`
+
+/* ---- 动效与音效档位：feedback.js / sound.js 共用，避免两处逻辑漂移 ---- */
+const MOTION_KEY = 'giftbook_motion'
+const SOUND_KEY = 'giftbook_sound'
+
+export function motionPreference() {
+  try {
+    const value = localStorage.getItem(MOTION_KEY)
+    return value === 'full' || value === 'reduce' ? value : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+export function setMotionPreference(value) {
+  const next = value === 'full' || value === 'reduce' ? value : 'system'
+  try { localStorage.setItem(MOTION_KEY, next) } catch { /* 忽略 */ }
+  applyMotionClass()
+  return next
+}
+
+export function toggleMotionPreference() {
+  return setMotionPreference(motionPreference() === 'full' ? 'system' : 'full')
+}
+
+export function prefersReducedMotion() {
+  const pref = motionPreference()
+  if (pref === 'full') return false
+  if (pref === 'reduce') return true
+  return typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+export function applyMotionClass() {
+  document.documentElement.classList.toggle('motion-full', motionPreference() === 'full')
+}
+
+/** 提示音默认关闭，只有用户显式开启才写 'on'。 */
+export function soundEnabled() {
+  try {
+    return localStorage.getItem(SOUND_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
+
+export function setSoundEnabled(on) {
+  try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off') } catch { /* 忽略 */ }
+}

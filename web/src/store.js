@@ -43,7 +43,14 @@ export const st = state
 
 export const CATEGORY_LABEL = { red: '红事', white: '白事' }
 
+const ROUTE_DEPTH = { home: 0, template: 1, setup: 2, main: 3 }
+let themeTimer = null
+
 export function setRoute(route) {
+  const from = state.route
+  const deeper = (ROUTE_DEPTH[route] ?? 0) >= (ROUTE_DEPTH[from] ?? 0)
+  // 供 CSS 选择入场方向：往里走从右进、返回从左回、进账簿是翻页。
+  document.documentElement.dataset.viewDirection = route === 'main' ? 'book' : (deeper ? 'forward' : 'back')
   state.route = route
 }
 
@@ -53,10 +60,16 @@ export function setHomeCategoryState(cat) {
 
 export function setBodyTheme(themeName) {
   const theme = themeName === 'theme-solemn' ? 'theme-solemn' : 'theme-festive'
+  const changed = !document.body.classList.contains(theme)
   document.body.classList.toggle('theme-solemn', theme === 'theme-solemn')
   document.body.classList.toggle('theme-festive', theme === 'theme-festive')
   document.body.dataset.theme = theme === 'theme-solemn' ? 'solemn' : 'festive'
   document.body.dataset.occasion = theme === 'theme-solemn' ? 'white' : 'red'
+  if (changed) {
+    document.documentElement.classList.add('theme-shifting')
+    clearTimeout(themeTimer)
+    themeTimer = setTimeout(() => document.documentElement.classList.remove('theme-shifting'), 460)
+  }
 }
 
 export function applyLargeText(on) {

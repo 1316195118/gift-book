@@ -5,9 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23b3261e'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white'%3E%E7%A4%BC%3C/text%3E%3C/svg%3E" />
     <title>电子礼簿系统</title>
+    <style>
+      #gb-boot-skeleton { max-width: 1180px; margin: 0 auto; padding: 32px; }
+      #gb-boot-skeleton .gb-sk-top { height: 34px; border-radius: 8px; background: #e9ddc7; opacity: .55; }
+      #gb-boot-skeleton .gb-sk-title { width: 46%; height: 42px; margin: 56px 0 32px; border-radius: 6px; background: #e9ddc7; opacity: .45; }
+      #gb-boot-skeleton .gb-sk-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      #gb-boot-skeleton .gb-sk-cards i { height: 180px; border-radius: 12px; background: #f3e9d7; opacity: .7; }
+      @media (max-width: 640px) { #gb-boot-skeleton .gb-sk-cards { grid-template-columns: 1fr; } }
+    </style>
   </head>
   <body class="bg-gray-100 min-h-screen theme-festive">
-    <div id="app"></div>
+    <div id="app">
+      <div id="gb-boot-skeleton" aria-hidden="true">
+        <div class="gb-sk-top"></div>
+        <div class="gb-sk-title"></div>
+        <div class="gb-sk-cards"><i></i><i></i><i></i></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -163,9 +163,221 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not(.motion-full) .gb-ripple-layer { display: none !important; }
-  :root:not(.motion-full) .gb-celebrate { display: none !important; }
+  :root:not(.motion-full) .gb-ripple-layer,
+  :root:not(.motion-full) .gb-celebrate,
+  :root:not(.motion-full) .gb-solemn-wave,
+  :root:not(.motion-full) .gb-toast-progress { display: none !important; }
   :root:not(.motion-full) .btn,
   :root:not(.motion-full) .tpl-card,
-  :root:not(.motion-full) [role="button"] { transition: none !important; }
+  :root:not(.motion-full) [role="button"],
+  :root:not(.motion-full) .gb-toast { transition: none !important; }
+  :root:not(.motion-full) .home-inner,
+  :root:not(.motion-full) #main-screen,
+  :root:not(.motion-full) #setup-screen,
+  :root:not(.motion-full) #modal-container,
+  :root:not(.motion-full) #modal,
+  :root:not(.motion-full) #gift-book-content,
+  :root:not(.motion-full) .ledger-summary,
+  :root:not(.motion-full) .recent-empty::before { animation: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   5. 通用 toast：右上角堆叠，最多 3 条，悬停暂停，进度条提示剩余时间
+   -------------------------------------------------------------------------- */
+
+.gb-toast-stack {
+  position: fixed;
+  top: var(--sp-5);
+  right: var(--sp-5);
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: min(340px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.gb-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: gb-toast-in 260ms var(--ease-out) both;
+}
+
+body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
+
+.gb-toast.is-success { border-left-color: var(--ok); }
+.gb-toast.is-warn { border-left-color: var(--warn); }
+.gb-toast.is-info { border-left-color: var(--line-strong); }
+
+.gb-toast-mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.gb-toast.is-success .gb-toast-mark { background: var(--ok-soft); color: var(--ok); }
+.gb-toast.is-warn .gb-toast-mark { background: var(--warn-soft); color: var(--warn); }
+
+.gb-toast-body { flex: 1; min-width: 0; }
+.gb-toast-title { display: block; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.gb-toast-detail { margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.55; color: var(--muted); overflow-wrap: anywhere; }
+
+.gb-toast-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gb-toast-close:hover { background: var(--surface-sunken); color: var(--ink); }
+
+.gb-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: gb-toast-progress 3.6s linear both;
+}
+.gb-toast.is-paused .gb-toast-progress { animation-play-state: paused; }
+
+@keyframes gb-toast-in {
+  from { opacity: 0; transform: translateX(16px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes gb-toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* --------------------------------------------------------------------------
+   6. 页面切换方向：往里走从右进、返回从左回、进账簿是翻页
+   -------------------------------------------------------------------------- */
+
+@keyframes ui-view-from-right {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-view-from-left {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-book-open {
+  from { opacity: 0; transform: perspective(900px) rotateY(-6deg) translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+[data-view-direction="forward"] .home-inner,
+[data-view-direction="forward"] #main-screen,
+[data-view-direction="forward"] #setup-screen { animation-name: ui-view-from-right; }
+[data-view-direction="back"] .home-inner,
+[data-view-direction="back"] #main-screen,
+[data-view-direction="back"] #setup-screen { animation-name: ui-view-from-left; }
+[data-view-direction="book"] #main-screen { animation-name: ui-book-open; animation-duration: 340ms; }
+
+/* --------------------------------------------------------------------------
+   7. 礼簿翻页与数值强调
+   -------------------------------------------------------------------------- */
+
+@keyframes gb-page-next {
+  0% { opacity: .55; transform: translateX(10px) rotateY(-3deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes gb-page-prev {
+  0% { opacity: .55; transform: translateX(-10px) rotateY(3deg); }
+  100% { opacity: 1; transform: none; }
+}
+#gift-book-content.gb-page-turn-next { animation: gb-page-next 360ms var(--ease-out) both; }
+#gift-book-content.gb-page-turn-prev { animation: gb-page-prev 360ms var(--ease-out) both; }
+
+@keyframes gb-value-pulse {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.018); }
+  100% { transform: scale(1); }
+}
+.ledger-summary.gb-value-pulse { animation: gb-value-pulse 520ms var(--ease-out) both; }
+
+/* --------------------------------------------------------------------------
+   8. 白事专属：素银淡墨扩散，无红金、无喜字
+   -------------------------------------------------------------------------- */
+
+.gb-solemn-wave {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 160;
+}
+.gb-solemn-wave::before {
+  content: "";
+  width: 84px;
+  height: 84px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  opacity: 0;
+  animation: gb-solemn-wave 820ms var(--ease-out) both;
+}
+@keyframes gb-solemn-wave {
+  0% { opacity: 0; transform: scale(.55); }
+  30% { opacity: .7; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* --------------------------------------------------------------------------
+   9. 主题切换过渡与空状态引导
+   -------------------------------------------------------------------------- */
+
+.theme-shifting body,
+.theme-shifting #app-shell {
+  transition: background-color 320ms var(--ease), color 320ms var(--ease);
+}
+
+.recent-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-4);
+}
+.recent-empty::before {
+  content: "";
+  width: 62px;
+  height: 78px;
+  border: 1px solid var(--line-strong);
+  border-left-width: 5px;
+  border-radius: 2px 8px 8px 2px;
+  background: linear-gradient(90deg, transparent 46%, var(--line) 46%, var(--line) 50%, transparent 50%);
+  background-size: 100% 16px;
+  animation: gb-empty-book 520ms var(--ease-out) both;
+}
+@keyframes gb-empty-book {
+  from { opacity: 0; transform: translateY(8px) rotate(-4deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@media print {
+  .gb-toast-stack,
+  .gb-solemn-wave { display: none !important; }
 }

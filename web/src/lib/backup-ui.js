@@ -2,6 +2,7 @@
 import { state as st } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
+import { notify } from './notify.js'
 import { loadEvents, showHome, endSession } from '../bootstrap.js'
 import { escapeHtml } from './crypto.js'
 
@@ -79,7 +80,7 @@ async function importBackup(file) {
             endSession()
             await loadEvents()
             showHome()
-            showAlert('导入完成', `已恢复 ${data.data?.events ?? 0} 本账簿、${data.data?.gifts ?? 0} 条礼金记录。`)
+            notify.success('导入完成', `已恢复 ${data.data?.events ?? 0} 本账簿、${data.data?.gifts ?? 0} 条礼金记录。`)
           } catch (err) {
             fail(err.message || '导入失败，请重试')
           }

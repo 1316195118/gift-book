@@ -12,6 +12,7 @@ import { soundEnabled, setSoundEnabled, playTap } from './sound.js'
 import { motionPreference, setMotionPreference } from './feedback.js'
 import { showQrDialog } from './qr-dialog.js'
 import { label, hint, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
+import { notify } from './notify.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
 
@@ -178,7 +179,7 @@ export function openSettings({ section = 'general' } = {}) {
           st.currentEvent = { ...st.currentEvent, ...payload, ...(result.data || {}) }
           updateSessionEvent(st.currentEvent)
           closeModal()
-          showAlert('成功', '账簿设置已保存。')
+          notify.success('账簿设置已保存', '', { duration: 3200 })
         } catch (error) {
           showAlert('错误', error.message ? `账簿设置保存失败：${error.message}` : '账簿设置保存失败。')
         }
@@ -315,7 +316,7 @@ export async function deleteEventFlow() {
           st.gifts = []
           await loadEvents()
           showHome()
-          showAlert('成功', `账簿 “${escapeHtml(ev.name)}” 及其${copy.recordsLabel}已删除。`)
+          notify.success('账簿已删除', `“${ev.name}” 及其${copy.recordsLabel}已删除。`)
         } catch (error) {
           fail(error.message || '删除失败，请稍后重试。')
         }

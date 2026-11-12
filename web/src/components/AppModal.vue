@@ -1,5 +1,5 @@
 <template>
-  <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" :class="{ hidden: !modal.open }">
+  <div ref="rootEl" id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" :class="{ hidden: !modal.open }">
     <div
       id="modal"
       class="modal-card"
@@ -26,11 +26,13 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { modal, closeModal } from '../lib/modal.js'
 import ModalContent from './ModalContent.vue'
 
 const view = ModalContent
+const rootEl = ref(null)
+let lastFocused = null
 
 async function runAction(action) {
   const keepOpen = action.keepOpen
@@ -38,10 +40,55 @@ async function runAction(action) {
   if (!keepOpen) closeModal()
 }
 
+function focusables() {
+  const root = rootEl.value
+  if (!root) return []
+  return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => !el.disabled && el.getClientRects().length)
+}
+
+function onKeydown(event) {
+  if (!modal.open) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeModal()
+    return
+  }
+  if (event.key !== 'Tab') return
+  const list = focusables()
+  if (!list.length) return
+  const first = list[0]
+  const last = list[list.length - 1]
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === rootEl.value)) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
 watch(
   () => modal.open,
-  (open) => {
+  async (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
+    if (open) {
+      lastFocused = document.activeElement
+      await nextTick()
+      const closeBtn = rootEl.value?.querySelector('#modal-close')
+      if (closeBtn) closeBtn.focus()
+      else rootEl.value?.querySelector('#modal')?.focus()
+      document.addEventListener('keydown', onKeydown, true)
+    } else {
+      document.removeEventListener('keydown', onKeydown, true)
+      if (lastFocused && document.contains(lastFocused)) lastFocused.focus()
+      lastFocused = null
+    }
   },
 )
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown, true)
+  document.body.style.overflow = ''
+})
 </script>

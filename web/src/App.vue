@@ -8,6 +8,7 @@
     <AppModal />
     <OfflineToast />
     <QrFloat />
+    <ToastStack />
   </div>
 </template>
 
@@ -23,6 +24,7 @@ import MainScreen from './views/MainScreen.vue'
 import AppModal from './components/AppModal.vue'
 import OfflineToast from './components/OfflineToast.vue'
 import QrFloat from './components/QrFloat.vue'
+import ToastStack from './components/ToastStack.vue'
 import { bootstrap } from './bootstrap.js'
 
 // 主题跟着「当前这本账簿」走：进入白事账簿就是素色，回到首页回到所选分类。

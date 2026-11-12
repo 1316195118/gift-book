@@ -1,55 +1,24 @@
-// 动效档位、红事喜庆反馈、点击涟漪与音效接入（Vue 3 版）。
-// 系统开启「减弱动态效果」时，用户仍可显式打开完整动效；
-// CSS 侧通过 html.motion-full 解除各样式表的 :not(.motion-full) 降级规则。
+// 动效档位、喜庆/素净反馈、点击涟漪与数值强调（Vue 3 版）。
+// 偏好读取统一在 prefs.js；系统减动效时 CSS 通过 html.motion-full 解除降级。
 
-import { playTap, playCelebrate } from './sound.js'
+import { playTap, playCelebrate, playSolemn } from './sound.js'
+import {
+  motionPreference, setMotionPreference, toggleMotionPreference,
+  prefersReducedMotion, applyMotionClass,
+} from './prefs.js'
 
-const MOTION_KEY = 'giftbook_motion'
+export { motionPreference, setMotionPreference, toggleMotionPreference, prefersReducedMotion }
 
-export function motionPreference() {
-  try {
-    const value = localStorage.getItem(MOTION_KEY)
-    return value === 'full' || value === 'reduce' ? value : 'system'
-  } catch {
-    return 'system'
-  }
-}
-
-function applyMotionClass() {
-  document.documentElement.classList.toggle('motion-full', motionPreference() === 'full')
-}
-
-export function setMotionPreference(value) {
-  const next = value === 'full' || value === 'reduce' ? value : 'system'
-  try { localStorage.setItem(MOTION_KEY, next) } catch { /* 忽略 */ }
-  applyMotionClass()
-  return next
-}
-
-export function toggleMotionPreference() {
-  return setMotionPreference(motionPreference() === 'full' ? 'system' : 'full')
-}
-
-export function prefersReducedMotion() {
-  const pref = motionPreference()
-  if (pref === 'full') return false
-  if (pref === 'reduce') return true
-  return typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/** 红事专属：一枚淡入的喜字 + 8 个金点向外散开，配两声上行音阶。 */
+/** 红事专属：一枚喜字 + 8 个金点向外散开。白事、失败、减动效一律不生成。 */
 export function celebrate(glyph = '囍', { host = document.body } = {}) {
   if (prefersReducedMotion()) return
   const layer = document.createElement('div')
   layer.className = 'gb-celebrate'
   layer.setAttribute('aria-hidden', 'true')
-
   const mark = document.createElement('span')
   mark.className = 'gb-celebrate-mark'
   mark.textContent = glyph
   layer.appendChild(mark)
-
   for (let i = 0; i < 8; i += 1) {
     const dot = document.createElement('i')
     dot.className = 'gb-celebrate-dot'
@@ -62,9 +31,28 @@ export function celebrate(glyph = '囍', { host = document.body } = {}) {
   setTimeout(() => layer.remove(), 1300)
 }
 
-// ---- 点击涟漪 + 指向反馈 ----
-// 单独一层 absolute 容器负责裁剪，宿主只加 position:relative，
-// 不改宿主的 overflow（下拉菜单、金额遮罩等浮层不会被切掉）。
+/** 白事专属：一圈素银淡墨扩散，无红金、无喜字。 */
+export function solemnAck({ host = document.body } = {}) {
+  if (prefersReducedMotion()) return
+  const layer = document.createElement('div')
+  layer.className = 'gb-solemn-wave'
+  layer.setAttribute('aria-hidden', 'true')
+  host.appendChild(layer)
+  playSolemn()
+  setTimeout(() => layer.remove(), 900)
+}
+
+/** 数值变化强调：一次性脉冲，动画结束自动摘 class。 */
+export function pulse(el) {
+  if (!el || prefersReducedMotion()) return
+  el.classList.remove('gb-value-pulse')
+  void el.offsetWidth
+  el.classList.add('gb-value-pulse')
+  const drop = () => el.classList.remove('gb-value-pulse')
+  el.addEventListener('animationend', drop, { once: true })
+  setTimeout(drop, 700)
+}
+
 const RIPPLE_TARGETS = [
   'button', '.btn', '.themed-button-primary', '.themed-button-secondary',
   '.home-create-btn', '.home-side-help', '.choice-card', '.tpl-card',
@@ -78,7 +66,6 @@ function onPointerDown(event) {
   if (el.closest('#qr-float')) return
   playTap()
   if (prefersReducedMotion()) return
-
   const rect = el.getBoundingClientRect()
   if (!rect.width || !rect.height) return
   const size = Math.max(rect.width, rect.height) * 1.25

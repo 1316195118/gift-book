@@ -151,7 +151,7 @@ import { showHome, loadEvents, startSession } from '../bootstrap.js'
 import { openEvent } from '../lib/actions.js'
 import { alert as showAlert } from '../lib/modal.js'
 import { buildVoiceGroups, voiceHint, previewVoice } from '../lib/voice.js'
-import { celebrate } from '../lib/feedback.js'
+import { celebrate, solemnAck } from '../lib/feedback.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
 
@@ -318,7 +318,8 @@ async function submit() {
     st.currentPassword = form.password || NO_PASSWORD_KEY
     await loadEvents()
     // 喜字只属于红事；白事、创建失败一律不触发，celebrate 内部还会再判一次减动效。
-    if (!isSolemn.value) celebrate('囍')
+    if (isSolemn.value) solemnAck()
+    else celebrate('囍')
     startSession()
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NETWORK') {

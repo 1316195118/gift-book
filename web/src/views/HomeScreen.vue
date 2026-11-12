@@ -4,8 +4,8 @@
       <header class="home-topbar">
         <div class="home-brand"><span class="seal">礼</span><span>电子礼簿</span></div>
         <div class="cat-switch" id="cat-switch" role="tablist" aria-label="事项分类">
-          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'red' }" role="tab" :aria-selected="st.homeCategory === 'red'" data-cat="red" @click="switchCategory('red')">红事</button>
-          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'white' }" role="tab" :aria-selected="st.homeCategory === 'white'" data-cat="white" @click="switchCategory('white')">白事</button>
+          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'red' }" role="tab" :aria-selected="st.homeCategory === 'red'" data-cat="red" @click="onSwitchCategory('red')">红事</button>
+          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'white' }" role="tab" :aria-selected="st.homeCategory === 'white'" data-cat="white" @click="onSwitchCategory('white')">白事</button>
         </div>
         <div class="home-top-actions">
           <button type="button" class="net-chip" :class="'is-' + net.health.level" :title="netTitle" @click="showNetworkDetails">
@@ -13,6 +13,7 @@
           </button>
           <button type="button" class="version-chip" title="查看更新说明" @click="showChangelog">v{{ version }}</button>
           <button type="button" class="home-help-btn large-text-toggle" :aria-pressed="st.largeText" @click="toggleLargeText">{{ st.largeText ? '标准字号' : '大字' }}</button>
+          <button type="button" class="home-help-btn sound-toggle" :aria-pressed="soundOn" :title="soundOn ? '关闭提示音' : '开启提示音'" @click="toggleSound">{{ soundOn ? '音效开' : '静音' }}</button>
           <button type="button" class="home-help-btn" id="autobackup-btn" @click="showAutoBackupModal">备份</button>
           <button type="button" class="home-help-btn" id="access-btn" @click="showAccessModal">{{ st.authEnabled ? '访问保护 · 开' : '访问保护' }}</button>
           <button v-if="st.authEnabled" type="button" class="home-help-btn" id="logout-btn" @click="logout">退出</button>
@@ -141,8 +142,22 @@ import { showTemplates, showSetup, showHelpDialog, openEvent, versionLabel, show
 import { showAccessModal, showAutoBackupModal, logout, showNetworkDetails, switchCategory, toggleLargeText } from '../lib/actions.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'
+import { soundEnabled, setSoundEnabled } from '../lib/prefs.js'
+import { playTheme, playTap } from '../lib/sound.js'
 
 const recentEl = ref(null)
+const soundOn = ref(soundEnabled())
+function toggleSound() {
+  const next = !soundOn.value
+  setSoundEnabled(next)
+  soundOn.value = soundEnabled()
+  if (next) playTap()
+}
+function onSwitchCategory(cat) {
+  if (cat === st.homeCategory) return
+  playTheme(cat === 'white')
+  switchCategory(cat)
+}
 const version = computed(() => versionLabel())
 // 默认展示金额与人数；点眼睛才遮起来，隐私由用户自己控制
 const masked = reactive(new Set())

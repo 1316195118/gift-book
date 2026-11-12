@@ -167,7 +167,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { state as st } from '../store.js'
 import { copyOf } from '../lib/content.js'
 import { formatCurrency } from '../lib/crypto.js'
@@ -176,6 +176,8 @@ import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verif
 import { writeLocked } from '../lib/prefs.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'
+import { pulse } from '../lib/feedback.js'
+import { playPage } from '../lib/sound.js'
 import {
   PAYMENT_OPTIONS, entry, resetEntry, bookMarkup, computeStats, pageItems,
   totalPages, amountPreview, submitGift, runSearch, openGiftDetails, showQueueModal,
@@ -204,8 +206,25 @@ const eventSub = computed(() => {
 
 function pageBy(direction) {
   const next = st.currentPage + direction
-  if (next >= 1 && next <= pages.value) st.currentPage = next
+  if (next >= 1 && next <= pages.value) {
+    st.currentPage = next
+    const el = document.getElementById('gift-book-content')
+    if (el) {
+      const cls = direction > 0 ? 'gb-page-turn-next' : 'gb-page-turn-prev'
+      el.classList.remove('gb-page-turn-next', 'gb-page-turn-prev')
+      void el.offsetWidth
+      el.classList.add(cls)
+      setTimeout(() => el.classList.remove(cls), 420)
+    }
+    playPage(direction)
+  }
 }
+
+// 总额/人数变化时给汇总卡一次轻量强调，不做常驻动画。
+watch(
+  () => [stats.value.totalAmount, stats.value.totalGivers, subtotal.value],
+  () => pulse(document.querySelector('.ledger-summary')),
+)
 
 function onSubmit() {
   submitGift({ ...entry }, resetEntry)
