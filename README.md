@@ -95,7 +95,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `vue3-20261115-0317`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `vue3-20261115-0328`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
@@ -249,6 +249,16 @@ scripts/build.mjs    统一构建脚本
 scripts/api-test.mjs 接口端到端测试
 scripts/ui-check.mjs 无头浏览器界面验证
 ```
+
+---
+
+## 多人实时同步
+
+同一服务上多台设备可同时打开同一账簿：任意设备录入 / 修改 / 删除后，其它打开该账簿的页面会通过 SSE 自动刷新（保留当前页码），无需手动刷新；断线自动重连。
+
+实时通知只包含记录 id 与类型，**礼金内容仍是端到端密文**，不经过推送通道。
+
+联调：`node web/scripts/realtime-smoke.mjs`（需先起 :18299 隔离实例）
 
 ---
 
