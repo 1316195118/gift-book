@@ -400,6 +400,24 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
 @keyframes gb-veil-out { to { opacity: 0; } }
 @keyframes gb-sheet-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }
 
+/* --------------------------------------------------------------------------
+   11. 手机端页面切换轻量化：去掉 3D 翻书与位移，只留淡入，
+       避免模板页/创建页渲染重时动画掉帧、显得卡顿。
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  [data-view-direction="forward"] .home-inner,
+  [data-view-direction="forward"] #main-screen,
+  [data-view-direction="forward"] #setup-screen,
+  [data-view-direction="back"] .home-inner,
+  [data-view-direction="back"] #main-screen,
+  [data-view-direction="back"] #setup-screen,
+  [data-view-direction="book"] #main-screen {
+    animation-name: ui-view-in;
+    animation-duration: 220ms;
+  }
+}
+
 @media print {
   .gb-toast-stack,
   .gb-solemn-wave { display: none !important; }

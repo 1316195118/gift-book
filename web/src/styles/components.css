@@ -693,12 +693,15 @@ body.theme-solemn #modal-container {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   font-family: var(--font-serif);
   font-size: var(--fs-xl);
   font-weight: 600;
   letter-spacing: .08em;
   color: var(--ink);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 标题前的一粒朱点：窗口和页面用同一套界栏语言 */

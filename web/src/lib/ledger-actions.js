@@ -265,7 +265,7 @@ export function openGiftDetails(index) {
           : '<p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">未回礼</p>'}
       </div>
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
-        <div>${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
+        <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
       </div>
     </div>`

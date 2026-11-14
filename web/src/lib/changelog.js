@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.5'
+export const APP_VERSION = '2.3.6'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.6',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '礼簿姓名格改为「名字区 + 标记区」分层：备注/回礼/修改等标记不再与姓名文字重叠' },
+      { t: 'fix', text: '弹窗标题超长自动截断；统计「录入时间」列与首页日期行防压缩，斜杠与分隔点不再错位' },
+      { t: 'opt', text: '手机端页面切换动画去 3D 翻书与位移，只留 220ms 淡入——进入模板/创建页不再卡顿' },
+    ],
+  },
   {
     version: '2.3.5',
     date: '2026-11-15',
