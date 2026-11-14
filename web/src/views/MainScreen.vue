@@ -234,7 +234,7 @@ const version = computed(() => versionLabel())
 const queueCount = computed(() => queueFor(st.currentEvent?.id).length)
 const items = computed(() => pageItems())
 const pages = computed(() => totalPages())
-const stats = computed(() => computeStats())
+const stats = computed(() => computeStats(st.gifts))
 
 // 汇总金额变化时做一次 count-up，避免数字硬跳。
 const displayTotal = ref(0)

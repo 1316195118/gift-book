@@ -38,15 +38,7 @@ export function totalPages(gifts = st.gifts) {
   return Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1
 }
 
-export function computeStats(gifts = st.gifts) {
-  const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 } }
-  gifts.forEach(({ data }) => {
-    if (!data) return
-    result.totalAmount += Number(data.amount) || 0
-    result.byType[data.type] = (result.byType[data.type] || 0) + (Number(data.amount) || 0)
-  })
-  return result
-}
+// computeStats 统一由 stats-core.js 提供（主界面与统计弹窗共用同一口径）。
 
 export function amountPreview(value) {
   const amount = Number(value)
@@ -103,6 +95,8 @@ export function bookMarkup() {
   }
   return `<div class="gift-book-row">${rows.name.join('')}</div><div class="gift-book-row flex-1">${rows.type.join('')}</div><div class="gift-book-row">${rows.amount.join('')}</div>`
 }
+
+export { computeStats } from './stats-core.js'
 
 export {
   submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,

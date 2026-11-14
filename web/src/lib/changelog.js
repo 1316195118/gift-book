@@ -1,11 +1,22 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.2.1'
+export const APP_VERSION = '2.3.0'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.0',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '弹窗加入退出动画：关闭时遮罩淡出、纸面上收，不再瞬间消失' },
+      { t: 'feat', text: '汇总金额变化改为数字滚动；统计条形图可点击筛选明细；窄屏工具栏收进「更多」菜单' },
+      { t: 'sec', text: '新增 Content-Security-Policy 与 Permissions-Policy：脚本仅允许同源产物，保留相机/麦克风同源权限' },
+      { t: 'opt', text: '统计汇总统一为 stats-core 纯函数，主界面与统计弹窗共用同一口径，并补 4 项单元测试' },
+      { t: 'opt', text: '新增 GitHub Actions CI：push / PR 自动跑 go vet、go test、前端构建与单元测试' },
+    ],
+  },
   {
     version: '2.2.1',
     date: '2026-11-15',

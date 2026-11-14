@@ -5,33 +5,11 @@ import { openCrossSummary } from './cross-summary.js'
 import { copyOf } from './content.js'
 import { formatCurrency, escapeHtml } from './crypto.js'
 import { openGiftDetails } from './ledger-actions.js'
-import { totalReturnedOf, hasReturned } from './return-gift.js'
-
-export function computeStats(gifts = st.gifts) {
-  const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 }, byRelation: {}, totalReturned: 0, returnedCount: 0, uniqueGivers: 0, average: 0, topGivers: [] }
-  const byName = {}
-  gifts.forEach(({ data }) => {
-    if (!data) return
-    const amount = Number(data.amount) || 0
-    result.totalAmount += amount
-    result.byType[data.type] = (result.byType[data.type] || 0) + amount
-    const relation = data.relation || '未分类'
-    result.byRelation[relation] = (result.byRelation[relation] || 0) + amount
-    if (data.name) byName[data.name] = (byName[data.name] || 0) + amount
-    if (hasReturned(data)) {
-      result.totalReturned += totalReturnedOf(data)
-      result.returnedCount += 1
-    }
-  })
-  const names = Object.entries(byName).sort((a, b) => b[1] - a[1])
-  result.uniqueGivers = names.length
-  result.average = names.length ? result.totalAmount / names.length : 0
-  result.topGivers = names.slice(0, 5)
-  return result
-}
+import { computeStats } from './stats-core.js'
+export { computeStats }
 
 export function openStats() {
-  const stats = computeStats()
+  const stats = computeStats(st.gifts)
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const html = `
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">

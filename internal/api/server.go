@@ -176,6 +176,10 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) buildLabel() string { return s.build }
 
+// 内容安全策略：脚本只允许同源构建产物；样式保留 inline（骨架屏与动态条形宽度）；
+// 图片允许 data:/blob:（封面、二维码、PDF 栅格化），媒体与 Worker 允许 blob:。
+const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+
 // securityHeaders 统一加基础安全头；静态资源另外处理缓存。
 func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -183,6 +187,8 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "SAMEORIGIN")
 		h.Set("Referrer-Policy", "same-origin")
+		h.Set("Content-Security-Policy", contentSecurityPolicy)
+		h.Set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
 		}
