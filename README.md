@@ -95,7 +95,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `vue3-20261115-0215`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本可用 `vue3-20261115-0236`。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
@@ -261,6 +261,7 @@ node scripts/theme-sweep.mjs   # 红白两套主题逐页截图 + 串色 / 用�
 node scripts/layout-audit.mjs  # 版面体检：重叠 / 挡字 / 裁切 / 隐形 / 素材不等大 / 对比度
 node scripts/print-proof.mjs   # 打印打样：出 A4 横向 PDF + 分页图，查溢出与串色
 node scripts/smoke.mjs <url>   # 只读冒烟，用来验线上部署（不建任何账簿）
+node web/scripts/e2e-smoke.mjs # 按钮响应 / chunk 404 / 版本提示（先起 :18299 隔离实例，用系统 Edge）
 ```
 
 `api-test.mjs` 会断言数据目录里只有它自己建的账簿，所以要对着一个空目录的实例跑：
