@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.14'
+export const APP_VERSION = '2.3.15'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.15',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '修复更新说明等按钮「点了没反应」：旧页面引用的分块已被新版本删除时，统一提示刷新而不是静默失败' },
+      { t: 'feat', text: '发现新版本会主动提示：回到页面或每 5 分钟对比服务端构建号，提示刷新后再操作' },
+      { t: 'opt', text: '更新说明纳入空闲预取；Service Worker 脚本改为不缓存，版本切换更及时' },
+    ],
+  },
   {
     version: '2.3.14',
     date: '2026-11-15',

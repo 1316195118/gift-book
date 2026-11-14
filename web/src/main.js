@@ -15,15 +15,17 @@ import './styles/motion.css'
 import { createApp } from 'vue'
 import App from './App.vue'
 import { initFeedback } from './lib/feedback.js'
+import { initVersionWatch } from './lib/version-check.js'
 
 // 动效档位与点击反馈要在页面渲染前挂好。
 initFeedback()
 
 createApp(App).mount('#app')
 
-// 首屏空闲时预取体积较大的按需模块：点击导出/打印/扫码时不再等 chunk 下载。
+// 首屏空闲时预取体积较大的按需模块：点击导出/打印/扫码/更新说明时不再等 chunk 下载。
 function prefetchHeavyModules() {
   const run = () => {
+    import('./lib/changelog.js').catch(() => {})
     import('./lib/exports.js').catch(() => {})
     import('./lib/printing.js').catch(() => {})
     import('./lib/ocr-entry.js').catch(() => {})
@@ -34,10 +36,14 @@ function prefetchHeavyModules() {
 
 prefetchHeavyModules()
 
+// 部署新版本后提示刷新，避免用户停留在旧页面上点击懒加载按钮。
+initVersionWatch()
+
 // PWA：生产环境注册 Service Worker，支持「添加到主屏幕」与断网打开已缓存页面。
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    // updateViaCache: 'none' 确保 sw.js 自身不被 HTTP 缓存拖住，更新能及时生效。
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {
       /* 注册失败不影响正常使用 */
     })
   })

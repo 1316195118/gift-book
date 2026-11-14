@@ -2,6 +2,7 @@
 import { state as st, hashPassword, NO_PASSWORD_KEY, rememberLedgerKey, touchSession, clearSession } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
+import { safeImport } from './lazy.js'
 import { copyOf, isSolemnEvent, getCoverTemplate, RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
 import { stampSeal } from './stamp.js'
 import { amountToChinese, formatCurrency } from './crypto.js'
@@ -519,17 +520,21 @@ export { toggleLedgerLock } from './lock.js'
 export { showQrDialog } from './qr-dialog.js'
 
 // 导出（PDF）/ 打印 / OCR 体积大、使用频率低：按需加载，不占首屏主包。
+// 统一走 safeImport：旧页面引用已删除的 chunk 时提示刷新，而不是点了没反应。
 export async function openExport(...args) {
-  const mod = await import('./exports.js')
+  const mod = await safeImport(() => import('./exports.js'), '导出')
+  if (!mod) return
   return mod.openExport(...args)
 }
 
 export async function openPrint(...args) {
-  const { showPrintModal } = await import('./printing.js')
-  return showPrintModal(...args)
+  const mod = await safeImport(() => import('./printing.js'), '打印')
+  if (!mod) return
+  return mod.showPrintModal(...args)
 }
 
 export async function openOcr(...args) {
-  const mod = await import('./ocr-entry.js')
+  const mod = await safeImport(() => import('./ocr-entry.js'), '扫码识别')
+  if (!mod) return
   return mod.openOcr(...args)
 }

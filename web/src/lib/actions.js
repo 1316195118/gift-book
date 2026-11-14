@@ -2,6 +2,7 @@
 import { state as st, NO_PASSWORD_KEY, hashPassword, NO_PASSWORD_HASH, applyLargeText } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './modal.js'
+import { safeImport } from './lazy.js'
 import { showTemplates, showSetup, showHome, loadEvents, startSession, endSession } from '../bootstrap.js'
 import { copyOf, isSolemnEvent } from './content.js'
 import { getHomeCategory, setHomeCategory } from './prefs.js'
@@ -52,21 +53,27 @@ export function showHelpDialog() {
 }
 
 export function showChangelog() {
-  import('./changelog.js').then(({ renderChangelog }) => {
-    openModal('更新说明', { type: 'html', html: renderChangelog() }, [
+  // 旧页面在新版本部署后 import 旧 chunk 会 404；safeImport 会提示刷新而不是静默失败。
+  safeImport(() => import('./changelog.js'), '更新说明').then((mod) => {
+    if (!mod) return
+    openModal('更新说明', { type: 'html', html: mod.renderChangelog() }, [
       { text: '知道了', class: 'modal-btn-primary' },
     ])
   })
 }
 
 export async function showAccessModal() {
-  const { AccessPanel } = await import('../components/dialogs.js')
+  const mod = await safeImport(() => import('../components/dialogs.js'), '访问保护面板')
+  if (!mod) return
+  const { AccessPanel } = mod
   // 面板自带保存/取消按钮，弹窗底栏留空
   openModal('访问保护', { type: 'component', component: AccessPanel, props: { enabled: st.authEnabled } }, [])
 }
 
 export async function showAutoBackupModal() {
-  const { AutoBackupPanel } = await import('../components/dialogs.js')
+  const mod = await safeImport(() => import('../components/dialogs.js'), '自动备份面板')
+  if (!mod) return
+  const { AutoBackupPanel } = mod
   openModal('自动备份', { type: 'component', component: AutoBackupPanel }, [])
 }
 
@@ -80,7 +87,9 @@ export async function logout() {
   location.reload()
 }
 export async function showNetworkDetails() {
-  const { NetworkPanel } = await import('../components/dialogs.js')
+  const mod = await safeImport(() => import('../components/dialogs.js'), '网络状态面板')
+  if (!mod) return
+  const { NetworkPanel } = mod
   // 「立即重测」与底部「知道了」都在面板内，弹窗底栏不再重复放按钮
   openModal('网络状态', { type: 'component', component: NetworkPanel }, [])
 }

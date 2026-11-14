@@ -8,10 +8,16 @@ let flushing = false
 export async function flushQueueIfOnline() {
   if (flushing || !readQueue().length) return
   if (netState.health.level === 'bad') return
-  const { flushQueue } = await import('./ledger-actions.js')
+  let mod
+  try {
+    mod = await import('./ledger-actions.js')
+  } catch {
+    // 旧页面引用已删除的 chunk：静默退出，下次回到前台会再试。
+    return
+  }
   flushing = true
   try {
-    await flushQueue(false)
+    await mod.flushQueue(false)
   } finally {
     flushing = false
   }
