@@ -205,7 +205,7 @@ export async function exportLedgerPdf() {
     downloadBlob(blob, `${ev.name}_${copy.fileSuffix}.pdf`)
   } catch (error) {
     console.error('PDF 生成失败:', error)
-    showAlert('导出失败', 'PDF 生成失败，请重试，或先改用 Excel 导出。')
+    showAlert('导出失败', 'PDF 生成失败，请重试；若仍失败可改用「打印 → 另存为 PDF」，或先导出 Excel / Word。')
   } finally {
     progress.close()
     printView.remove()

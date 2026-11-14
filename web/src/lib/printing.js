@@ -244,21 +244,31 @@ export async function rasterizePrintPage(pageEl, css, themeClass, scale) {
   } catch {
     markup = pageEl.outerHTML
   }
+  // CDATA 里出现 ]]> 会提前终止样式块、破坏整个 SVG；拆开写即可保持合法。
+  const safeCss = String(css).replace(/]]>/g, ']]]]><![CDATA[>')
+  // #print-view 这个 div 必须闭合，否则 SVG 不是合法 XML，img.decode() 会抛
+  // EncodingError: The source image cannot be decoded，最终表现为「PDF 生成失败」。
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + widthPx + '" height="' + heightPx + '">' +
     '<foreignObject x="0" y="0" width="' + widthPx + '" height="' + heightPx + '">' +
     '<div xmlns="http://www.w3.org/1999/xhtml" id="print-view" class="' + themeClass + '">' +
-    '<style><![CDATA[' + css + ']]></style>' +
+    '<style><![CDATA[' + safeCss + ']]></style>' +
     markup +
+    '</div>' +
     '</foreignObject></svg>'
   const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
   const img = new Image()
   img.src = url
-  await img.decode()
+  try {
+    await img.decode()
+  } catch (err) {
+    throw new Error('排版页无法渲染为图片：' + (err?.message || String(err)))
+  }
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(widthPx * scale)
   canvas.height = Math.round(heightPx * scale)
   const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('浏览器不支持 Canvas 2D，无法生成 PDF')
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)

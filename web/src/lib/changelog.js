@@ -1,11 +1,27 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.0.0'
+export const APP_VERSION = '2.1.0'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.1.0',
+    date: '2026-11-14',
+    notes: [
+      { t: 'fix', text: '修复 PDF 导出一直提示「PDF 生成失败」：排版页的 SVG 少了一个闭合标签，浏览器无法解码；现在可正常导出含封面与竖排礼簿的 A4 横向 PDF' },
+      { t: 'feat', text: '录入成功落「囍 / 寿 / 奠」印，红事建簿撒喜字金点、白事改为素银淡墨；点击有涟漪与按钮指向反馈，白事不出现任何红金喜庆元素' },
+      { t: 'feat', text: '新增 Web Audio 合成的 8 种提示音（点击、落印、喜庆、成功、警告、翻页、主题、白事素音），默认关闭，首页「静音 / 音效开」与账簿设置里均可开启；系统减动效时自动静音' },
+      { t: 'feat', text: '成功提示改为右上角轻提示（最多 3 条、带进度条、悬停暂停），不再弹窗打断；页面切换有方向感，礼簿翻页与汇总数字变化各有一次反馈' },
+      { t: 'feat', text: '大字模式在手机 / 平板 / 桌面都真正生效；弹窗支持 ESC 关闭与键盘焦点管理，首屏有骨架屏，空账簿有引导插画' },
+      { t: 'opt', text: '账簿数据只放 data/，认证状态、自动备份设置与备份包放 config/；旧版 rundata/ 在启动时自动迁移，只复制不删除、不覆盖' },
+      { t: 'opt', text: '静态资源按浏览器支持自动 gzip（CSS 约 130KB→27KB、JS 约 232KB→85KB），带哈希产物长期缓存；镜像已内置默认启动参数，compose 无需再写 command' },
+      { t: 'fix', text: '修复创建页「更多设置」收起时仍渲染并遮住封面款式、轻提示盖住弹窗关闭按钮、点击涟漪在左上角偏移、备份还原后成功/失败提示丢失、导入备份失败无提示等问题' },
+      { t: 'sec', text: '备份文件名拼接弹窗内容时补齐 HTML 转义；访问保护新增可选的 GIFTBOOK_SETUP_TOKEN 与受信任反代开关' },
+      { t: 'opt', text: 'OCR 自写调用源码随仓库提供，模型与依赖需自行准备（可选功能，默认不启用）；Vite 构建警告清零，Go 源码统一 LF 换行' },
+    ],
+  },
   {
     version: '2.0.0',
     date: '2026-11-04',
@@ -41,5 +57,5 @@ export function renderLogEntries(entries) {
 export function renderChangelog() {
   return `
     <div class="log-wrap">${renderLogEntries(CHANGELOG)}</div>
-    <p class="hint" style="margin-top:14px">当前版本 v${APP_VERSION} · 发布源 本机单文件</p>`
+    <p class="hint" style="margin-top:14px">当前版本 v${APP_VERSION} · 发布源 单文件 / Docker / GHCR 镜像</p>`
 }
