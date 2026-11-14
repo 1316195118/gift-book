@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.10'
+export const APP_VERSION = '2.3.11'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.11',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '礼金详情新增「关系」修改入口：与录入同一组选项，历史数据里的自定义关系也能改；每次修改写入历史痕迹' },
+      { t: 'opt', text: '关系选项下沉到 content.js，录入与详情共用同一份定义' },
+    ],
+  },
   {
     version: '2.3.10',
     date: '2026-11-15',

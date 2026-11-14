@@ -2,7 +2,7 @@
 import { state as st, hashPassword, NO_PASSWORD_KEY, rememberLedgerKey, touchSession, clearSession } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
-import { copyOf, isSolemnEvent, getCoverTemplate } from './content.js'
+import { copyOf, isSolemnEvent, getCoverTemplate, RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
 import { stampSeal } from './stamp.js'
 import { amountToChinese, formatCurrency } from './crypto.js'
 import { encryptData, decryptData, loadGiftsForCurrentEvent, syncEventTotal, setSyncStatus, showHome, startSession } from '../bootstrap.js'
@@ -251,6 +251,10 @@ export function openGiftDetails(index) {
         <div><p><strong>金额:</strong> <span class="font-bold themed-text text-lg ml-2">${formatCurrency(data.amount)}</span></p><p class="text-sm text-gray-500 mt-1"><strong>类型:</strong> ${escapeHtml(data.type)}</p></div>
         <button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="amount">修改</button>
       </div>
+      <div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
+        <div><strong>关系:</strong> <span class="ml-2">${escapeHtml(data.relation || RELATION_FALLBACK)}</span></div>
+        <button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="relation">修改</button>
+      </div>
       <div class="p-2 hover:bg-gray-50 rounded">
         <div class="flex justify-between items-start"><strong>备注:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="remarks">修改</button></div>
         <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.remarks ? escapeHtml(data.remarks) : '（无备注）'}</p>
@@ -311,6 +315,11 @@ function showInlineEdit(index, field) {
     html = `<div class="themed-edit-area"><label>纠错姓名</label><input type="text" id="inline-edit-name" value="${escapeHtml(data.name)}" maxlength="20" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'amount') {
     html = `<div class="themed-edit-area"><label>修改金额与类型</label><input type="number" id="inline-edit-amount" value="${escapeHtml(data.amount)}" min="0.01" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${['现金', '支付宝', '微信', '其他'].map((t) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-type" value="${t}" ${data.type === t ? 'checked' : ''} class="mr-1 themed-ring" />${t}</label>`).join('')}</div><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
+  } else if (field === 'relation') {
+    const current = data.relation || RELATION_FALLBACK
+    // 历史数据可能存了不在预设里的关系，补进这一组免得改不了。
+    const options = RELATION_OPTIONS.includes(current) ? RELATION_OPTIONS : [current, ...RELATION_OPTIONS]
+    html = `<div class="themed-edit-area"><label>修改关系</label><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${options.map((r) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-relation" value="${escapeHtml(r)}" ${current === r ? 'checked' : ''} class="mr-1 themed-ring" />${escapeHtml(r)}</label>`).join('')}</div><p class="text-xs text-gray-500 mb-2">修改会写入历史痕迹。</p><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'return') {
     const returns = returnRecordsOf(data)
     const total = totalReturnedOf(data)
@@ -343,6 +352,11 @@ function showInlineEdit(index, field) {
       if (value !== data.amount) logs.push(`金额由 ${data.amount} 修改为 ${value}`)
       if (type !== data.type) logs.push(`类型由 ${data.type} 修改为 ${type}`)
       await updateWithHistory(index, { amount: value, type }, logs.join('，'))
+    } else if (field === 'relation') {
+      const relation = document.querySelector('input[name="inline-edit-relation"]:checked')?.value || RELATION_FALLBACK
+      const before = data.relation || RELATION_FALLBACK
+      if (relation === before) return openGiftDetails(index)
+      await updateWithHistory(index, { relation }, `将关系由 “${before}” 修改为 “${relation}”`)
     } else if (field === 'return') {
       const amount = parseFloat(document.getElementById('inline-return-amount')?.value)
       const note = document.getElementById('inline-return-note')?.value.trim() || ''
@@ -365,7 +379,7 @@ export async function updateWithHistory(index, fields, changeLog) {
   const gift = st.gifts[index]
   const current = { ...gift.data }
   const now = new Date().toISOString()
-  const snapshot = { name: current.name, amount: current.amount, type: current.type, remarks: current.remarks, timestamp: current.timestamp }
+  const snapshot = { name: current.name, amount: current.amount, type: current.type, relation: current.relation, remarks: current.remarks, timestamp: current.timestamp }
   const historyEntry = { timestamp: now, changeLog, snapshot }
   const updated = {
     ...current,

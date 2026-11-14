@@ -1,4 +1,8 @@
 // 文案：红事 / 白事完全分开维护，白事页面不得出现红事字眼。
+// 礼金关系选项：录入表单与详情修改共用，避免两处各写一份。
+export const RELATION_OPTIONS = ['亲戚', '朋友', '同事', '同学', '邻居', '其他']
+export const RELATION_FALLBACK = '未分类'
+
 export const UX_COPY = {
   festive: {
     entryTitle: '礼金录入',

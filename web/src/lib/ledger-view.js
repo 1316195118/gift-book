@@ -13,8 +13,7 @@ import {
 const ITEMS_PER_PAGE = 12
 const PAYMENT_TYPES = ['现金', '支付宝', '微信', '其他']
 // 关系分组用于「哪类人送了多少」，空值统一按「未分类」处理，兼容旧记录。
-export const RELATION_OPTIONS = ['亲戚', '朋友', '同事', '同学', '邻居', '其他']
-export const RELATION_FALLBACK = '未分类'
+export { RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
 
 // 录入表单状态放在模块级 reactive 里，切换页面后仍保留半填内容。
 export const entry = reactive({ name: '', amount: '', type: '现金', remarks: '', relation: '' })
