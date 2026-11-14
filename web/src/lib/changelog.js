@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.13'
+export const APP_VERSION = '2.3.14'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.14',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '按钮按下即下沉 1px（瞬时反馈），不再有「点了没反应」的错觉' },
+      { t: 'opt', text: '首屏空闲预取导出/打印/扫码模块，首次点击不再等 chunk 下载' },
+    ],
+  },
   {
     version: '2.3.13',
     date: '2026-11-15',

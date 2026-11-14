@@ -1428,6 +1428,14 @@ body.theme-solemn .hero-book-art .book {
   color: var(--muted);
   font-size: var(--fs-xs);
   font-weight: 500;
+  transition: background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+/* 按下立刻下沉 1px：手指/鼠标一接触就有反馈，不必等弹窗出来。 */
+.main-tools .main-tool:active {
+  transform: translateY(1px) scale(.97);
 }
 
 .main-tools .main-tool:hover {

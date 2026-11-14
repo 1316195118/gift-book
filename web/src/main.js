@@ -21,6 +21,19 @@ initFeedback()
 
 createApp(App).mount('#app')
 
+// 首屏空闲时预取体积较大的按需模块：点击导出/打印/扫码时不再等 chunk 下载。
+function prefetchHeavyModules() {
+  const run = () => {
+    import('./lib/exports.js').catch(() => {})
+    import('./lib/printing.js').catch(() => {})
+    import('./lib/ocr-entry.js').catch(() => {})
+  }
+  if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2500 })
+  else window.setTimeout(run, 1500)
+}
+
+prefetchHeavyModules()
+
 // PWA：生产环境注册 Service Worker，支持「添加到主屏幕」与断网打开已缓存页面。
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

@@ -134,6 +134,17 @@ button:disabled {
   opacity: .45;
 }
 
+/* 统一按压反馈：所有实心/幽灵按钮按下即下沉 1px。
+   不给 transition 是为了「瞬时」，避免按下去还要等动画才看见变化。 */
+.modal-btn-ghost:active,
+.modal-btn-primary:active,
+.themed-button-primary:active,
+.themed-button-secondary:active,
+.export-option:active,
+.choice-card:active {
+  transform: translateY(1px);
+}
+
 /* 尺寸 */
 .main-tool,
 .main-back {
