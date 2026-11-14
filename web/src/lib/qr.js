@@ -13,7 +13,8 @@ export const qr = reactive({
 export function showQrImage(image) {
   qr.image = image
   if (!qr.positioned) {
-    qr.left = Math.max(12, window.innerWidth - 280 - 24)
+    const width = Math.min(290, window.innerWidth - 24)
+    qr.left = Math.max(12, window.innerWidth - width - 12)
     qr.top = 96
     qr.positioned = true
   }

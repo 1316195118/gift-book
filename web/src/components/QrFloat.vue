@@ -47,6 +47,8 @@ let startX = 0
 let startY = 0
 let originX = 0
 let originY = 0
+let boxW = 290
+let boxH = 320
 
 function startTouch(event) {
   const touch = event.touches[0]
@@ -59,6 +61,11 @@ function startDrag(event) {
 
 function begin(x, y) {
   dragging = true
+  const el = document.getElementById('qr-float')
+  if (el) {
+    boxW = el.offsetWidth || boxW
+    boxH = el.offsetHeight || boxH
+  }
   startX = x
   startY = y
   originX = state.left
@@ -76,10 +83,10 @@ function moveTouch(event) {
 
 function move(event) {
   if (!dragging) return
-  const width = 280
-  const height = 320
-  state.left = Math.max(0, Math.min(originX + (event.clientX - startX), window.innerWidth - width))
-  state.top = Math.max(0, Math.min(originY + (event.clientY - startY), window.innerHeight - height))
+  const maxLeft = Math.max(0, window.innerWidth - boxW)
+  const maxTop = Math.max(0, window.innerHeight - boxH)
+  state.left = Math.max(0, Math.min(originX + (event.clientX - startX), maxLeft))
+  state.top = Math.max(0, Math.min(originY + (event.clientY - startY), maxTop))
 }
 
 function end() {

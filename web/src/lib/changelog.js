@@ -1,11 +1,22 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.0'
+export const APP_VERSION = '2.3.1'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.1',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '手机端弹窗统一为底部抽屉：全宽、上圆角、88% 视高、顶部抓握条，关闭键加大到 44px' },
+      { t: 'opt', text: '手机录入表单改单列；汇总卡改为「总额一行 + 两张并排」；搜索栏自动换行；工具栏「更多」收纳提前到 900px' },
+      { t: 'opt', text: 'toast 在手机上贴顶显示，避开右上工具条；卡片留白与礼簿纸面阴影微调' },
+      { t: 'opt', text: '翻页 420ms、弹窗退场 200ms、toast 300ms 更柔和；补全 prefers-reduced-motion（数字滚动直接跳值）' },
+      { t: 'fix', text: '收款码浮窗小屏定位与拖拽边界改读实际尺寸，不再按固定 280×320 计算' },
+    ],
+  },
   {
     version: '2.3.0',
     date: '2026-11-15',

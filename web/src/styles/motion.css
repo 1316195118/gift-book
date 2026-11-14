@@ -162,11 +162,22 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
   .gb-ripple-layer { display: none !important; }
 }
 
+/* 手机上贴顶居中，避开右上工具条与底部录入按钮。 */
+@media (max-width: 640px) {
+  .gb-toast-stack {
+    top: calc(env(safe-area-inset-top) + 8px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not(.motion-full) .gb-ripple-layer,
   :root:not(.motion-full) .gb-celebrate,
   :root:not(.motion-full) .gb-solemn-wave,
   :root:not(.motion-full) .gb-toast-progress { display: none !important; }
+  :root:not(.motion-full) .gb-modal-leave-active { animation: none !important; }
   :root:not(.motion-full) .btn,
   :root:not(.motion-full) .tpl-card,
   :root:not(.motion-full) [role="button"],
@@ -176,6 +187,7 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
   :root:not(.motion-full) #setup-screen,
   :root:not(.motion-full) #modal-container,
   :root:not(.motion-full) #modal,
+  :root:not(.motion-full) #qr-float,
   :root:not(.motion-full) #gift-book-content,
   :root:not(.motion-full) .ledger-summary,
   :root:not(.motion-full) .recent-empty::before { animation: none !important; }
@@ -211,7 +223,7 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
   box-shadow: var(--shadow-2);
   pointer-events: auto;
   overflow: hidden;
-  animation: gb-toast-in 260ms var(--ease-out) both;
+  animation: gb-toast-in 300ms var(--ease-out) both;
 }
 
 body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
@@ -309,8 +321,8 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
   0% { opacity: .55; transform: translateX(-10px) rotateY(3deg); }
   100% { opacity: 1; transform: none; }
 }
-#gift-book-content.gb-page-turn-next { animation: gb-page-next 360ms var(--ease-out) both; }
-#gift-book-content.gb-page-turn-prev { animation: gb-page-prev 360ms var(--ease-out) both; }
+#gift-book-content.gb-page-turn-next { animation: gb-page-next 420ms var(--ease-out) both; }
+#gift-book-content.gb-page-turn-prev { animation: gb-page-prev 420ms var(--ease-out) both; }
 
 @keyframes gb-value-pulse {
   0% { transform: scale(1); }
@@ -382,8 +394,8 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
    10. 弹窗退出：入场沿用 sheet-in / veil-in，离开补一段收拢（Vue Transition）
    -------------------------------------------------------------------------- */
 
-.gb-modal-leave-active { animation: gb-veil-out 160ms ease forwards; }
-.gb-modal-leave-active #modal { animation: gb-sheet-out 160ms var(--ease) forwards; }
+.gb-modal-leave-active { animation: gb-veil-out 200ms ease forwards; }
+.gb-modal-leave-active #modal { animation: gb-sheet-out 200ms var(--ease) forwards; }
 
 @keyframes gb-veil-out { to { opacity: 0; } }
 @keyframes gb-sheet-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }

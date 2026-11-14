@@ -236,14 +236,15 @@ const items = computed(() => pageItems())
 const pages = computed(() => totalPages())
 const stats = computed(() => computeStats(st.gifts))
 
-// 汇总金额变化时做一次 count-up，避免数字硬跳。
+// 汇总金额变化时做一次 count-up，避免数字硬跳；系统要求减动效时直接跳值。
+const reduceMotion = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 const displayTotal = ref(0)
 let totalRaf = 0
 watch(
   () => stats.value.totalAmount,
   (next, prev) => {
     const to = Number(next) || 0
-    if (prev === undefined) {
+    if (prev === undefined || reduceMotion) {
       displayTotal.value = to
       return
     }

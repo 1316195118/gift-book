@@ -1798,6 +1798,12 @@ body.theme-solemn #modal-container {
   to { opacity: 1; transform: none; }
 }
 
+/* 移动端底部抽屉：从下方托起，比居中卡片的缩放进场更符合手指位置。 */
+@keyframes gb-sheet-in {
+  from { opacity: .72; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes ui-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
@@ -1825,12 +1831,36 @@ body.theme-solemn #modal-container {
   #modal:has(.help-steps),
   #modal:has(.log-wrap) {
     max-width: 100%;
-    max-height: calc(100dvh - 24px);
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    max-height: 88dvh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: gb-sheet-in 260ms var(--ease-out) both;
+  }
+
+  /* 抽屉形态：顶部一道抓握条，纸内细框让位。 */
+  #modal::before { display: none; }
+
+  #modal::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: var(--r-pill);
+    background: var(--line-strong);
+    z-index: 4;
   }
 
   .modal-head {
-    padding: var(--sp-3) var(--sp-4);
+    padding: var(--sp-5) var(--sp-4) var(--sp-3);
+  }
+
+  #modal-close {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
   }
 
   #modal-content {

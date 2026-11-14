@@ -1437,7 +1437,7 @@ body.theme-solemn .hero-book-art .book {
 
 .main-tools-menu button:disabled { opacity: .45; cursor: not-allowed; }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .main-tools .main-tool:not(#stats-btn):not(#export-btn):not(.main-tools-more) { display: none; }
   .main-tools .main-tools-more { display: inline-flex; align-items: center; }
 }
@@ -1669,7 +1669,7 @@ body.theme-solemn .hero-book-art .book {
 .ledger-layout {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
-  gap: var(--sp-5);
+  gap: var(--sp-6);
   align-items: start;
 }
 
@@ -1890,6 +1890,7 @@ body.theme-solemn .hero-book-art .book {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 
 .book-topline {
@@ -2656,6 +2657,16 @@ body.theme-solemn .hero-book-art .book {
 }
 
 @media (max-width: 640px) {
+  /* 手机：录入表单彻底单列，汇总卡改成「总额一行 + 两张并排」。 */
+  #add-gift-form { grid-template-columns: 1fr; }
+
+  .ledger-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-card.primary { grid-column: 1 / -1; }
+
+  .book-search { flex-wrap: wrap; }
+  .search-field { flex: 1 1 100%; }
+  .search-field-amount { flex: 1 1 auto; }
+
   .home-inner,
   #app-container {
     padding: var(--sp-4) var(--sp-4) var(--sp-10);
