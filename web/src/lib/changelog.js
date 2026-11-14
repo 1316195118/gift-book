@@ -1,11 +1,21 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.2'
+export const APP_VERSION = '2.3.3'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.3',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '手机记录页顺序调整：查询与礼簿在上，礼金录入卡片沉到最底，打开先看记录' },
+      { t: 'opt', text: '手机工具栏取消「更多」收纳，改为单行横滑，所有动作一眼可见、一滑可达' },
+      { t: 'fix', text: '修复「进入账簿 / 导出」弹窗关闭键乱跳：卡片内 × 与标题栏 × 重叠，统一只保留一个' },
+      { t: 'fix', text: '关闭弹窗时焦点恢复不再带动页面滚动；退场动画结束后再恢复背景滚动，避免回弹' },
+    ],
+  },
   {
     version: '2.3.2',
     date: '2026-11-15',

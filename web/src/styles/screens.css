@@ -1438,8 +1438,18 @@ body.theme-solemn .hero-book-art .book {
 .main-tools-menu button:disabled { opacity: .45; cursor: not-allowed; }
 
 @media (max-width: 900px) {
-  .main-tools .main-tool:not(#stats-btn):not(#export-btn):not(.main-tools-more) { display: none; }
-  .main-tools .main-tools-more { display: inline-flex; align-items: center; }
+  /* 手机上不再把工具藏进「更多」：单行横滑，所有动作都看得见、够得着。 */
+  .main-tools {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .main-tools::-webkit-scrollbar { display: none; }
+  .main-tools .main-tool { flex: none; }
+  .main-tools .main-tools-more { display: none; }
 }
 
 .main-tools .main-tool {
@@ -2618,7 +2628,11 @@ body.theme-solemn .hero-book-art .book {
     grid-template-columns: 1fr;
   }
 
+  /* 手机记录页：查询与礼簿在上，礼金录入卡片沉到最底。 */
+  .book-panel { order: 1; }
+
   .entry-panel {
+    order: 2;
     position: static;
   }
 

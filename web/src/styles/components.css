@@ -888,6 +888,10 @@ body.theme-solemn #modal-container {
   color: var(--ink);
 }
 
+/* 标题栏已有统一关闭键；卡片内再放一个 × 会与其重叠，点击时互相抢焦点，
+   表现为「关闭按钮乱跳」。统一只保留 #modal-close。 */
+.unlock-card .unlock-close { display: none; }
+
 .unlock-seal {
   display: grid;
   place-items: center;
@@ -1851,6 +1855,7 @@ body.theme-solemn #modal-container {
     border-radius: var(--r-pill);
     background: var(--line-strong);
     z-index: 4;
+    pointer-events: none;
   }
 
   .modal-head {

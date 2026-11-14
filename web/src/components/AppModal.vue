@@ -35,6 +35,7 @@ import ModalContent from './ModalContent.vue'
 const view = ModalContent
 const rootEl = ref(null)
 let lastFocused = null
+let overflowTimer = 0
 
 async function runAction(action) {
   const keepOpen = action.keepOpen
@@ -73,15 +74,20 @@ function onKeydown(event) {
 watch(
   () => modal.open,
   async (open) => {
-    document.body.style.overflow = open ? 'hidden' : ''
+    clearTimeout(overflowTimer)
     if (open) {
+      document.body.style.overflow = 'hidden'
       lastFocused = document.activeElement
       await nextTick()
       const closeBtn = rootEl.value?.querySelector('#modal-close')
-      if (closeBtn) closeBtn.focus()
-      else rootEl.value?.querySelector('#modal')?.focus()
+      if (closeBtn) closeBtn.focus({ preventScroll: true })
+      else rootEl.value?.querySelector('#modal')?.focus({ preventScroll: true })
     } else {
-      if (lastFocused && document.contains(lastFocused)) lastFocused.focus()
+      // 等退场动画结束再恢复滚动，避免关闭瞬间页面回弹跳动。
+      overflowTimer = window.setTimeout(() => {
+        document.body.style.overflow = ''
+      }, 220)
+      if (lastFocused && document.contains(lastFocused)) lastFocused.focus({ preventScroll: true })
       lastFocused = null
     }
   },
