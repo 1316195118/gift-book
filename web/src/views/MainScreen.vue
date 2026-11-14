@@ -43,15 +43,6 @@
             <button id="print-btn" class="main-tool" type="button" @click="openPrint">打印</button>
             <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
             <button id="export-btn" class="main-tool main-tool-primary" type="button" @click="openExport">导出</button>
-            <button type="button" class="main-tool main-tools-more" :aria-expanded="toolsOpen" aria-haspopup="menu" @click.stop="toolsOpen = !toolsOpen">更多</button>
-            <div v-if="toolsOpen" class="main-tools-menu" role="menu" @click.stop>
-              <button type="button" role="menuitem" @click="runTool('settings')">设置</button>
-              <button type="button" role="menuitem" @click="runTool('lock')">{{ st.locked ? '解锁' : '锁定' }}</button>
-              <button type="button" role="menuitem" @click="runTool('qr')">收款码</button>
-              <button type="button" role="menuitem" @click="runTool('largetext')">{{ st.largeText ? '标准字' : '大字' }}</button>
-              <button type="button" role="menuitem" @click="runTool('print')">打印</button>
-              <button type="button" role="menuitem" :disabled="!st.ocrAvailable" @click="runTool('ocr')">扫描礼簿</button>
-            </div>
           </div>
         </div>
       </header>
@@ -206,28 +197,8 @@ import {
 } from '../lib/ledger-view.js'
 
 const dropdownOpen = ref(false)
-const toolsOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
-
-function runTool(name) {
-  toolsOpen.value = false
-  const actions = {
-    settings: openSettings,
-    lock: onToggleLock,
-    qr: showQr,
-    largetext: onToggleLargeText,
-    print: openPrint,
-    ocr: openOcr,
-  }
-  actions[name]?.()
-}
-
-function onDocumentClick(event) {
-  if (!event.target.closest('.main-tools')) toolsOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocumentClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
 
 const copy = computed(() => copyOf(st.currentEvent, st.homeCategory))
 const version = computed(() => versionLabel())

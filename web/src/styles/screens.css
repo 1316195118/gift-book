@@ -1398,44 +1398,7 @@ body.theme-solemn .hero-book-art .book {
   justify-content: flex-end;
 }
 
-/* 窄屏把次要工具收进「更多」，只留统计与导出两个高频动作。 */
-.main-tools-more { display: none; }
-.main-tools .main-tools-more { padding: 0 12px; }
-.main-tools-more::before { display: none; }
-
-.main-tools-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 45;
-  min-width: 140px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-2);
-}
-
-.main-tools-menu button {
-  text-align: left;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--ink-2);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-
-.main-tools-menu button:hover:not(:disabled) {
-  background: var(--surface-sunken);
-  color: var(--accent);
-}
-
-.main-tools-menu button:disabled { opacity: .45; cursor: not-allowed; }
+/* 手机工具栏：所有动作单行横滑直达，不再做「更多」收纳。 */
 
 @media (max-width: 900px) {
   /* 手机上不再把工具藏进「更多」：单行横滑，所有动作都看得见、够得着。 */
@@ -1449,7 +1412,6 @@ body.theme-solemn .hero-book-art .book {
   }
   .main-tools::-webkit-scrollbar { display: none; }
   .main-tools .main-tool { flex: none; }
-  .main-tools .main-tools-more { display: none; }
 }
 
 .main-tools .main-tool {

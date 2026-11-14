@@ -29,7 +29,7 @@ writeFileSync(join(target, '.gitkeep'), '')
 const now = new Date()
 const pad = (n) => String(n).padStart(2, '0')
 const build = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
-writeFileSync(join(target, 'build.json'), JSON.stringify({ build, version: '2.3.3' }))
+writeFileSync(join(target, 'build.json'), JSON.stringify({ build, version: '2.3.4' }))
 console.log(`前端产物已就绪：${target}（build=${build}，${readdirSync(join(target, 'assets')).length} 个资源）`)
 
 execSync('go build -trimpath -ldflags "-s -w" -o giftbook.exe ./cmd/giftbook', {
