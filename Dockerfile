@@ -17,7 +17,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"docker","version":"2.2.0"}\n' > webapp/dist/build.json \
+RUN printf '{"build":"docker","version":"2.2.1"}\n' > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 

@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.2.0'
+export const APP_VERSION = '2.2.1'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.2.1',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '回礼支持多次登记：每笔可记录多次回礼（金额、备注、时间），可逐条撤销，统计与净人情按累计金额计算' },
+      { t: 'feat', text: '礼簿竖排版新增「*已回礼」标记；统计新增「按关系」条形图，三张图并列展示' },
+      { t: 'opt', text: '统计条形图加入展开动画，移动端保持单列，图表与明细更易读' },
+    ],
+  },
   {
     version: '2.2.0',
     date: '2026-11-15',

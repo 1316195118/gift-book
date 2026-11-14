@@ -5,6 +5,7 @@ import { openCrossSummary } from './cross-summary.js'
 import { copyOf } from './content.js'
 import { formatCurrency, escapeHtml } from './crypto.js'
 import { openGiftDetails } from './ledger-actions.js'
+import { totalReturnedOf, hasReturned } from './return-gift.js'
 
 export function computeStats(gifts = st.gifts) {
   const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 }, byRelation: {}, totalReturned: 0, returnedCount: 0, uniqueGivers: 0, average: 0, topGivers: [] }
@@ -17,8 +18,8 @@ export function computeStats(gifts = st.gifts) {
     const relation = data.relation || '未分类'
     result.byRelation[relation] = (result.byRelation[relation] || 0) + amount
     if (data.name) byName[data.name] = (byName[data.name] || 0) + amount
-    if (data.returned) {
-      result.totalReturned += Number(data.returnAmount) || 0
+    if (hasReturned(data)) {
+      result.totalReturned += totalReturnedOf(data)
       result.returnedCount += 1
     }
   })
@@ -54,6 +55,7 @@ export function openStats() {
     </div>
     <div class="stats-charts">
       <div class="stats-chart"><h4>按收款方式</h4><div class="bar-chart" id="stats-by-type-chart"></div></div>
+      <div class="stats-chart"><h4>按关系</h4><div class="bar-chart" id="stats-by-relation-chart"></div></div>
       <div class="stats-chart"><h4>按录入日期（近 14 天）</h4><div class="bar-chart" id="stats-by-day-chart"></div></div>
     </div>`
   openModal(copy.statsTitle, { type: 'html', html }, [
@@ -82,6 +84,14 @@ function renderCharts(stats) {
     const max = Math.max(1, ...entries.map(([, v]) => v))
     typeBox.innerHTML = entries.length
       ? entries.map(([type, amount]) => `<div class="bar-row"><span class="bar-label">${escapeHtml(type)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
+      : '<p class="empty">暂无数据</p>'
+  }
+  const relationBox = document.getElementById('stats-by-relation-chart')
+  if (relationBox) {
+    const entries = Object.entries(stats.byRelation).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+    const max = Math.max(1, ...entries.map(([, v]) => v))
+    relationBox.innerHTML = entries.length
+      ? entries.map(([relation, amount]) => `<div class="bar-row"><span class="bar-label">${escapeHtml(relation)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
       : '<p class="empty">暂无数据</p>'
   }
   const dayBox = document.getElementById('stats-by-day-chart')

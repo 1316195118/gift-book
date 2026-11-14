@@ -14,6 +14,7 @@ import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
 import { getVoiceOptions, qrStorageKey } from './prefs.js'
 import { speakText, previewVoice } from './voice.js'
 import { showQrImage } from './qr.js'
+import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn } from './return-gift.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
@@ -236,6 +237,8 @@ export function openGiftDetails(index) {
   const when = data.timestamp ? new Date(data.timestamp).toLocaleString('zh-CN') : ''
   const late = isLate(gift) ? '<div class="modal-notice modal-notice-late"><strong>补录记录：</strong>录入时间已超出账簿设定的起止时间，照常计入总额与修改记录。</div>' : ''
   const warning = hasHistory ? `<div class="modal-notice modal-notice-warn">${copy.historyWarning}</div>` : ''
+  const returns = returnRecordsOf(data)
+  const returnTotal = totalReturnedOf(data)
   const details = `
     <div class="space-y-4 text-left h-full flex flex-col" data-details-index="${index}">
       <h4 class="font-bold text-lg border-b pb-2 mb-2">当前记录信息</h4>
@@ -252,8 +255,13 @@ export function openGiftDetails(index) {
         <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.remarks ? escapeHtml(data.remarks) : '（无备注）'}</p>
       </div>
       <div class="p-2 hover:bg-gray-50 rounded">
-        <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">${data.returned ? '修改' : '登记'}</button></div>
-        <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.returned ? `已回礼 ${formatCurrency(Number(data.returnAmount) || 0)}${data.returnedAt ? ` · ${new Date(data.returnedAt).toLocaleDateString('zh-CN')}` : ''}` : '未回礼'}</p>
+        <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">登记一次</button></div>
+        ${returns.length
+          ? `<div class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">
+              <p class="text-sm"><b>累计 ${formatCurrency(returnTotal)}</b> <span class="text-gray-500">（${returns.length} 次）</span></p>
+              <ul class="mt-1 space-y-1">${returns.map((r, i) => `<li class="flex items-center justify-between gap-2 text-sm"><span>${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-CN') : '—'} · ${formatCurrency(r.amount)}${r.note ? ` · ${escapeHtml(r.note)}` : ''}</span><button type="button" class="text-xs text-red-600 hover:underline" data-remove-return="${i}">撤销</button></li>`).join('')}</ul>
+            </div>`
+          : '<p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">未回礼</p>'}
       </div>
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
         <div>${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
@@ -273,7 +281,13 @@ export function openGiftDetails(index) {
     const container = document.querySelector('[data-details-index]')
     container?.addEventListener('click', (event) => {
       const field = event.target.closest('[data-edit]')?.dataset.edit
-      if (field) showInlineEdit(index, field)
+      if (field) return showInlineEdit(index, field)
+      const removeIndex = event.target.closest('[data-remove-return]')?.dataset.removeReturn
+      if (removeIndex !== undefined && removeIndex !== '') {
+        const i = Number(removeIndex)
+        const removed = returnRecordsOf(st.gifts[index]?.data)[i]
+        updateWithHistory(index, removeReturn(st.gifts[index].data, i), `撤销第 ${i + 1} 次回礼${removed ? ` ${formatCurrency(removed.amount)}` : ''}`)
+      }
     })
   })
 }
@@ -295,15 +309,16 @@ function showInlineEdit(index, field) {
   } else if (field === 'amount') {
     html = `<div class="themed-edit-area"><label>修改金额与类型</label><input type="number" id="inline-edit-amount" value="${escapeHtml(data.amount)}" min="0.01" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${['现金', '支付宝', '微信', '其他'].map((t) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-type" value="${t}" ${data.type === t ? 'checked' : ''} class="mr-1 themed-ring" />${t}</label>`).join('')}</div><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'return') {
-    const returned = Boolean(data.returned)
-    html = `<div class="themed-edit-area"><label>回礼登记</label>
-      <div class="flex flex-wrap gap-x-4 gap-y-1 mb-2">
-        <label class="flex items-center text-sm font-normal"><input type="radio" name="inline-return-state" value="no" ${returned ? '' : 'checked'} class="mr-1 themed-ring" />未回礼</label>
-        <label class="flex items-center text-sm font-normal"><input type="radio" name="inline-return-state" value="yes" ${returned ? 'checked' : ''} class="mr-1 themed-ring" />已回礼</label>
-      </div>
-      <input type="number" id="inline-return-amount" value="${returned ? escapeHtml(String(data.returnAmount ?? '')) : ''}" min="0" max="1000000" step="0.01" placeholder="回礼金额（元）" class="w-full p-2 border rounded themed-ring mb-2" />
-      <p class="text-xs text-gray-500 mb-2">登记后可在「统计」中查看已回礼与净人情；保存会写入修改痕迹。</p>
-      <div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
+    const returns = returnRecordsOf(data)
+    const total = totalReturnedOf(data)
+    html = `<div class="themed-edit-area"><label>回礼登记 <small class="text-gray-500">可多次登记，按次累计</small></label>
+      ${returns.length
+        ? `<ul class="mb-2 space-y-1 text-sm bg-gray-50 rounded p-2">${returns.map((r) => `<li class="flex justify-between gap-2"><span>${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-CN') : '—'} · ${formatCurrency(r.amount)}${r.note ? ` · ${escapeHtml(r.note)}` : ''}</span></li>`).join('')}</ul><p class="text-xs text-gray-500 mb-2">累计已回礼 <b>${formatCurrency(total)}</b>（${returns.length} 次）</p>`
+        : '<p class="text-xs text-gray-500 mb-2">尚未回礼，可在下面登记第一次；之后还能继续追加。</p>'}
+      <input type="number" id="inline-return-amount" min="0.01" max="1000000" step="0.01" placeholder="本次回礼金额（元）" class="w-full p-2 border rounded themed-ring mb-2" />
+      <input type="text" id="inline-return-note" maxlength="200" placeholder="备注（选填，如：回赠茶叶）" class="w-full p-2 border rounded themed-ring mb-2" />
+      <p class="text-xs text-gray-500 mb-2">每登记一次会追加一条记录，并写入修改痕迹，可随时撤销。</p>
+      <div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>添加回礼</button></div></div>`
   } else {
     html = `<div class="themed-edit-area"><label>修改备注</label><textarea id="inline-edit-remarks" class="w-full p-2 border rounded themed-ring mb-2" rows="3">${escapeHtml(data.remarks || '')}</textarea><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   }
@@ -326,20 +341,13 @@ function showInlineEdit(index, field) {
       if (type !== data.type) logs.push(`类型由 ${data.type} 修改为 ${type}`)
       await updateWithHistory(index, { amount: value, type }, logs.join('，'))
     } else if (field === 'return') {
-      const state = document.querySelector('input[name="inline-return-state"]:checked')?.value
-      const amountRaw = document.getElementById('inline-return-amount').value
-      const amount = parseFloat(amountRaw)
-      const nextReturned = state === 'yes'
-      if (nextReturned && (!Number.isFinite(amount) || amount < 0 || amount > MAX_GIFT_AMOUNT)) {
-        return showAlert('回礼金额无效', `请输入 0 ~ ${MAX_GIFT_AMOUNT.toLocaleString('zh-CN')} 元之间的回礼金额。`)
+      const amount = parseFloat(document.getElementById('inline-return-amount')?.value)
+      const note = document.getElementById('inline-return-note')?.value.trim() || ''
+      if (!Number.isFinite(amount) || amount < MIN_GIFT_AMOUNT || amount > MAX_GIFT_AMOUNT) {
+        return showAlert('回礼金额无效', `请输入 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString('zh-CN')} 元之间的金额。`)
       }
-      const nextAmount = nextReturned ? amount : 0
-      if (nextReturned === Boolean(data.returned) && nextAmount === (Number(data.returnAmount) || 0)) return openGiftDetails(index)
-      await updateWithHistory(
-        index,
-        { returned: nextReturned, returnAmount: nextAmount, returnedAt: nextReturned ? new Date().toISOString() : '' },
-        nextReturned ? `登记回礼 ${formatCurrency(nextAmount)}` : '取消回礼标记',
-      )
+      const patch = appendReturn(data, amount, note)
+      await updateWithHistory(index, patch, `登记第 ${patch.returnRecords.length} 次回礼 ${formatCurrency(amount)}${note ? `（${note}）` : ''}`)
     } else {
       const next = document.getElementById('inline-edit-remarks').value.trim()
       if (next === (data.remarks || '')) return openGiftDetails(index)

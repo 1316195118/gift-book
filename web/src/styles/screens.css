@@ -1984,6 +1984,10 @@ body.theme-solemn .hero-book-art .book {
   color: var(--warn);
 }
 
+.mark-returned {
+  color: var(--accent);
+}
+
 .late-mark {
   position: absolute;
   top: 3px;
@@ -2249,7 +2253,7 @@ body.theme-solemn .hero-book-art .book {
 
 .stats-charts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-3);
   margin-top: var(--sp-4);
 }
@@ -2316,7 +2320,18 @@ body.theme-solemn .hero-book-art .book {
   min-width: 2px;
   border-radius: var(--r-pill);
   background: var(--accent);
+  transform-origin: left center;
   transition: width 500ms var(--ease);
+  animation: gb-bar-grow 520ms var(--ease-out) both;
+}
+
+@keyframes gb-bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill { animation: none; }
 }
 
 .bar-value {
