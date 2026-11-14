@@ -138,6 +138,9 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, response{Success: true, Data: duplicate, Duplicate: true})
 		return
 	}
+	if id, ok := created["id"].(string); ok {
+		s.notifyChange(r, "gift", "created", eventID, id)
+	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: created})
 }
 
@@ -214,6 +217,7 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 		fail(w, status, message)
 		return
 	}
+	s.notifyChange(r, "gift", "updated", r.URL.Query().Get("eventId"), giftID)
 	writeJSON(w, http.StatusOK, response{Success: true, Data: updated})
 }
 
@@ -253,6 +257,7 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 		fail(w, status, message)
 		return
 	}
+	s.notifyChange(r, "gift", "deleted", r.URL.Query().Get("eventId"), giftID)
 	writeJSON(w, http.StatusOK, response{Success: true})
 }
 

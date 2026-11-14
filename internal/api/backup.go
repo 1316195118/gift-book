@@ -325,6 +325,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result["sourceName"] = header.Filename
+	s.notifyChange(r, "restore", "restored", "", "")
 	writeJSON(w, http.StatusOK, response{Success: true, Data: result})
 }
 

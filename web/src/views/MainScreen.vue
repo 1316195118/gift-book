@@ -183,9 +183,10 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { state as st } from '../store.js'
 import { copyOf } from '../lib/content.js'
 import { formatCurrency } from '../lib/crypto.js'
-import { showHome, syncEventTotal } from '../bootstrap.js'
+import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
 import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verifyLedgerPassword } from '../lib/actions.js'
 import { writeLocked } from '../lib/prefs.js'
+import { startRealtime, stopRealtime } from '../lib/realtime.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'
 import { pulse } from '../lib/feedback.js'
@@ -345,13 +346,42 @@ function onKeydown(event) {
   if (event.key === 'ArrowRight') pageBy(1)
 }
 
+// 其他设备写入后：防抖重拉当前账簿，保留页码，不打断正在输入的表单。
+let remoteTimer = 0
+function onRemoteChange(payload) {
+  if (payload.type === 'restore') {
+    clearTimeout(remoteTimer)
+    remoteTimer = window.setTimeout(async () => {
+      setSyncStatus('数据已恢复，正在刷新…', false)
+      try {
+        await loadEvents()
+        await loadGiftsForCurrentEvent()
+      } finally {
+        setSyncStatus('')
+      }
+    }, 400)
+    return
+  }
+  if (!payload.eventId || payload.eventId !== st.currentEvent?.id) return
+  clearTimeout(remoteTimer)
+  remoteTimer = window.setTimeout(async () => {
+    if (st.locked) return
+    const page = st.currentPage
+    await loadGiftsForCurrentEvent().catch(() => {})
+    if (st.gifts.length) st.currentPage = Math.min(page, totalPages())
+  }, 450)
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocClick)
   document.addEventListener('keydown', onKeydown)
+  startRealtime(onRemoteChange)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onKeydown)
+  stopRealtime()
+  clearTimeout(remoteTimer)
 })
 </script>

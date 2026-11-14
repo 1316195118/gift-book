@@ -245,6 +245,7 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 		fail(w, status, message)
 		return
 	}
+	s.notifyChange(r, "event", "updated", id, "")
 	writeJSON(w, http.StatusOK, response{Success: true, Data: updated})
 }
 
@@ -284,6 +285,7 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 		fail(w, http.StatusInternalServerError, "删除失败")
 		return
 	}
+	s.notifyChange(r, "event", "deleted", id, "")
 	writeJSON(w, http.StatusOK, response{Success: true})
 }
 

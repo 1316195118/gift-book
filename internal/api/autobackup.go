@@ -327,6 +327,7 @@ func (s *Server) handleAutoBackupRestore(w http.ResponseWriter, r *http.Request)
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	s.notifyChange(r, "restore", "restored", "", "")
 	writeJSON(w, http.StatusOK, response{Success: true, Data: counts})
 }
 

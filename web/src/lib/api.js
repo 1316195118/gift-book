@@ -1,4 +1,6 @@
 // API 客户端：统一错误分类，供离线队列判断“该重试还是该丢弃”。
+import { clientId } from './client-id.js'
+
 let authGateHandler = () => {}
 let ledgerKeyForRequest = () => ''
 
@@ -42,7 +44,7 @@ async function fetchWithTimeout(url, init) {
 
 export async function apiRequest(url, method = 'GET', data = null, options = {}) {
   try {
-    const headers = { 'Content-Type': 'application/json' }
+    const headers = { 'Content-Type': 'application/json', 'X-Client-Id': clientId() }
     const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
     if (ledgerKey) headers['X-Ledger-Key'] = ledgerKey
 

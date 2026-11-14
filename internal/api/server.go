@@ -21,6 +21,7 @@ type Server struct {
 	ocr          OCREngine
 	configDir    string
 	strictOrigin bool
+	stream       *streamHub
 
 	backupMu      sync.Mutex
 	lastBackupMu  sync.Mutex
@@ -57,6 +58,7 @@ func New(opts Options) *Server {
 		ocr:            opts.OCR,
 		configDir:      opts.ConfigDir,
 		strictOrigin:   opts.StrictOrigin,
+		stream:         newStreamHub(),
 		stopAutoBackup: make(chan struct{}),
 	}
 }
@@ -79,6 +81,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/events/{id}", s.protectedID(s.handleUpdateEvent))
 	mux.HandleFunc("DELETE /api/events/{id}", s.protectedID(s.handleDeleteEvent))
 	mux.HandleFunc("POST /api/events/{id}/verify", s.protectedID(s.handleVerifyEvent))
+	mux.HandleFunc("GET /api/stream", s.protected(s.handleStream))
 
 	mux.HandleFunc("GET /api/gifts", s.protected(s.handleGetGifts))
 	mux.HandleFunc("POST /api/gifts", s.protected(s.handleCreateGift))

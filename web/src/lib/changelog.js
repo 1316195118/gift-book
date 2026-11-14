@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.17'
+export const APP_VERSION = '2.4.0'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.0',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '多人实时同步：同一服务上，任意设备录入/修改后，其他打开同一账簿的页面自动刷新，无需手动操作' },
+      { t: 'feat', text: '断线自动重连；备份恢复后所有在线页面自动刷新；实时刷新保留当前页码' },
+      { t: 'opt', text: '实时通知只传 id/类型，礼金仍为端到端密文，不经过明文推送' },
+    ],
+  },
   {
     version: '2.3.17',
     date: '2026-11-15',
