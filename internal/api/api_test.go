@@ -52,7 +52,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.3.9"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.3.10"}
 	if len(extra) > 0 {
 		opts.StrictOrigin = extra[0].StrictOrigin
 	}

@@ -207,16 +207,19 @@ const items = computed(() => pageItems())
 const pages = computed(() => totalPages())
 const stats = computed(() => computeStats(st.gifts))
 
-// 汇总金额变化时做一次 count-up，避免数字硬跳；系统要求减动效时直接跳值。
+// 汇总金额变化时做一次 count-up；但首次拿到账簿数据要直接显示，
+// 否则进入账簿会先播 420ms 数字滚动，看起来像还在加载。
 const reduceMotion = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 const displayTotal = ref(0)
 let totalRaf = 0
+let totalHasData = false
 watch(
   () => stats.value.totalAmount,
   (next, prev) => {
     const to = Number(next) || 0
-    if (prev === undefined || reduceMotion) {
+    if (!totalHasData || prev === undefined || reduceMotion) {
       displayTotal.value = to
+      totalHasData = st.gifts.length > 0
       return
     }
     const from = Number(displayTotal.value) || 0

@@ -1,11 +1,18 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.9'
+export const APP_VERSION = '2.3.10'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.10',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '进入账簿不再先播数字滚动：首次加载直接显示总额；桌面翻书动画 340ms → 260ms，进入更干脆' },
+    ],
+  },
   {
     version: '2.3.9',
     date: '2026-11-15',
