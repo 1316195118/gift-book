@@ -36,6 +36,19 @@ const view = ModalContent
 const rootEl = ref(null)
 let lastFocused = null
 let overflowTimer = 0
+let scrollbarPad = 0
+
+// 锁定背景滚动时补上滚动条宽度，避免页面内容在「有/无滚动条」之间左右跳。
+function lockBodyScroll() {
+  scrollbarPad = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+  document.body.style.overflow = 'hidden'
+  if (scrollbarPad > 0) document.body.style.paddingRight = `${scrollbarPad}px`
+}
+
+function unlockBodyScroll() {
+  document.body.style.overflow = ''
+  document.body.style.paddingRight = ''
+}
 
 function onBackdropClick(event) {
   // 只有允许关闭的弹窗（提示/确认）点遮罩才关闭；密码、表单类防误触。
@@ -81,7 +94,7 @@ watch(
   async (open) => {
     clearTimeout(overflowTimer)
     if (open) {
-      document.body.style.overflow = 'hidden'
+      lockBodyScroll()
       lastFocused = document.activeElement
       await nextTick()
       const closeBtn = rootEl.value?.querySelector('#modal-close')
@@ -89,9 +102,7 @@ watch(
       else rootEl.value?.querySelector('#modal')?.focus({ preventScroll: true })
     } else {
       // 等退场动画结束再恢复滚动，避免关闭瞬间页面回弹跳动。
-      overflowTimer = window.setTimeout(() => {
-        document.body.style.overflow = ''
-      }, 220)
+      overflowTimer = window.setTimeout(unlockBodyScroll, 220)
       if (lastFocused && document.contains(lastFocused)) lastFocused.focus({ preventScroll: true })
       lastFocused = null
     }
@@ -106,5 +117,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown, true)
   document.body.style.overflow = ''
+  document.body.style.paddingRight = ''
 })
 </script>

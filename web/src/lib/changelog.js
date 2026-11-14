@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.7'
+export const APP_VERSION = '2.3.8'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.8',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '关闭弹窗后记录页左右跳动：滚动条槽位常驻 + 锁定滚动时补偿宽度，页面不再位移' },
+      { t: 'fix', text: '礼簿 2–3 字姓名间距过大、*补录标记压住首字：名字区恢复固定字高并垂直居中，标记分层' },
+    ],
+  },
   {
     version: '2.3.7',
     date: '2026-11-15',

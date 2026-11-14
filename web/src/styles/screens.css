@@ -1957,7 +1957,7 @@ body.theme-solemn .hero-book-art .book {
   /* 名字与底部标记分两层：名字占剩余空间，标记固定在底部，互不重叠。 */
   flex-direction: column;
   justify-content: flex-start;
-  padding: 10px 0 4px;
+  padding: 12px 0 4px;
   transition: background-color var(--dur-fast) var(--ease);
 }
 
@@ -1970,9 +1970,11 @@ body.theme-solemn .hero-book-art .book {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
+  flex: none;
+  /* 名字区固定 3.3 个字高并垂直居中：2–3 字名字的 space-between 不会被撑开，
+     顶部 *补录 与底部标记也各有自己的位置。 */
+  height: 3.3em;
+  margin: auto 0;
   overflow: hidden;
   color: var(--ink);
   font-family: var(--font-kai);
@@ -2001,6 +2003,7 @@ body.theme-solemn .hero-book-art .book {
 
 .mark {
   flex: none;
+  margin-top: 2px;
   max-height: 30px;
   overflow: hidden;
   color: var(--faint);

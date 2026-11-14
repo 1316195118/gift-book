@@ -13,6 +13,8 @@ html {
   text-size-adjust: 100%;
   background: var(--paper);
   color-scheme: light;
+  /* 滚动条槽位常驻：弹窗锁定滚动时页面宽度不变，关闭后内容不会左右跳动。 */
+  scrollbar-gutter: stable;
 }
 
 body {
