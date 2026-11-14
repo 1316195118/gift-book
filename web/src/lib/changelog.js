@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.11'
+export const APP_VERSION = '2.3.12'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.12',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: 'API 请求加 15 秒超时；GET 遇连接失败自动重试一次，写入类不重试以免重复记账' },
+      { t: 'opt', text: '导出 PDF / 打印 / OCR 改为按需加载：首屏主包 249KB → 200KB（gzip 89.5 → 69.9KB）' },
+      { t: 'opt', text: 'auth 包补齐 8 项测试（密码、Cookie、限流、代理 IP、备份状态校验），覆盖率 0% → 61.8%' },
+    ],
+  },
   {
     version: '2.3.11',
     date: '2026-11-15',

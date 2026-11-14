@@ -513,10 +513,23 @@ export function escapeHtml(s) {
 }
 
 // ---- 导出/统计/打印/设置等入口在其它模块中实现，这里只做转出 ----
-export { openExport } from './exports.js'
-export { showPrintModal as openPrint } from './printing.js'
 export { openStats } from './stats.js'
 export { openSettings } from './event-settings.js'
 export { toggleLedgerLock } from './lock.js'
-export { openOcr } from './ocr-entry.js'
 export { showQrDialog } from './qr-dialog.js'
+
+// 导出（PDF）/ 打印 / OCR 体积大、使用频率低：按需加载，不占首屏主包。
+export async function openExport(...args) {
+  const mod = await import('./exports.js')
+  return mod.openExport(...args)
+}
+
+export async function openPrint(...args) {
+  const { showPrintModal } = await import('./printing.js')
+  return showPrintModal(...args)
+}
+
+export async function openOcr(...args) {
+  const mod = await import('./ocr-entry.js')
+  return mod.openOcr(...args)
+}

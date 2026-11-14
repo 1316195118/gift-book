@@ -19,19 +19,53 @@ export class ApiError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT = 15000
+const RETRY_DELAY = 400
+
+// 只把「连接层面失败」视作可重试；超时（AbortError）不重试，避免用户干等 30s。
+function isNetworkFailure(error) {
+  return Boolean(error && (
+    error instanceof TypeError ||
+    /Failed to fetch|NetworkError|Load failed/i.test(String(error.message || ''))
+  ))
+}
+
+async function fetchWithTimeout(url, init) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function apiRequest(url, method = 'GET', data = null, options = {}) {
   try {
     const headers = { 'Content-Type': 'application/json' }
     const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
     if (ledgerKey) headers['X-Ledger-Key'] = ledgerKey
 
-    const response = await fetch(url, {
+    const init = {
       method,
       credentials: 'same-origin',
       cache: 'no-store',
       headers,
       body: data ? JSON.stringify(data) : undefined,
-    })
+    }
+
+    let response
+    try {
+      response = await fetchWithTimeout(url, init)
+    } catch (error) {
+      // 只重试幂等的 GET；写入类请求重试可能造成重复记账。
+      if (method === 'GET' && options.retry !== false && isNetworkFailure(error)) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY))
+        response = await fetchWithTimeout(url, init)
+      } else {
+        throw error
+      }
+    }
 
     if (response.status === 401 && !options.skipAuthRedirect) {
       authGateHandler()
@@ -59,8 +93,9 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
   } catch (error) {
     if (error instanceof ApiError) throw error
     const message = String(error?.message || '')
-    if (error?.name === 'AbortError' || error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(message)) {
-      throw new ApiError('网络连接失败', { code: 'NETWORK' })
+    const timedOut = error?.name === 'AbortError'
+    if (timedOut || error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(message)) {
+      throw new ApiError(timedOut ? '请求超时，请检查网络后重试' : '网络连接失败', { code: 'NETWORK' })
     }
     throw new ApiError(message || '请求失败', { code: 'NETWORK' })
   }
