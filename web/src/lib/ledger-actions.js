@@ -234,7 +234,8 @@ export function openGiftDetails(index) {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const history = Array.isArray(data.history) ? data.history : []
   const hasHistory = history.length > 0
-  const when = data.timestamp ? new Date(data.timestamp).toLocaleString('zh-CN') : ''
+  const lastTouch = hasHistory ? (data.updatedAt || data.timestamp) : data.timestamp
+  const when = lastTouch ? new Date(lastTouch).toLocaleString('zh-CN') : ''
   const late = isLate(gift) ? '<div class="modal-notice modal-notice-late"><strong>补录记录：</strong>录入时间已超出账簿设定的起止时间，照常计入总额与修改记录。</div>' : ''
   const warning = hasHistory ? `<div class="modal-notice modal-notice-warn">${copy.historyWarning}</div>` : ''
   const returns = returnRecordsOf(data)
@@ -296,7 +297,7 @@ function renderTimeline(history, current) {
   const reversed = [...history].reverse()
   return `<ul class="space-y-4 border-l-2 border-gray-300 ml-2">${reversed
     .map((record, idx) => `<li class="relative pl-6 pb-4"><div class="absolute w-3 h-3 bg-gray-400 rounded-full -left-[7px] top-1 border-2 border-white"></div><div class="text-sm text-gray-500">${new Date(record.timestamp).toLocaleString('zh-CN')}</div><div class="font-medium text-gray-800 mt-1">${escapeHtml(record.changeLog)}</div></li>`)
-    .join('')}<li class="relative pl-6"><div class="absolute w-3 h-3 bg-green-500 rounded-full -left-[7px] top-1 border-2 border-white"></div><div class="text-sm text-gray-500">当前状态 (${new Date(current.timestamp).toLocaleString('zh-CN')})</div></li></ul>`
+    .join('')}<li class="relative pl-6"><div class="absolute w-3 h-3 bg-green-500 rounded-full -left-[7px] top-1 border-2 border-white"></div><div class="text-sm text-gray-500">当前状态 (${new Date(current.updatedAt || current.timestamp).toLocaleString('zh-CN')})</div></li></ul>`
 }
 
 function showInlineEdit(index, field) {
@@ -367,7 +368,8 @@ export async function updateWithHistory(index, fields, changeLog) {
   const updated = {
     ...current,
     ...fields,
-    timestamp: now,
+    // 登记顺序以首次录入时间为准：修改只写 updatedAt，绝不动 timestamp。
+    updatedAt: now,
     late: isLate(gift),
     history: Array.isArray(current.history) ? [...current.history, historyEntry] : [historyEntry],
   }

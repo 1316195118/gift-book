@@ -70,7 +70,7 @@ function nameCell(gift, index) {
   const marks = `<div class="mark">${data.remarks ? '<p>*已备注</p>' : ''}${hasReturned(data) ? '<p class="mark-returned">*已回礼</p>' : ''}${modified ? '<p>*已修改</p>' : ''}${gift.pending ? '<p class="mark-pending">*待同步</p>' : ''}</div>`
   const late = isLateGift(gift) ? '<div class="late-mark">*补录</div>' : ''
   const tip = modified
-    ? `${data.name} · 已修改 ${data.history.length} 次，最后一次 ${new Date(data.timestamp).toLocaleString('zh-CN')}`
+    ? `${data.name} · 已修改 ${data.history.length} 次，最后一次 ${new Date(data.updatedAt || data.timestamp).toLocaleString('zh-CN')}`
     : `${data.name} · 录入于 ${new Date(data.timestamp).toLocaleString('zh-CN')}`
   return `<div class="book-cell name-cell" data-gift-index="${index}" title="${escapeHtml(tip)}">${late}<div class="name${String(data.name).length > 4 ? ' scale' : ''}" data-len="${len}" style="--name-chars:${shown.length + (chars.length > shown.length ? 1 : 0)}">${nameHtml}</div>${marks}</div>`
 }

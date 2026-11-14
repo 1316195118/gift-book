@@ -11,6 +11,7 @@ import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeTex
 import { ledgerKeyForEvent } from './store.js'
 import { refreshNetwork, startNetworkMonitor } from './lib/network.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './lib/modal.js'
+import { compareGiftsByRegistration } from './lib/gift-order.js'
 
 setAuthGateHandler(() => {
   st.authGate = true
@@ -263,14 +264,8 @@ export async function loadGiftsForCurrentEvent() {
       .filter((g) => g.data)
     // 礼簿按登记先后排，不能按 ID 排：礼金 ID 是随机十六进制，
     // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
-    // 时间戳在密文里，只有解开之后才排得了。
-    st.gifts = decrypted.concat(pending).sort((a, b) => {
-      const ta = Date.parse(a.data?.timestamp ?? '')
-      const tb = Date.parse(b.data?.timestamp ?? '')
-      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb
-      if (Number.isFinite(ta) !== Number.isFinite(tb)) return Number.isFinite(ta) ? -1 : 1
-      return String(a.id ?? '').localeCompare(String(b.id ?? ''))
-    })
+    // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
+    st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
     st.currentPage = Math.ceil(st.gifts.length / 12) || 1
     st.queueCount = pending.length
     const unreadable = encryptedGifts.length - decrypted.length
