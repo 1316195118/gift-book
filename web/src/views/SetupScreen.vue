@@ -150,6 +150,7 @@ import { api, ApiError } from '../lib/api.js'
 import { showHome, loadEvents, startSession } from '../bootstrap.js'
 import { openEvent } from '../lib/actions.js'
 import { alert as showAlert } from '../lib/modal.js'
+import { maybePromptAutoBackup } from '../lib/autobackup-prompt.js'
 import { buildVoiceGroups, voiceHint, previewVoice } from '../lib/voice.js'
 import { celebrate, solemnAck } from '../lib/feedback.js'
 
@@ -321,6 +322,8 @@ async function submit() {
     if (isSolemn.value) solemnAck()
     else celebrate('囍')
     startSession()
+    // 首次建账后引导开启自动备份：等入场动画结束再弹，避免和喜字动效打架。
+    setTimeout(() => { maybePromptAutoBackup() }, 900)
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NETWORK') {
       showAlert('无法连接', '网络不可用，账簿未创建，请检查连接后重试。')

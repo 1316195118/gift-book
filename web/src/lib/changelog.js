@@ -1,11 +1,18 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.16'
+export const APP_VERSION = '2.3.17'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.17',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '首次建账后提示开启自动备份：一键开启（沿用当前间隔与保留份数），也可暂不开启，只提示一次' },
+    ],
+  },
   {
     version: '2.3.16',
     date: '2026-11-15',

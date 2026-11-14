@@ -42,7 +42,7 @@ if (hasChip) {
   })
   check('关闭键可被命中（无遮挡）', closeHit)
   await page.keyboard.press('Escape')
-  await page.waitForTimeout(500)
+  await page.waitForFunction(() => !document.querySelector('#modal-container'), null, { timeout: 3000 }).catch(() => {})
   check('ESC 能关闭弹窗', (await page.locator('#modal-container').count()) === 0)
 }
 
@@ -63,6 +63,15 @@ if (await page.locator('#home-create-btn').count()) {
   }
 }
 check('能创建账簿并进入记录页', inMain)
+
+// 首次建账会引导开启自动备份：点「暂不开启」，避免遮挡后续工具按钮。
+if (inMain) {
+  const skip = page.locator('#modal-actions button', { hasText: '暂不开启' })
+  if (await skip.count()) {
+    await skip.first().click().catch(() => {})
+    await page.waitForTimeout(400)
+  }
+}
 
 // 3) 工具栏按钮逐个点击：必须有弹窗响应
 const tools = [
