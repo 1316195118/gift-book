@@ -1,7 +1,7 @@
 <template>
   <div class="autobackup-body">
     <label class="access-switch-row" for="auto-toggle">
-      <span><b>定时自动备份</b><small>按设定间隔把所有账簿打包，存到服务器数据目录的 backups/ 下。备份内容与账簿导出相同，只有密文。</small></span>
+      <span><b>定时自动备份</b><small>按设定间隔把所有账簿打包，存到服务器配置目录的 config/backups/ 下。备份内容与账簿导出相同，只有密文。</small></span>
       <input type="checkbox" id="auto-toggle" v-model="enabled" />
     </label>
 
@@ -69,9 +69,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../lib/api.js'
-import { openModal, closeModal } from '../lib/modal.js'
+import { openModal, closeModal, alert as showAlert } from '../lib/modal.js'
+import { notify } from '../lib/notify.js'
 import { state as st } from '../store.js'
 import { verifyLedgerPassword } from '../lib/actions.js'
+import { escapeHtml } from '../lib/crypto.js'
 
 const INTERVALS = [
   { value: 1, label: '每小时' },
@@ -167,7 +169,7 @@ function confirmRestore(label) {
     const needPassword = Boolean(st.authEnabled)
     const body = `
       <div class="restore-confirm">
-        <p><strong>即将用「${label}」覆盖当前全部账簿。</strong></p>
+        <p><strong>即将用「${escapeHtml(label)}」覆盖当前全部账簿。</strong></p>
         <p class="confirm-note">现有数据会先移入数据目录的 .trash，确认无误后可手动删除。</p>
         <p class="confirm-note is-warning">此操作无法在页面中撤销。</p>
         ${needPassword
@@ -215,12 +217,16 @@ async function askRestore(file) {
   try {
     const result = await api.autobackupRestore(file.name)
     message.value = `已还原 ${result.data?.events ?? 0} 本账簿、${result.data?.gifts ?? 0} 条礼金记录`
+    // confirmRestore 复用了同一个弹窗单例，面板组件此时已被卸载；
+    // 组件内的 message/error 用户看不到，必须走全局反馈。
+    notify.success('还原完成', `已还原 ${result.data?.events ?? 0} 本账簿、${result.data?.gifts ?? 0} 条礼金记录`)
     const { loadEvents, showHome, endSession } = await import('../bootstrap.js')
     endSession()
     await loadEvents()
     showHome()
   } catch (err) {
     error.value = err.message || '还原失败'
+    showAlert('还原失败', err.message || '还原失败，请稍后重试。')
   } finally {
     busy.value = false
   }
@@ -237,12 +243,14 @@ async function restoreFromFile(file) {
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.success) throw new Error(data.message || '还原失败')
     message.value = `已还原 ${data.data?.events ?? 0} 本账簿、${data.data?.gifts ?? 0} 条礼金记录`
+    notify.success('还原完成', `已还原 ${data.data?.events ?? 0} 本账簿、${data.data?.gifts ?? 0} 条礼金记录`)
     const { loadEvents, showHome, endSession } = await import('../bootstrap.js')
     endSession()
     await loadEvents()
     showHome()
   } catch (err) {
     error.value = err.message || '还原失败'
+    showAlert('还原失败', err.message || '还原失败，请稍后重试。')
   } finally {
     busy.value = false
   }
@@ -250,7 +258,7 @@ async function restoreFromFile(file) {
 
 async function askDelete(file) {
   const ok = await new Promise((resolve) => {
-    openModal('删除备份', { type: 'html', html: `<p>确定删除备份「${file.name}」吗？</p><p class="confirm-note">删除后无法恢复，但其他备份不受影响。</p>` }, [
+    openModal('删除备份', { type: 'html', html: `<p>确定删除备份「${escapeHtml(file.name)}」吗？</p><p class="confirm-note">删除后无法恢复，但其他备份不受影响。</p>` }, [
       { text: '取消', class: 'modal-btn-ghost', handler: () => resolve(false) },
       { text: '删除', class: 'modal-btn-danger', handler: () => resolve(true) },
     ])

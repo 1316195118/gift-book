@@ -42,6 +42,11 @@ func (s *Server) staticHandler() http.Handler {
 		} else {
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		}
+		// 响应体会随 Accept-Encoding 变化，因此无论本次是否真的压缩，都要声明 Vary，
+		// 否则共享缓存可能把 gzip 版本发给未声明 gzip 的客户端。
+		if compressible(ctype) && len(data) >= 1024 {
+			w.Header().Set("Vary", "Accept-Encoding")
+		}
 		// 文本类资源按 Accept-Encoding 做 gzip；带哈希的产物可长期缓存，
 		// 这里只压缩一次并按压缩后的长度回 Content-Length。
 		if shouldGzip(r, ctype, len(data)) {
@@ -52,7 +57,6 @@ func (s *Server) staticHandler() http.Handler {
 			if writeErr == nil && closeErr == nil && buf.Len() < len(data) {
 				data = buf.Bytes()
 				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Add("Vary", "Accept-Encoding")
 			}
 		}
 		w.Header().Set("Content-Length", itoa(len(data)))
@@ -73,14 +77,17 @@ func isDirectory(fsys fs.FS, name string) bool {
 	return err == nil && info.IsDir()
 }
 
-// shouldGzip 只压缩可压缩的文本资源，避免对图片/字体做无意义 CPU 消耗。
-func shouldGzip(r *http.Request, ctype string, size int) bool {
-	if size < 1024 || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		return false
-	}
+// compressible 只挑可压缩的文本资源，避免对图片/字体做无意义 CPU 消耗。
+func compressible(ctype string) bool {
 	return strings.HasPrefix(ctype, "text/") ||
 		strings.Contains(ctype, "javascript") ||
 		strings.Contains(ctype, "json") ||
 		strings.Contains(ctype, "xml") ||
 		strings.Contains(ctype, "svg")
+}
+
+func shouldGzip(r *http.Request, ctype string, size int) bool {
+	return size >= 1024 &&
+		strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") &&
+		compressible(ctype)
 }

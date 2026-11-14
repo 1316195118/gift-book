@@ -75,8 +75,9 @@ function onPointerDown(event) {
   dot.className = 'gb-ripple-dot'
   dot.style.width = `${size}px`
   dot.style.height = `${size}px`
-  dot.style.left = `${(event.clientX || rect.left + rect.width / 2) - rect.left - size / 2}px`
-  dot.style.top = `${(event.clientY || rect.top + rect.height / 2) - rect.top - size / 2}px`
+  // 0 是合法坐标（视口左上角），用 ?? 而不是 ||，否则会误判成缺省并回退到按钮中心。
+  dot.style.left = `${(event.clientX ?? rect.left + rect.width / 2) - rect.left - size / 2}px`
+  dot.style.top = `${(event.clientY ?? rect.top + rect.height / 2) - rect.top - size / 2}px`
   layer.appendChild(dot)
   el.classList.add('gb-ripple-host')
   el.appendChild(layer)

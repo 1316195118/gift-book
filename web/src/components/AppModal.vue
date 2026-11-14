@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { modal, closeModal } from '../lib/modal.js'
 import ModalContent from './ModalContent.vue'
 
@@ -78,15 +78,18 @@ watch(
       const closeBtn = rootEl.value?.querySelector('#modal-close')
       if (closeBtn) closeBtn.focus()
       else rootEl.value?.querySelector('#modal')?.focus()
-      document.addEventListener('keydown', onKeydown, true)
     } else {
-      document.removeEventListener('keydown', onKeydown, true)
       if (lastFocused && document.contains(lastFocused)) lastFocused.focus()
       lastFocused = null
     }
   },
 )
 
+// 监听常驻（onKeydown 内部第一句就判断 modal.open），避免绑定时机晚于
+// 用户按键、以及 async watch 交错时监听器残留。
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown, true)
+})
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown, true)
   document.body.style.overflow = ''

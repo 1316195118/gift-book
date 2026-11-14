@@ -50,26 +50,29 @@ export async function openBackupDialog() {
 }
 
 async function importBackup(file) {
-  const error = document.getElementById('backup-error')
+  // 下面的「导入备份」确认弹窗会替换 modal.body，旧弹窗里的错误占位节点会被卸载，
+  // 所以每次显示错误都实时查询，不能提前缓存 DOM 引用。
   const fail = (message) => {
-    if (!error) return
-    error.textContent = message
-    error.classList.remove('hidden')
+    const el = document.getElementById('backup-error')
+    if (!el) return
+    el.textContent = message || ''
+    el.classList.toggle('hidden', !message)
   }
   if (!file.name.toLowerCase().endsWith('.zip')) return fail('请选择导出的 .zip 备份包')
   fail('')
-  error?.classList.add('hidden')
   openModal(
     '导入备份',
     {
       type: 'html',
-      html: `<p>即将用 <b>${escapeHtml(file.name)}</b> 覆盖当前全部账簿数据。</p><p class="text-sm text-gray-600 mt-2">现有数据会先移动到数据目录的 <code>.trash/import-时间/</code>，确认无误后可手动删除。</p><p class="text-sm text-red-600 mt-2">此操作不可在页面中撤销，请确认当前数据已备份。</p>`,
+      html: `<p>即将用 <b>${escapeHtml(file.name)}</b> 覆盖当前全部账簿数据。</p><p class="text-sm text-gray-600 mt-2">现有数据会先移动到数据目录的 <code>.trash/import-时间/</code>，确认无误后可手动删除。</p><p class="text-sm text-red-600 mt-2">此操作不可在页面中撤销，请确认当前数据已备份。</p><div class="access-error hidden" id="backup-error" role="alert"></div>`,
     },
     [
       { text: '取消', class: 'modal-btn-ghost' },
       {
         text: '确认导入',
         class: 'modal-btn-danger',
+        // 失败时要让错误提示留在弹窗里；不能依赖 runAction 的自动关闭。
+        keepOpen: true,
         handler: async () => {
           const form = new FormData()
           form.append('file', file)
@@ -80,6 +83,7 @@ async function importBackup(file) {
             endSession()
             await loadEvents()
             showHome()
+            closeModal()
             notify.success('导入完成', `已恢复 ${data.data?.events ?? 0} 本账簿、${data.data?.gifts ?? 0} 条礼金记录。`)
           } catch (err) {
             fail(err.message || '导入失败，请重试')
