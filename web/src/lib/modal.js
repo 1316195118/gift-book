@@ -26,8 +26,12 @@ export function openModal(title, body, actions = [], options = {}) {
 
 export function closeModal(immediate = false) {
   if (!modal.open) return
+  // 模板里 @click="closeModal" 会把 MouseEvent 传进来（truthy），
+  // 若直接当真值用，关闭时内容会被瞬间清空、退场动画中高度塌缩。
+  // 只有显式传入 true 才走「立即关闭」。
+  const instant = immediate === true
   modal.open = false
-  if (immediate) {
+  if (instant) {
     modal.body = null
     modal.actions = []
   }

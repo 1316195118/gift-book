@@ -60,7 +60,7 @@
     <div v-if="message" class="field-hint autobackup-ok">{{ message }}</div>
 
     <div class="dialog-actions">
-      <button type="button" class="modal-btn-ghost" @click="closeModal">关闭</button>
+      <button type="button" class="modal-btn-ghost" @click="closeModal()">关闭</button>
       <button type="button" class="modal-btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button>
     </div>
   </div>

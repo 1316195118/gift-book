@@ -15,7 +15,7 @@
     <p class="net-detail-note">账簿接口与登录状态走本地 Go 服务，静态资源走内嵌文件；每 15 秒自动刷新一次。延迟 &lt;120ms 为通畅，120–400ms 偏慢，超过 400ms 或不可用标红。</p>
     <div class="dialog-actions">
       <button type="button" class="modal-btn-ghost" :disabled="busy" @click="retest">{{ busy ? '重测中…' : '立即重测' }}</button>
-      <button type="button" class="modal-btn-primary" @click="closeModal">知道了</button>
+      <button type="button" class="modal-btn-primary" @click="closeModal()">知道了</button>
     </div>
   </div>
 </template>

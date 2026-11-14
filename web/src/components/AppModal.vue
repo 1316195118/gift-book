@@ -12,7 +12,7 @@
     >
       <div class="modal-head">
         <h3 id="modal-title" class="modal-title">{{ modal.title }}</h3>
-        <button type="button" id="modal-close" class="modal-close" title="关闭" aria-label="关闭弹窗" @click="closeModal">×</button>
+        <button type="button" id="modal-close" class="modal-close" title="关闭" aria-label="关闭弹窗" @click="closeModal()">×</button>
       </div>
       <div id="modal-content" class="modal-content">
         <component :is="view" v-if="modal.body" :content="modal.body" />

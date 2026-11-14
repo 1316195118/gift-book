@@ -1,6 +1,6 @@
 <template>
   <div v-if="content.type === 'unlock'" class="unlock-card">
-    <button type="button" class="unlock-close" aria-label="关闭" @click="closeModal">×</button>
+    <button type="button" class="unlock-close" aria-label="关闭" @click="closeModal()">×</button>
     <div class="unlock-seal" aria-hidden="true">礼</div>
     <h3 class="unlock-title">进入账簿</h3>
     <p class="unlock-sub">请输入「{{ content.eventName }}」的管理密码</p>
@@ -13,7 +13,7 @@
   </div>
 
   <div v-else-if="content.type === 'export'" class="unlock-card export-card">
-    <button type="button" class="unlock-close" aria-label="关闭" @click="closeModal">×</button>
+    <button type="button" class="unlock-close" aria-label="关闭" @click="closeModal()">×</button>
     <div class="unlock-seal" aria-hidden="true">导</div>
     <h3 class="unlock-title">导出 / 导入账簿</h3>
     <p class="unlock-sub">「{{ content.eventName }}」共 {{ content.count }} 条{{ content.recordsLabel }}</p>
