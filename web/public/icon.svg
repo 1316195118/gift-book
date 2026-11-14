@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#b3261e"/>
+  <rect x="36" y="36" width="440" height="440" rx="84" fill="none" stroke="#f6e7c8" stroke-width="10" opacity="0.55"/>
+  <text x="256" y="356" text-anchor="middle" font-family="KaiTi, STKaiti, SimSun, serif" font-size="300" fill="#fdf3e0">礼</text>
+</svg>

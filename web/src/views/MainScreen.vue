@@ -94,6 +94,18 @@
               </div>
             </div>
 
+            <div class="entry-field entry-relation">
+              <label>关系 <small>选填 · 用于分类汇总</small></label>
+              <div class="payment-options">
+                <label>
+                  <input v-model="entry.relation" type="radio" name="gift-relation" value="" :disabled="st.locked" /><span>未分类</span>
+                </label>
+                <label v-for="option in RELATION_OPTIONS" :key="option">
+                  <input v-model="entry.relation" type="radio" name="gift-relation" :value="option" :disabled="st.locked" /><span>{{ option }}</span>
+                </label>
+              </div>
+            </div>
+
             <div class="entry-field entry-remarks">
               <label for="remarks">备注 <small>选填 · {{ entry.remarks.length }}/4000</small></label>
               <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="st.locked"></textarea>
@@ -179,7 +191,7 @@ import { queueFor } from '../lib/offline.js'
 import { pulse } from '../lib/feedback.js'
 import { playPage } from '../lib/sound.js'
 import {
-  PAYMENT_OPTIONS, entry, resetEntry, bookMarkup, computeStats, pageItems,
+  PAYMENT_OPTIONS, RELATION_OPTIONS, entry, resetEntry, bookMarkup, computeStats, pageItems,
   totalPages, amountPreview, submitGift, runSearch, openGiftDetails, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock, showQrDialog,
 } from '../lib/ledger-view.js'

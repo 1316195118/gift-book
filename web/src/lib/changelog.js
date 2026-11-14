@@ -1,11 +1,25 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.1.0'
+export const APP_VERSION = '2.2.0'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.2.0',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '礼金新增「关系」标签（亲戚/朋友/同事/同学/邻居/其他），统计按关系汇总各类金额，Excel/Word 导出同步新增关系列' },
+      { t: 'feat', text: '新增回礼 / 人情追踪：详情里可登记回礼金额，统计显示已回礼、未回礼与净人情' },
+      { t: 'feat', text: '新增 CSV 批量导入：从名单批量录入，带表头自动识别姓名/金额/方式/关系/备注，逐行校验并预览' },
+      { t: 'feat', text: '统计新增金额 Top 5、去重人数与人均礼金；新增跨账簿汇总，按姓名聚合多场事的累计人情' },
+      { t: 'feat', text: '打印设置新增签到表：按姓名排序生成 A4 签到表，含关系与签名栏，自动分页' },
+      { t: 'feat', text: '支持 PWA：可添加到主屏幕，静态资源离线缓存，断网也能打开已访问页面' },
+      { t: 'sec', text: '弹窗提示统一做 HTML 转义，堵住 API 或用户输入造成的二次注入' },
+      { t: 'opt', text: '移除被自动备份面板取代的旧备份弹窗；新增 Vitest 前端单元测试（金额大写、转义、CSV 解析等 21 项）' },
+    ],
+  },
   {
     version: '2.1.0',
     date: '2026-11-14',

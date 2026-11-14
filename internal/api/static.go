@@ -32,6 +32,9 @@ func (s *Server) staticHandler() http.Handler {
 		}
 
 		ctype := mime.TypeByExtension(path.Ext(clean))
+		if path.Ext(clean) == ".webmanifest" {
+			ctype = "application/manifest+json"
+		}
 		if ctype == "" {
 			ctype = "application/octet-stream"
 		}

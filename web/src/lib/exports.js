@@ -5,6 +5,7 @@ import { copyOf, isSolemnEvent } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
 import { XlsxLite } from './crypto.js'
+import { openImport } from './import.js'
 
 const ITEMS_PER_PAGE = 12
 
@@ -12,7 +13,6 @@ export function openExport() {
   const ev = st.currentEvent
   if (!ev) return
   const copy = copyOf(ev, st.homeCategory)
-  if (!st.gifts.length) return showAlert('无法导出', copy.exportEmpty)
   openModal(
     '',
     {
@@ -25,6 +25,7 @@ export function openExport() {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
         if (format === 'pdf') setTimeout(() => exportLedgerPdf(), 120)
         if (format === 'word') setTimeout(() => exportToWord(), 80)
+        if (format === 'import') setTimeout(() => openImport(), 80)
       },
     },
     [],
@@ -65,10 +66,10 @@ export function exportToExcel() {
   const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
 
   const rows = [
-    [{ v: `${ev.name} ${copy.detailTitle}`, s: style.title }, null, null, null, null, null, null],
-    [{ v: metaLine, s: style.meta }, null, null, null, null, null, null],
+    [{ v: `${ev.name} ${copy.detailTitle}`, s: style.title }, null, null, null, null, null, null, null],
+    [{ v: metaLine, s: style.meta }, null, null, null, null, null, null, null],
     [null],
-    ['序号', '姓名', '金额', '大写金额', '收款方式', '备注', '录入时间'].map((v) => ({ v, s: style.head })),
+    ['序号', '姓名', '金额', '大写金额', '收款方式', '关系', '备注', '录入时间'].map((v) => ({ v, s: style.head })),
   ]
   st.gifts.forEach((g, i) => {
     const d = g.data || {}
@@ -78,12 +79,13 @@ export function exportToExcel() {
       { v: Number(d.amount) || 0, s: style.money },
       { v: amountToChinese(d.amount), s: style.text },
       { v: d.type || '', s: style.center },
+      { v: d.relation || '未分类', s: style.center },
       { v: d.remarks || '', s: style.text },
       { v: d.timestamp ? new Date(d.timestamp).toLocaleString('zh-CN', { hour12: false }) : '', s: style.center },
     ])
   })
   const lastDataRow = rows.length
-  rows.push([{ v: `${copy.printTotalGivers}：${stats.totalGivers} 位　　${copy.printTotalAmount}：${formatCurrency(stats.totalAmount)}`, s: style.total }, null, null, null, null, null, null])
+  rows.push([{ v: `${copy.printTotalGivers}：${stats.totalGivers} 位　　${copy.printTotalAmount}：${formatCurrency(stats.totalAmount)}`, s: style.total }, null, null, null, null, null, null, null])
 
   const rowHeights = { 1: 30, 2: 20, 3: 8, 4: 24 }
   for (let r = 5; r <= lastDataRow; r += 1) rowHeights[r] = 22
@@ -92,12 +94,12 @@ export function exportToExcel() {
   const sheets = [
     {
       name: copy.detailTitle,
-      widths: [6, 14, 14, 26, 10, 30, 20],
+      widths: [6, 14, 14, 26, 10, 10, 26, 20],
       rows,
-      merges: ['A1:G1', 'A2:G2', `A${lastDataRow + 1}:G${lastDataRow + 1}`],
+      merges: ['A1:H1', 'A2:H2', `A${lastDataRow + 1}:H${lastDataRow + 1}`],
       rowHeights,
       freeze: { ySplit: 4, topLeft: 'A5' },
-      autoFilter: `A4:G${lastDataRow}`,
+      autoFilter: `A4:H${lastDataRow}`,
     },
   ]
 
@@ -156,7 +158,7 @@ export function exportToWord() {
       const shownName = nameChars.slice(0, 12).join('') + (nameChars.length > 12 ? '…' : '')
       const nameClass = nameChars.length === 1 ? ' len1' : nameChars.length === 2 ? ' len2' : ''
       const amountText = formatCurrency(d.amount)
-      return `<tr><td class="c">${i + 1}</td><td class="name${nameClass}">${isLate(g) ? '<span class="late">*补录</span>' : ''}${escapeHtml(shownName)}</td><td class="num${amountText.length > 12 ? ' small' : ''}">${amountText}</td><td class="cap">${escapeHtml(amountToChinese(d.amount))}</td><td class="c">${escapeHtml(d.type || '')}</td><td class="remark">${escapeHtml(d.remarks || '')}</td><td class="time">${escapeHtml(when)}</td></tr>`
+      return `<tr><td class="c">${i + 1}</td><td class="name${nameClass}">${isLate(g) ? '<span class="late">*补录</span>' : ''}${escapeHtml(shownName)}</td><td class="num${amountText.length > 12 ? ' small' : ''}">${amountText}</td><td class="cap">${escapeHtml(amountToChinese(d.amount))}</td><td class="c">${escapeHtml(d.type || '')}</td><td class="c">${escapeHtml(d.relation || '未分类')}</td><td class="remark">${escapeHtml(d.remarks || '')}</td><td class="time">${escapeHtml(when)}</td></tr>`
     })
     .join('')
 
@@ -171,7 +173,7 @@ export function exportToWord() {
     ? `<h2>附：修改记录</h2><table class="appendix"><thead><tr><th style="width:8%">序号</th><th style="width:16%">姓名</th><th>修改内容</th><th style="width:22%">修改时间</th></tr></thead><tbody>${historyItems.map((item) => `<tr><td class="c">${item.index}</td><td class="name">${escapeHtml(item.name)}</td><td class="remark">${escapeHtml(item.log)}</td><td class="time">${escapeHtml(item.when)}</td></tr>`).join('')}</tbody></table><p class="note">共 ${historyItems.length} 条修改留痕。${copy.historyNote}</p>`
     : ''
 
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${escapeHtml(ev.name)}${copy.detailTitle}</title><style>@page { size: A4 portrait; margin: 1.8cm 1.6cm; } body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; } .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; } .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; } .doc-head h1 { font-family: "KaiTi", "STKaiti", serif; font-size: 24pt; color: ${primary}; margin: 6px 0 6px; } .doc-head .meta { font-size: 9pt; color: #666; } table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; } th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; } th { background: ${bg}; color: ${primary}; font-weight: bold; font-family: "KaiTi", serif; letter-spacing: .5px; } tr { page-break-inside: avoid; } tr:nth-child(even) td { background: #fafafa; } td.c { text-align: center; } td.num { text-align: center; white-space: nowrap; } td.num.small { font-size: 8pt; } td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; } td.name .late { display: block; font-size: 8pt; font-weight: bold; color: ${primary}; line-height: 1.2; } td.name.len2 { letter-spacing: .6em; padding-left: .6em; } td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; } td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; } td.remark { text-align: left; word-break: break-word; } h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; } .appendix { font-size: 10pt; } .totals { margin-top: 12px; font-size: 10.5pt; } .totals b { color: ${primary}; font-size: 12pt; } .note { margin-top: 8px; font-size: 8.5pt; color: #777; } .foot { margin-top: 18px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 8.5pt; color: #888; }</style></head><body><div class="doc-head"><div class="kicker">${solemn ? '白 事 · 奠 仪' : '红 事 · 贺 礼'}</div><h1>${escapeHtml(ev.name)} ${copy.detailTitle}</h1><div class="meta">${escapeHtml(metaLine)}</div></div><table><thead><tr><th style="width:5%">序号</th><th style="width:11%">姓名</th><th style="width:11%">金额</th><th style="width:27%">大写金额</th><th style="width:8%">收款方式</th><th>备注</th><th style="width:16%">录入时间</th></tr></thead><tbody>${rows}</tbody></table><div class="totals">${copy.printTotalGivers}：<b>${stats.totalGivers}</b> 位　${copy.printTotalAmount}：<b>${formatCurrency(stats.totalAmount)}</b></div>${historySection}<div class="foot">本文件由${solemn ? '电子奠仪簿' : '电子礼簿'}导出 · ${new Date().toLocaleString('zh-CN', { hour12: false })}</div></body></html>`
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${escapeHtml(ev.name)}${copy.detailTitle}</title><style>@page { size: A4 portrait; margin: 1.8cm 1.6cm; } body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; } .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; } .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; } .doc-head h1 { font-family: "KaiTi", "STKaiti", serif; font-size: 24pt; color: ${primary}; margin: 6px 0 6px; } .doc-head .meta { font-size: 9pt; color: #666; } table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; } th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; } th { background: ${bg}; color: ${primary}; font-weight: bold; font-family: "KaiTi", serif; letter-spacing: .5px; } tr { page-break-inside: avoid; } tr:nth-child(even) td { background: #fafafa; } td.c { text-align: center; } td.num { text-align: center; white-space: nowrap; } td.num.small { font-size: 8pt; } td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; } td.name .late { display: block; font-size: 8pt; font-weight: bold; color: ${primary}; line-height: 1.2; } td.name.len2 { letter-spacing: .6em; padding-left: .6em; } td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; } td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; } td.remark { text-align: left; word-break: break-word; } h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; } .appendix { font-size: 10pt; } .totals { margin-top: 12px; font-size: 10.5pt; } .totals b { color: ${primary}; font-size: 12pt; } .note { margin-top: 8px; font-size: 8.5pt; color: #777; } .foot { margin-top: 18px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 8.5pt; color: #888; }</style></head><body><div class="doc-head"><div class="kicker">${solemn ? '白 事 · 奠 仪' : '红 事 · 贺 礼'}</div><h1>${escapeHtml(ev.name)} ${copy.detailTitle}</h1><div class="meta">${escapeHtml(metaLine)}</div></div><table><thead><tr><th style="width:5%">序号</th><th style="width:11%">姓名</th><th style="width:11%">金额</th><th style="width:24%">大写金额</th><th style="width:8%">收款方式</th><th style="width:8%">关系</th><th>备注</th><th style="width:15%">录入时间</th></tr></thead><tbody>${rows}</tbody></table><div class="totals">${copy.printTotalGivers}：<b>${stats.totalGivers}</b> 位　${copy.printTotalAmount}：<b>${formatCurrency(stats.totalAmount)}</b></div>${historySection}<div class="foot">本文件由${solemn ? '电子奠仪簿' : '电子礼簿'}导出 · ${new Date().toLocaleString('zh-CN', { hour12: false })}</div></body></html>`
   const blob = new Blob(['﻿', html], { type: 'application/msword' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

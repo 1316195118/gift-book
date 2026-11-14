@@ -1,17 +1,31 @@
 // 统计：汇总卡、按收款方式/按日期条形图、可搜索排序分页的明细表。
 import { state as st } from '../store.js'
-import { openModal, afterModalRender } from './modal.js'
+import { openModal, closeModal, afterModalRender } from './modal.js'
+import { openCrossSummary } from './cross-summary.js'
 import { copyOf } from './content.js'
 import { formatCurrency, escapeHtml } from './crypto.js'
 import { openGiftDetails } from './ledger-actions.js'
 
 export function computeStats(gifts = st.gifts) {
-  const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 } }
+  const result = { totalAmount: 0, totalGivers: gifts.length, byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 }, byRelation: {}, totalReturned: 0, returnedCount: 0, uniqueGivers: 0, average: 0, topGivers: [] }
+  const byName = {}
   gifts.forEach(({ data }) => {
     if (!data) return
-    result.totalAmount += Number(data.amount) || 0
-    result.byType[data.type] = (result.byType[data.type] || 0) + (Number(data.amount) || 0)
+    const amount = Number(data.amount) || 0
+    result.totalAmount += amount
+    result.byType[data.type] = (result.byType[data.type] || 0) + amount
+    const relation = data.relation || '未分类'
+    result.byRelation[relation] = (result.byRelation[relation] || 0) + amount
+    if (data.name) byName[data.name] = (byName[data.name] || 0) + amount
+    if (data.returned) {
+      result.totalReturned += Number(data.returnAmount) || 0
+      result.returnedCount += 1
+    }
   })
+  const names = Object.entries(byName).sort((a, b) => b[1] - a[1])
+  result.uniqueGivers = names.length
+  result.average = names.length ? result.totalAmount / names.length : 0
+  result.topGivers = names.slice(0, 5)
   return result
 }
 
@@ -25,18 +39,39 @@ export function openStats() {
         <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsGivers}:</span><span class="font-bold themed-text">${stats.totalGivers} 人</span></div>
         <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsTotal}:</span><span class="font-bold themed-text">${formatCurrency(stats.totalAmount)}</span></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">按收款方式统计:</h4><ul class="space-y-2">${Object.entries(stats.byType).map(([type, amount]) => `<li class="flex justify-between"><span>${type}:</span> <span>${formatCurrency(amount)}</span></li>`).join('')}</ul></div>
+        <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">按关系统计:</h4><ul class="space-y-2">${Object.entries(stats.byRelation).sort((a, b) => b[1] - a[1]).map(([relation, amount]) => `<li class="flex justify-between"><span>${escapeHtml(relation)}:</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
+        <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">人情往来:</h4><ul class="space-y-2">
+          <li class="flex justify-between"><span>已回礼:</span> <span>${formatCurrency(stats.totalReturned)}（${stats.returnedCount} 笔）</span></li>
+          <li class="flex justify-between"><span>未回礼:</span> <span>${stats.totalGivers - stats.returnedCount} 笔</span></li>
+          <li class="flex justify-between"><span>净人情:</span> <span>${formatCurrency(stats.totalAmount - stats.totalReturned)}</span></li>
+        </ul></div>
+        <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">概览:</h4><ul class="space-y-2">
+          <li class="flex justify-between"><span>去重人数:</span> <span>${stats.uniqueGivers} 人</span></li>
+          <li class="flex justify-between"><span>人均礼金:</span> <span>${formatCurrency(stats.average)}</span></li>
+        </ul></div>
+        <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">金额 Top 5:</h4><ul class="space-y-2">${stats.topGivers.map(([name, amount], i) => `<li class="flex justify-between"><span>${i + 1}. ${escapeHtml(name)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
       </div>
     </div>
     <div class="stats-charts">
       <div class="stats-chart"><h4>按收款方式</h4><div class="bar-chart" id="stats-by-type-chart"></div></div>
       <div class="stats-chart"><h4>按录入日期（近 14 天）</h4><div class="bar-chart" id="stats-by-day-chart"></div></div>
     </div>`
-  openModal(copy.statsTitle, { type: 'html', html }, [{ text: '关闭', class: 'border themed-button-secondary px-4 py-2 rounded' }], { size: 'large' })
+  openModal(copy.statsTitle, { type: 'html', html }, [
+    { text: '关闭', class: 'border themed-button-secondary px-4 py-2 rounded' },
+    {
+      text: '跨账簿汇总',
+      class: 'themed-button-primary px-4 py-2 rounded',
+      handler: () => {
+        closeModal()
+        setTimeout(() => openCrossSummary(), 80)
+      },
+    },
+  ], { size: 'large' })
   // 弹窗内容由 Vue 在下一帧挂载，等它进入 DOM 后再填充图表与表格。
-  const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, new Date(g.data.timestamp).toLocaleString('zh-CN')])
+  const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', new Date(g.data.timestamp).toLocaleString('zh-CN')])
   afterModalRender(() => {
     renderCharts(stats)
-    renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '录入时间'], rows)
+    renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
   })
 }
 

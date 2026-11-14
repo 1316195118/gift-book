@@ -4,7 +4,8 @@ import { copyOf } from './content.js'
 import { renderCoverMarkup } from './cover.js'
 import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { getPrintOptions, applyPrintOptionsToView, savePrintOptions, printOptionsCss } from './prefs.js'
-import { openModal, alert as showAlert, afterModalRender } from './modal.js'
+import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
+import { openSignInSheet } from './sign-in.js'
 
 export const ITEMS_PER_PAGE = 12
 export const PDF_PAGE_W_PT = 841.89
@@ -49,6 +50,14 @@ export function showPrintModal() {
     </div>`
   openModal('打印设置', { type: 'html', html }, [
     { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '签到表',
+      class: 'modal-btn-ghost',
+      handler: () => {
+        closeModal()
+        setTimeout(() => openSignInSheet(), 80)
+      },
+    },
     {
       text: '打印',
       class: 'modal-btn-primary',

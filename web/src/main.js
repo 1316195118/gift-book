@@ -20,3 +20,12 @@ import { initFeedback } from './lib/feedback.js'
 initFeedback()
 
 createApp(App).mount('#app')
+
+// PWA：生产环境注册 Service Worker，支持「添加到主屏幕」与断网打开已缓存页面。
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* 注册失败不影响正常使用 */
+    })
+  })
+}

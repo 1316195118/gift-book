@@ -1,6 +1,7 @@
 // 弹窗控制器：动作可以是函数，也可以是 { text, style, keepOpen, handler }。
 import { reactive } from 'vue'
 import { h } from 'vue'
+import { escapeHtml } from './crypto.js'
 
 export const modal = reactive({
   open: false,
@@ -41,7 +42,7 @@ export function afterModalRender(callback) {
 export function alert(title, message, callback = null) {
   openModal(
     title,
-    { type: 'html', html: `<p>${message}</p>` },
+    { type: 'html', html: `<p>${escapeHtml(message)}</p>` },
     [
       {
         text: '确定',
@@ -57,7 +58,7 @@ export function alert(title, message, callback = null) {
 export function confirm(title, message, onConfirm) {
   openModal(
     title,
-    { type: 'html', html: `<div class="confirm-body"><div class="confirm-sub">${message}</div></div>` },
+    { type: 'html', html: `<div class="confirm-body"><div class="confirm-sub">${escapeHtml(message)}</div></div>` },
     [
       { text: '取消', class: 'modal-btn-ghost' },
       { text: '确定', class: 'modal-btn-primary', handler: onConfirm },

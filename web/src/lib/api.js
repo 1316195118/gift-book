@@ -97,7 +97,7 @@ export const api = {
   verifyEvent: (id, ledgerKey) =>
     apiRequest(`/api/events/${encodeURIComponent(id)}/verify`, 'POST', { action: 'verify' }, { ledgerKey }),
 
-  listGifts: (eventId) => apiRequest(`/api/gifts?eventId=${encodeURIComponent(eventId)}`),
+  listGifts: (eventId, ledgerKey) => apiRequest(`/api/gifts?eventId=${encodeURIComponent(eventId)}`, 'GET', null, ledgerKey !== undefined ? { ledgerKey } : {}),
 
   createGift: (payload) => apiRequest('/api/gifts', 'POST', payload),
 

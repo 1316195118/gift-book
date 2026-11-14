@@ -27,6 +27,7 @@ export async function submitGift(giftData, resetForm) {
   const amountText = String(giftData.amount ?? '')
   const type = giftData.type
   const remarks = String(giftData.remarks || '').trim()
+  const relation = String(giftData.relation || '').trim()
   if (!name || !amountText || !type) return showAlert('信息不完整', '请输入姓名、金额并选择收款方式。')
   if (Array.from(name).length > MAX_GIFT_NAME) return showAlert('姓名过长', `姓名请控制在 ${MAX_GIFT_NAME} 个字以内。`)
   const amount = Number(amountText)
@@ -44,10 +45,10 @@ export async function submitGift(giftData, resetForm) {
   if (outOfTime && isSolemnEvent(st.currentEvent, st.homeCategory)) {
     return showAlert('白事已停止录入', '这本白事账簿已超出设定的起止时间，录入已关闭。<br>如确需补录，请先在「设置」里调整结束时间。')
   }
-  showConfirmation(name, amount, remarks, sameName.length > 0, exactMatch, outOfTime, type, resetForm)
+  showConfirmation(name, amount, remarks, relation, sameName.length > 0, exactMatch, outOfTime, type, resetForm)
 }
 
-function showConfirmation(name, amount, remarks, nameExists, exactMatch, outOfTime, type, resetForm) {
+function showConfirmation(name, amount, remarks, relation, nameExists, exactMatch, outOfTime, type, resetForm) {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   let title = '请确认录入信息'
   // 这个窗口每录一笔都会看一次，所以把要核对的三项立起来：
@@ -56,6 +57,7 @@ function showConfirmation(name, amount, remarks, nameExists, exactMatch, outOfTi
     <dl class="confirm-slip">
       <div><dt>${copy.confirmGuestLabel}</dt><dd class="confirm-name">${escapeHtml(name)}</dd></div>
       <div><dt>金额</dt><dd class="confirm-amount">${formatCurrency(amount)}</dd></div>
+      ${relation ? `<div><dt>关系</dt><dd>${escapeHtml(relation)}</dd></div>` : ''}
       <div><dt>大写</dt><dd class="confirm-chinese">${amountToChinese(amount)}</dd></div>
     </dl>`
   if (exactMatch) {
@@ -91,7 +93,7 @@ function showConfirmation(name, amount, remarks, nameExists, exactMatch, outOfTi
         if (confirmed) return
         confirmed = true
         const finalRemarks = document.getElementById('modal-remarks-input')?.value.trim() ?? remarks
-        await saveGift({ name, amount, type, remarks: finalRemarks }, resetForm)
+        await saveGift({ name, amount, type, remarks: finalRemarks, relation }, resetForm)
       },
     },
   ])
@@ -249,6 +251,10 @@ export function openGiftDetails(index) {
         <div class="flex justify-between items-start"><strong>备注:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="remarks">修改</button></div>
         <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.remarks ? escapeHtml(data.remarks) : '（无备注）'}</p>
       </div>
+      <div class="p-2 hover:bg-gray-50 rounded">
+        <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">${data.returned ? '修改' : '登记'}</button></div>
+        <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.returned ? `已回礼 ${formatCurrency(Number(data.returnAmount) || 0)}${data.returnedAt ? ` · ${new Date(data.returnedAt).toLocaleDateString('zh-CN')}` : ''}` : '未回礼'}</p>
+      </div>
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
         <div>${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
@@ -288,6 +294,16 @@ function showInlineEdit(index, field) {
     html = `<div class="themed-edit-area"><label>纠错姓名</label><input type="text" id="inline-edit-name" value="${escapeHtml(data.name)}" maxlength="20" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'amount') {
     html = `<div class="themed-edit-area"><label>修改金额与类型</label><input type="number" id="inline-edit-amount" value="${escapeHtml(data.amount)}" min="0.01" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${['现金', '支付宝', '微信', '其他'].map((t) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-type" value="${t}" ${data.type === t ? 'checked' : ''} class="mr-1 themed-ring" />${t}</label>`).join('')}</div><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
+  } else if (field === 'return') {
+    const returned = Boolean(data.returned)
+    html = `<div class="themed-edit-area"><label>回礼登记</label>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 mb-2">
+        <label class="flex items-center text-sm font-normal"><input type="radio" name="inline-return-state" value="no" ${returned ? '' : 'checked'} class="mr-1 themed-ring" />未回礼</label>
+        <label class="flex items-center text-sm font-normal"><input type="radio" name="inline-return-state" value="yes" ${returned ? 'checked' : ''} class="mr-1 themed-ring" />已回礼</label>
+      </div>
+      <input type="number" id="inline-return-amount" value="${returned ? escapeHtml(String(data.returnAmount ?? '')) : ''}" min="0" max="1000000" step="0.01" placeholder="回礼金额（元）" class="w-full p-2 border rounded themed-ring mb-2" />
+      <p class="text-xs text-gray-500 mb-2">登记后可在「统计」中查看已回礼与净人情；保存会写入修改痕迹。</p>
+      <div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else {
     html = `<div class="themed-edit-area"><label>修改备注</label><textarea id="inline-edit-remarks" class="w-full p-2 border rounded themed-ring mb-2" rows="3">${escapeHtml(data.remarks || '')}</textarea><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   }
@@ -309,6 +325,21 @@ function showInlineEdit(index, field) {
       if (value !== data.amount) logs.push(`金额由 ${data.amount} 修改为 ${value}`)
       if (type !== data.type) logs.push(`类型由 ${data.type} 修改为 ${type}`)
       await updateWithHistory(index, { amount: value, type }, logs.join('，'))
+    } else if (field === 'return') {
+      const state = document.querySelector('input[name="inline-return-state"]:checked')?.value
+      const amountRaw = document.getElementById('inline-return-amount').value
+      const amount = parseFloat(amountRaw)
+      const nextReturned = state === 'yes'
+      if (nextReturned && (!Number.isFinite(amount) || amount < 0 || amount > MAX_GIFT_AMOUNT)) {
+        return showAlert('回礼金额无效', `请输入 0 ~ ${MAX_GIFT_AMOUNT.toLocaleString('zh-CN')} 元之间的回礼金额。`)
+      }
+      const nextAmount = nextReturned ? amount : 0
+      if (nextReturned === Boolean(data.returned) && nextAmount === (Number(data.returnAmount) || 0)) return openGiftDetails(index)
+      await updateWithHistory(
+        index,
+        { returned: nextReturned, returnAmount: nextAmount, returnedAt: nextReturned ? new Date().toISOString() : '' },
+        nextReturned ? `登记回礼 ${formatCurrency(nextAmount)}` : '取消回礼标记',
+      )
     } else {
       const next = document.getElementById('inline-edit-remarks').value.trim()
       if (next === (data.remarks || '')) return openGiftDetails(index)
