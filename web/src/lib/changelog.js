@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.15'
+export const APP_VERSION = '2.3.16'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.16',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '前端加全局错误兜底：渲染异常或未捕获异常时提示刷新，不再白屏无响应' },
+      { t: 'opt', text: 'Docker 日志启用轮转（10MB × 3），长期运行不再无限占用磁盘' },
+    ],
+  },
   {
     version: '2.3.15',
     date: '2026-11-15',
