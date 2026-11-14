@@ -1954,10 +1954,6 @@ body.theme-solemn .hero-book-art .book {
 .name-cell {
   position: relative;
   cursor: pointer;
-  /* 名字与底部标记分两层：名字占剩余空间，标记固定在底部，互不重叠。 */
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 12px 0 4px;
   transition: background-color var(--dur-fast) var(--ease);
 }
 
@@ -1966,15 +1962,17 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .name {
+  /* 绝对居中于整格：名字固定 3.3 字高，*补录与底部标记各占上下角，互不重叠。 */
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: none;
-  /* 名字区固定 3.3 个字高并垂直居中：2–3 字名字的 space-between 不会被撑开，
-     顶部 *补录 与底部标记也各有自己的位置。 */
   height: 3.3em;
-  margin: auto 0;
+  transform: translateY(-50%);
   overflow: hidden;
   color: var(--ink);
   font-family: var(--font-kai);
@@ -2002,13 +2000,16 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .mark {
-  flex: none;
-  margin-top: 2px;
-  max-height: 30px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  max-height: 14px;
   overflow: hidden;
   color: var(--faint);
   font-size: 9px;
   line-height: 1.3;
+  text-align: center;
 }
 
 .mark-pending {

@@ -67,7 +67,14 @@ function nameCell(gift, index) {
   const shown = chars.slice(0, 24)
   const len = shown.length > 3 ? 'long' : String(shown.length)
   const nameHtml = shown.map((ch) => `<span>${escapeHtml(ch)}</span>`).join('') + (chars.length > shown.length ? '<span>…</span>' : '')
-  const marks = `<div class="mark">${data.remarks ? '<p>*已备注</p>' : ''}${hasReturned(data) ? '<p class="mark-returned">*已回礼</p>' : ''}${modified ? '<p>*已修改</p>' : ''}${gift.pending ? '<p class="mark-pending">*待同步</p>' : ''}</div>`
+  // 格子只放一条标记，按优先级取：已回礼 > 已备注 > 已修改 > 待同步。
+  const markCandidates = [
+    hasReturned(data) ? '<p class="mark-returned">*已回礼</p>' : '',
+    data.remarks ? '<p>*已备注</p>' : '',
+    modified ? '<p>*已修改</p>' : '',
+    gift.pending ? '<p class="mark-pending">*待同步</p>' : '',
+  ].filter(Boolean)
+  const marks = `<div class="mark">${markCandidates[0] || ''}</div>`
   const late = isLateGift(gift) ? '<div class="late-mark">*补录</div>' : ''
   const tip = modified
     ? `${data.name} · 已修改 ${data.history.length} 次，最后一次 ${new Date(data.updatedAt || data.timestamp).toLocaleString('zh-CN')}`

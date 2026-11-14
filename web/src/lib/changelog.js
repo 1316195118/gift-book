@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.8'
+export const APP_VERSION = '2.3.9'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.9',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '礼簿姓名改为整格绝对居中，不再因底部标记占位而偏上' },
+      { t: 'opt', text: '格子底部标记只显示一条，优先级：已回礼 > 已备注 > 已修改 > 待同步' },
+    ],
+  },
   {
     version: '2.3.8',
     date: '2026-11-15',
