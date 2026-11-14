@@ -262,6 +262,7 @@ node scripts/layout-audit.mjs  # 版面体检：重叠 / 挡字 / 裁切 / 隐�
 node scripts/print-proof.mjs   # 打印打样：出 A4 横向 PDF + 分页图，查溢出与串色
 node scripts/smoke.mjs <url>   # 只读冒烟，用来验线上部署（不建任何账簿）
 node web/scripts/e2e-smoke.mjs # 按钮响应 / chunk 404 / 版本提示（先起 :18299 隔离实例，用系统 Edge）
+node web/scripts/fuzz-all.mjs  # 全功能乱字符：API 边界 / XSS / 超长 / 控制字符 / 持久化
 ```
 
 `api-test.mjs` 会断言数据目录里只有它自己建的账簿，所以要对着一个空目录的实例跑：
