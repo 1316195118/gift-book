@@ -1,6 +1,6 @@
 <template>
   <Transition name="gb-modal">
-  <div v-if="modal.open" ref="rootEl" id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div v-if="modal.open" ref="rootEl" id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="onBackdropClick">
     <div
       id="modal"
       class="modal-card"
@@ -36,6 +36,11 @@ const view = ModalContent
 const rootEl = ref(null)
 let lastFocused = null
 let overflowTimer = 0
+
+function onBackdropClick(event) {
+  // 只有允许关闭的弹窗（提示/确认）点遮罩才关闭；密码、表单类防误触。
+  if (modal.dismissable && event.target === rootEl.value) closeModal()
+}
 
 async function runAction(action) {
   const keepOpen = action.keepOpen

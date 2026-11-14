@@ -11,6 +11,8 @@ export const modal = reactive({
   body: null,
   actions: [],
   token: 0,
+  // 是否允许点遮罩关闭：提示/确认类为 true，密码与表单类保持 false 防误关。
+  dismissable: false,
 })
 
 export function openModal(title, body, actions = [], options = {}) {
@@ -20,6 +22,7 @@ export function openModal(title, body, actions = [], options = {}) {
   modal.actions = actions
   modal.size = options.size || 'default'
   modal.theme = options.theme || ''
+  modal.dismissable = options.dismissable === true
   modal.open = true
   return modal.token
 }
@@ -56,6 +59,7 @@ export function alert(title, message, callback = null) {
         },
       },
     ],
+    { dismissable: true },
   )
 }
 
@@ -67,5 +71,6 @@ export function confirm(title, message, onConfirm) {
       { text: '取消', class: 'modal-btn-ghost' },
       { text: '确定', class: 'modal-btn-primary', handler: onConfirm },
     ],
+    { dismissable: true },
   )
 }

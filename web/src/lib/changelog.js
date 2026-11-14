@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.4'
+export const APP_VERSION = '2.3.5'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.5',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '提示 / 确认类弹窗支持点遮罩关闭；密码与表单类保持防误关；关闭键悬停微旋转反馈' },
+      { t: 'opt', text: '开关滑块等散落颜色归一为设计令牌，样式表零硬编码颜色；弹窗动效与焦点环统一走令牌' },
+    ],
+  },
   {
     version: '2.3.4',
     date: '2026-11-15',
