@@ -72,27 +72,41 @@ export function openStats() {
   // 弹窗内容由 Vue 在下一帧挂载，等它进入 DOM 后再填充图表与表格。
   const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', new Date(g.data.timestamp).toLocaleString('zh-CN')])
   afterModalRender(() => {
-    renderCharts(stats)
-    renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
+    const table = renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
+    renderCharts(stats, table)
   })
 }
 
-function renderCharts(stats) {
+function renderCharts(stats, table) {
   const typeBox = document.getElementById('stats-by-type-chart')
   if (typeBox) {
     const entries = Object.entries(stats.byType).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
     const max = Math.max(1, ...entries.map(([, v]) => v))
     typeBox.innerHTML = entries.length
-      ? entries.map(([type, amount]) => `<div class="bar-row"><span class="bar-label">${escapeHtml(type)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
+      ? entries.map(([type, amount]) => `<div class="bar-row" data-filter="${escapeHtml(type)}" title="点击筛选明细"><span class="bar-label">${escapeHtml(type)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
       : '<p class="empty">暂无数据</p>'
+    if (!typeBox.dataset.bound) {
+      typeBox.dataset.bound = '1'
+      typeBox.addEventListener('click', (event) => {
+        const filter = event.target.closest('.bar-row')?.dataset.filter
+        if (filter) table?.setQuery(filter)
+      })
+    }
   }
   const relationBox = document.getElementById('stats-by-relation-chart')
   if (relationBox) {
     const entries = Object.entries(stats.byRelation).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
     const max = Math.max(1, ...entries.map(([, v]) => v))
     relationBox.innerHTML = entries.length
-      ? entries.map(([relation, amount]) => `<div class="bar-row"><span class="bar-label">${escapeHtml(relation)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
+      ? entries.map(([relation, amount]) => `<div class="bar-row" data-filter="${escapeHtml(relation)}" title="点击筛选明细"><span class="bar-label">${escapeHtml(relation)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
       : '<p class="empty">暂无数据</p>'
+    if (!relationBox.dataset.bound) {
+      relationBox.dataset.bound = '1'
+      relationBox.addEventListener('click', (event) => {
+        const filter = event.target.closest('.bar-row')?.dataset.filter
+        if (filter) table?.setQuery(filter)
+      })
+    }
   }
   const dayBox = document.getElementById('stats-by-day-chart')
   if (dayBox) {
@@ -214,6 +228,16 @@ function renderStatsTable(container, columns, rows) {
     paint()
   })
   paint()
+  return {
+    setQuery(query) {
+      const q = String(query || '')
+      const input = container.querySelector('#stats-search')
+      if (input) input.value = q
+      state.q = q
+      state.page = 1
+      paint()
+    },
+  }
 }
 
 export { renderStatsTable }

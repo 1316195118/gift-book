@@ -378,6 +378,16 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
   to { opacity: 1; transform: none; }
 }
 
+/* --------------------------------------------------------------------------
+   10. 弹窗退出：入场沿用 sheet-in / veil-in，离开补一段收拢（Vue Transition）
+   -------------------------------------------------------------------------- */
+
+.gb-modal-leave-active { animation: gb-veil-out 160ms ease forwards; }
+.gb-modal-leave-active #modal { animation: gb-sheet-out 160ms var(--ease) forwards; }
+
+@keyframes gb-veil-out { to { opacity: 0; } }
+@keyframes gb-sheet-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }
+
 @media print {
   .gb-toast-stack,
   .gb-solemn-wave { display: none !important; }

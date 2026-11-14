@@ -1390,11 +1390,56 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .main-tools {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/* 窄屏把次要工具收进「更多」，只留统计与导出两个高频动作。 */
+.main-tools-more { display: none; }
+.main-tools .main-tools-more { padding: 0 12px; }
+.main-tools-more::before { display: none; }
+
+.main-tools-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 45;
+  min-width: 140px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+
+.main-tools-menu button {
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.main-tools-menu button:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--accent);
+}
+
+.main-tools-menu button:disabled { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .main-tools .main-tool:not(#stats-btn):not(#export-btn):not(.main-tools-more) { display: none; }
+  .main-tools .main-tools-more { display: inline-flex; align-items: center; }
 }
 
 .main-tools .main-tool {
@@ -2329,6 +2374,9 @@ body.theme-solemn .hero-book-art .book {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+
+.bar-row[data-filter] { cursor: pointer; }
+.bar-row[data-filter]:hover { background: var(--surface-sunken); }
 
 @media (prefers-reduced-motion: reduce) {
   .bar-fill { animation: none; }

@@ -43,6 +43,15 @@
             <button id="print-btn" class="main-tool" type="button" @click="openPrint">打印</button>
             <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
             <button id="export-btn" class="main-tool main-tool-primary" type="button" @click="openExport">导出</button>
+            <button type="button" class="main-tool main-tools-more" :aria-expanded="toolsOpen" aria-haspopup="menu" @click.stop="toolsOpen = !toolsOpen">更多</button>
+            <div v-if="toolsOpen" class="main-tools-menu" role="menu" @click.stop>
+              <button type="button" role="menuitem" @click="runTool('settings')">设置</button>
+              <button type="button" role="menuitem" @click="runTool('lock')">{{ st.locked ? '解锁' : '锁定' }}</button>
+              <button type="button" role="menuitem" @click="runTool('qr')">收款码</button>
+              <button type="button" role="menuitem" @click="runTool('largetext')">{{ st.largeText ? '标准字' : '大字' }}</button>
+              <button type="button" role="menuitem" @click="runTool('print')">打印</button>
+              <button type="button" role="menuitem" :disabled="!st.ocrAvailable" @click="runTool('ocr')">扫描礼簿</button>
+            </div>
           </div>
         </div>
       </header>
@@ -134,7 +143,7 @@
           </div>
 
           <div class="ledger-summary" aria-live="polite">
-            <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(stats.totalAmount) }}</span></div>
+            <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(displayTotal) }}</span></div>
             <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span></div>
             <div class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
@@ -197,8 +206,28 @@ import {
 } from '../lib/ledger-view.js'
 
 const dropdownOpen = ref(false)
+const toolsOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
+
+function runTool(name) {
+  toolsOpen.value = false
+  const actions = {
+    settings: openSettings,
+    lock: onToggleLock,
+    qr: showQr,
+    largetext: onToggleLargeText,
+    print: openPrint,
+    ocr: openOcr,
+  }
+  actions[name]?.()
+}
+
+function onDocumentClick(event) {
+  if (!event.target.closest('.main-tools')) toolsOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
 
 const copy = computed(() => copyOf(st.currentEvent, st.homeCategory))
 const version = computed(() => versionLabel())
@@ -206,6 +235,38 @@ const queueCount = computed(() => queueFor(st.currentEvent?.id).length)
 const items = computed(() => pageItems())
 const pages = computed(() => totalPages())
 const stats = computed(() => computeStats())
+
+// 汇总金额变化时做一次 count-up，避免数字硬跳。
+const displayTotal = ref(0)
+let totalRaf = 0
+watch(
+  () => stats.value.totalAmount,
+  (next, prev) => {
+    const to = Number(next) || 0
+    if (prev === undefined) {
+      displayTotal.value = to
+      return
+    }
+    const from = Number(displayTotal.value) || 0
+    if (from === to) {
+      displayTotal.value = to
+      return
+    }
+    cancelAnimationFrame(totalRaf)
+    const start = performance.now()
+    const duration = 420
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      displayTotal.value = from + (to - from) * eased
+      if (t < 1) totalRaf = requestAnimationFrame(tick)
+      else displayTotal.value = to
+    }
+    totalRaf = requestAnimationFrame(tick)
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => cancelAnimationFrame(totalRaf))
 const subtotal = computed(() => items.value.reduce((sum, gift) => sum + (Number(gift.data?.amount) || 0), 0))
 const amountText = computed(() => amountPreview(entry.amount))
 const hasAmount = computed(() => Number(entry.amount) > 0)

@@ -1,5 +1,6 @@
 <template>
-  <div ref="rootEl" id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" :class="{ hidden: !modal.open }">
+  <Transition name="gb-modal">
+  <div v-if="modal.open" ref="rootEl" id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div
       id="modal"
       class="modal-card"
@@ -23,6 +24,7 @@
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <script setup>
