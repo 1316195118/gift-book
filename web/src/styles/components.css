@@ -966,6 +966,51 @@ body.theme-solemn #modal-container {
   line-height: 1.7;
 }
 
+/* 历史修改痕迹时间线：圆点与文字分层，不依赖 Tailwind 任意值类。
+   圆点左移 7px 压在竖线上，文字从 22px 起排，二者不会重叠。 */
+.gb-timeline {
+  margin: 0 0 0 8px;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--line-strong);
+}
+
+.gb-timeline-item {
+  position: relative;
+  padding: 0 0 var(--sp-4) 22px;
+}
+
+.gb-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.gb-timeline-dot {
+  position: absolute;
+  top: 4px;
+  left: -7px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--faint-deco);
+  box-sizing: border-box;
+}
+
+.gb-timeline-item.is-current .gb-timeline-dot {
+  background: var(--ok);
+}
+
+.gb-timeline-time {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.gb-timeline-text {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
 /* 导出三选一 */
 .export-options {
   display: flex;

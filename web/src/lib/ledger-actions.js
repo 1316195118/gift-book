@@ -295,9 +295,11 @@ export function openGiftDetails(index) {
 
 function renderTimeline(history, current) {
   const reversed = [...history].reverse()
-  return `<ul class="space-y-4 border-l-2 border-gray-300 ml-2">${reversed
-    .map((record, idx) => `<li class="relative pl-6 pb-4"><div class="absolute w-3 h-3 bg-gray-400 rounded-full -left-[7px] top-1 border-2 border-white"></div><div class="text-sm text-gray-500">${new Date(record.timestamp).toLocaleString('zh-CN')}</div><div class="font-medium text-gray-800 mt-1">${escapeHtml(record.changeLog)}</div></li>`)
-    .join('')}<li class="relative pl-6"><div class="absolute w-3 h-3 bg-green-500 rounded-full -left-[7px] top-1 border-2 border-white"></div><div class="text-sm text-gray-500">当前状态 (${new Date(current.updatedAt || current.timestamp).toLocaleString('zh-CN')})</div></li></ul>`
+  const item = (time, text, isCurrent = false) =>
+    `<li class="gb-timeline-item${isCurrent ? ' is-current' : ''}"><span class="gb-timeline-dot" aria-hidden="true"></span><div class="gb-timeline-time">${time}</div>${text ? `<div class="gb-timeline-text">${text}</div>` : ''}</li>`
+  return `<ul class="gb-timeline">${reversed
+    .map((record) => item(new Date(record.timestamp).toLocaleString('zh-CN'), escapeHtml(record.changeLog)))
+    .join('')}${item(`当前状态 (${new Date(current.updatedAt || current.timestamp).toLocaleString('zh-CN')})`, '', true)}</ul>`
 }
 
 function showInlineEdit(index, field) {
