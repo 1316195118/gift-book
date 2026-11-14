@@ -53,3 +53,6 @@
 .idea/
 .DS_Store
 Thumbs.db
+
+# 前端覆盖率报表
+web/coverage/

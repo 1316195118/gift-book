@@ -97,7 +97,6 @@
   var byKey = {};
   var byId = {};
   var zhCN = null;
-  var zhCNMale = null;
   var zhHK = null;
   var zhTW = null;
 
@@ -112,7 +111,6 @@
       if (k && !byKey[k]) byKey[k] = item;
     });
     if (lang === "zh-cn" && !zhCN) zhCN = item;
-    if (item.id === "m-zh-cn") zhCNMale = item;
     if (lang === "zh-hk" && !zhHK) zhHK = item;
     if (lang === "zh-tw" && !zhTW) zhTW = item;
   });

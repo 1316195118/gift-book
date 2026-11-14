@@ -1,0 +1,80 @@
+import pluginVue from 'eslint-plugin-vue'
+
+// 轻量门禁：只拦真实错误（未使用变量、Vue 模板结构问题），不做格式强制，
+// 避免一次性重排全仓产生海量 diff。
+export default [
+  { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
+  ...pluginVue.configs['flat/recommended'],
+  {
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        location: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        fetch: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
+        URL: 'readonly',
+        Blob: 'readonly',
+        File: 'readonly',
+        FileReader: 'readonly',
+        FormData: 'readonly',
+        AbortController: 'readonly',
+        crypto: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        MouseEvent: 'readonly',
+        HTMLElement: 'readonly',
+        Image: 'readonly',
+        matchMedia: 'readonly',
+        getComputedStyle: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        structuredClone: 'readonly',
+        indexedDB: 'readonly',
+        requestIdleCallback: 'readonly',
+      },
+    },
+    rules: {
+      // 大量 v-html 是刻意的模板渲染（内容已转义），不当作缺陷。
+      'vue/no-v-html': 'off',
+      'vue/multi-word-component-names': 'off',
+      // 格式类规则全部交给编辑器，不在门禁里制造噪声。
+      'vue/max-attributes-per-line': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+      'vue/html-self-closing': 'off',
+      'vue/html-indent': 'off',
+      'vue/html-closing-bracket-newline': 'off',
+      'vue/attributes-order': 'off',
+      'vue/require-default-prop': 'off',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+    },
+  },
+  {
+    files: ['**/*.test.js'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        vi: 'readonly',
+      },
+    },
+  },
+]

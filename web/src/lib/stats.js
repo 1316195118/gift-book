@@ -4,7 +4,6 @@ import { openModal, closeModal, afterModalRender } from './modal.js'
 import { openCrossSummary } from './cross-summary.js'
 import { copyOf } from './content.js'
 import { formatCurrency, escapeHtml } from './crypto.js'
-import { openGiftDetails } from './ledger-actions.js'
 import { computeStats } from './stats-core.js'
 export { computeStats }
 

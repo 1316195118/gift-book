@@ -1,11 +1,20 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.3.12'
+export const APP_VERSION = '2.3.13'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.3.13',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '接入 ESLint 门禁（0 error）与前端覆盖率门槛（不低于当前 14.7%），防后续回退' },
+      { t: 'opt', text: 'auth 限流代码拆到独立文件；清理未使用的 import 与变量' },
+      { t: 'opt', text: '前端目录加独立 go.mod，go test 不再误扫 node_modules' },
+    ],
+  },
   {
     version: '2.3.12',
     date: '2026-11-15',

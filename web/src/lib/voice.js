@@ -61,7 +61,7 @@ const preferVoice = (candidate, current) => {
 }
 
 // 返回下拉框的分组数据，供 Vue 渲染。
-export function buildVoiceGroups(selectedValue) {
+export function buildVoiceGroups(_selectedValue) {
   const live = detectedChineseVoices()
   if (live.length) writeVoiceCache(live)
 
