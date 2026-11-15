@@ -47,7 +47,7 @@ export function showPrintModal() {
         ${chip('margin', 'wide', '宽', options.margin === 'wide')}
       </div></div>
       <label class="print-option-toggle"><input type="checkbox" id="print-option-appendix" ${options.appendix ? 'checked' : ''} /><span>附上备注附录页</span></label>
-      <p class="print-option-hint">设置会自动记住，打印与 PDF 导出共用；Ctrl+P 也可打开此面板。</p>
+      <p class="print-option-hint">设置会自动记住，打印与 PDF 导出共用；「签到表」生成 A4 签到页（含关系与签名栏）。</p>
     </div>`
   openModal('打印设置', { type: 'html', html }, [
     { text: '取消', class: 'modal-btn-ghost' },

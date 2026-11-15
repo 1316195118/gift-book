@@ -1851,6 +1851,37 @@ body.theme-solemn #modal-container {
   font-variant-numeric: tabular-nums;
 }
 
+/* 使用说明里的「还能做什么」：一行一个能力，标题固定宽度便于扫读。 */
+.help-features {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+
+.help-features-title {
+  margin-bottom: var(--sp-2);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+.help-feature {
+  display: flex;
+  gap: var(--sp-3);
+  padding: 5px 0;
+  font-size: var(--fs-sm);
+}
+
+.help-feature b {
+  flex: none;
+  width: 6.6em;
+  font-weight: 600;
+}
+
+.help-feature span {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
 /* --------------------------------------------------------------------------
    12. 动画
    -------------------------------------------------------------------------- */

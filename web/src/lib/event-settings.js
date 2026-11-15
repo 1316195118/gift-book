@@ -141,7 +141,7 @@ export function openSettings({ section = 'general' } = {}) {
       <section class="settings-section">
         <h4 class="settings-title">数据</h4>
         <button type="button" id="edit-backup-btn" class="themed-button-secondary field-action">导出这本账簿</button>
-        ${hint('导出的是当前账簿的密文数据，可在首页「自动备份」里还原。要备份全部账簿请用首页的自动备份。')}
+        ${hint('导出的是当前账簿的密文数据，可在首页「备份」里还原。要备份全部账簿请用首页的备份。')}
         <button type="button" id="edit-delete-btn" class="field-danger">删除这本账簿</button>
       </section>
     </div>`

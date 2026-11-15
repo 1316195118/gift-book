@@ -31,10 +31,10 @@
       <button type="button" class="themed-button-secondary" @click="pickFile">上传备份文件</button>
       <input ref="fileInput" type="file" accept=".zip,application/zip" class="ocr-file-input" @change="onFilePicked" />
     </div>
-    <p class="field-hint">备份只包含加密后的礼金内容；别人拿到文件也打不开，需要对应账簿的管理密码。</p>
+    <p class="field-hint">备份只包含加密后的礼金内容。设了管理密码的账簿，别人拿到文件也打不开，需要对应密码；没设密码的账簿备份不设防，请自行妥善保管。</p>
 
     <div class="autobackup-status">
-      <div><span>上次备份</span><b>{{ lastBackupAt || '尚未备份' }}</b></div>
+      <div><span>上次备份</span><b>{{ lastBackupAt ? lastBackupAt : '从未备份' }}</b></div>
       <div><span>存放位置</span><code>{{ dir }}</code></div>
     </div>
 

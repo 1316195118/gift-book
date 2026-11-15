@@ -129,7 +129,7 @@
         <button id="home-create-btn" class="home-create-btn" @click="createNew">＋ 创建新账簿</button>
       </div>
 
-      <footer class="home-footer"><span>本地部署 · 自主管理</span><span>建议定期导出，妥善留存每一份记录</span></footer>
+      <footer class="home-footer"><span>本地部署 · 自主管理</span><span>建议开启自动备份，并定期导出留底</span></footer>
       <p class="home-legal">
         <button type="button" class="home-legal-btn" @click="showLicense">© 2026 Gift Book contributors · MIT License</button>
       </p>

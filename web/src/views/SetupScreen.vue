@@ -80,6 +80,7 @@
             </div>
           </div>
           <p class="setup-hint" id="setup-pwd-hint">{{ copy.pwdHint }}</p>
+          <p class="setup-hint" id="setup-sync-hint">创建后可在同一网络下多人同时登记，改动会自动同步到各设备。</p>
 
           <details class="setup-more" ref="moreDetails">
             <summary class="setup-more-summary">

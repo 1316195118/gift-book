@@ -46,6 +46,10 @@ export function showHelpDialog() {
             .join('')}
         </div>
         <div class="help-tip">${copy.helpTip}</div>
+        <div class="help-features">
+          <div class="help-features-title">还能做什么</div>
+          ${copy.helpFeatures.map(([title, desc]) => `<div class="help-feature"><b>${title}</b><span>${desc}</span></div>`).join('')}
+        </div>
         <div class="help-build">前端构建 ${st.build || '-'} · Vue 3 + Go</div>`,
     },
     [{ text: '知道了', class: 'themed-button-primary px-4 py-2 rounded' }],
