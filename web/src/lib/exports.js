@@ -2,12 +2,20 @@
 import { state as st } from '../store.js'
 import { openModal, closeModal, alert as showAlert } from './modal.js'
 import { copyOf, isSolemnEvent } from './content.js'
-import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
+import { amountToChinese, formatCurrency, escapeHtml, formatDateTime } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
 import { XlsxLite } from './crypto.js'
+import { hasReturned, returnRecordsOf } from './return-gift.js'
 import { openImport } from './import.js'
 
 const ITEMS_PER_PAGE = 12
+
+// Excel 主题：与红事 / 白事的纸色、主色一致（ARGB）。
+const XLSX_THEMES = {
+  festive: { accent: 'FFAB2B21', soft: 'FFF9EAE4', paper: 'FFFAF4E9', line: 'FFE9DDC7', ink: 'FF241C14' },
+  solemn: { accent: 'FF33475A', soft: 'FFEAEEF2', paper: 'FFF2F3F2', line: 'FFDDE1E1', ink: 'FF1A1F21' },
+}
+const xlsxTheme = (ev) => (isSolemnEvent(ev, st.homeCategory) ? XLSX_THEMES.solemn : XLSX_THEMES.festive)
 
 export function openExport() {
   const ev = st.currentEvent
@@ -23,6 +31,7 @@ export function openExport() {
       bookTitle: copy.bookTitle,
       onPick: (format) => {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
+        if (format === 'returns') setTimeout(() => exportReturns(), 80)
         if (format === 'pdf') setTimeout(() => exportLedgerPdf(), 120)
         if (format === 'word') setTimeout(() => exportToWord(), 80)
         if (format === 'import') setTimeout(() => openImport(), 80)
@@ -89,6 +98,7 @@ export function exportToExcel() {
   const sheets = [
     {
       name: copy.detailTitle,
+      theme: xlsxTheme(ev),
       widths: [6, 14, 14, 26, 10, 10, 26, 20],
       rows,
       merges: ['A1:H1', 'A2:H2', `A${lastDataRow + 1}:H${lastDataRow + 1}`],
@@ -122,6 +132,7 @@ export function exportToExcel() {
     for (let r = 5; r < historyRows.length + 1; r += 1) historyHeights[r] = 24
     sheets.push({
       name: '修改记录',
+      theme: xlsxTheme(ev),
       widths: [6, 14, 52, 22],
       rows: historyRows,
       merges: ['A1:D1', 'A2:D2'],
@@ -131,6 +142,116 @@ export function exportToExcel() {
     })
   }
   XlsxLite.downloadWorkbook(sheets, `${ev.name}_${copy.fileSuffix}.xlsx`)
+}
+
+// 一键导出「已回礼的人与金额」：每人一行，类型列标注「回礼」，附合计。
+export function exportReturns() {
+  const ev = st.currentEvent
+  if (!ev) return
+  const copy = copyOf(ev, st.homeCategory)
+  const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
+
+  const list = st.gifts
+    .filter((g) => hasReturned(g.data))
+    .map((g) => {
+      const d = g.data
+      const records = returnRecordsOf(d)
+      const total = records.reduce((sum, r) => sum + Number(r.amount || 0), 0)
+      const last = records[records.length - 1]
+      return {
+        name: d.name || '',
+        relation: d.relation || '未分类',
+        gift: Number(d.amount) || 0,
+        total,
+        times: records.length,
+        lastAt: last?.timestamp || '',
+        notes: records.map((r) => r.note).filter(Boolean).join('；'),
+      }
+    })
+
+  if (!list.length) {
+    return showAlert('无法导出', `当前账簿还没有登记回礼。先在礼金详情里登记回礼，再来导出${copy.peopleNoun}的回礼明细。`)
+  }
+
+  const totalReturned = list.reduce((sum, r) => sum + r.total, 0)
+  const metaLine = [
+    ev.displayId ? `No.${ev.displayId}` : '',
+    `已回礼 ${list.length} 位${copy.peopleNoun}`,
+    `回礼合计 ${formatCurrency(totalReturned)}`,
+  ].filter(Boolean).join('　·　')
+
+  const rows = [
+    [{ v: `${ev.name} 回礼明细`, s: style.title }, null, null, null, null, null, null, null, null],
+    [{ v: metaLine, s: style.meta }, null, null, null, null, null, null, null, null],
+    [null],
+    ['序号', '姓名', '关系', '原礼金', '回礼金额', '回礼次数', '最近回礼时间', '备注', '类型'].map((v) => ({ v, s: style.head })),
+  ]
+  list.forEach((r, i) => {
+    rows.push([
+      { v: i + 1, s: style.center },
+      { v: r.name, s: style.center },
+      { v: r.relation, s: style.center },
+      { v: r.gift, s: style.money },
+      { v: r.total, s: style.money },
+      { v: r.times, s: style.center },
+      { v: r.lastAt ? formatDateTime(r.lastAt) : '', s: style.center },
+      { v: r.notes, s: style.text },
+      { v: '回礼', s: style.center },
+    ])
+  })
+  const lastDataRow = rows.length
+  rows.push([{ v: `已回礼 ${list.length} 位　·　回礼合计：${formatCurrency(totalReturned)}`, s: style.total }, null, null, null, null, null, null, null, null])
+
+  const rowHeights = { 1: 30, 2: 20, 3: 8, 4: 24 }
+  for (let r = 5; r <= lastDataRow; r += 1) rowHeights[r] = 22
+  rowHeights[lastDataRow + 1] = 24
+
+  const theme = xlsxTheme(ev)
+  const solemn = isSolemnEvent(ev, st.homeCategory)
+  const coverRows = []
+  const coverHeights = {}
+  const pushCover = (text, style, height) => {
+    coverRows.push([{ v: text, s: style }, ...Array(7).fill(null)])
+    coverHeights[coverRows.length] = height
+  }
+  const startText = ev.startDateTime ? new Date(ev.startDateTime).toLocaleString('zh-CN', { hour12: false }) : ''
+  pushCover('', 11, 24)
+  pushCover('', 11, 30)
+  pushCover(ev.name, 12, 56)
+  pushCover(`${solemn ? '白事 · 奠仪' : '红事 · 贺礼'} · 回礼明细`, 13, 34)
+  pushCover('', 11, 16)
+  pushCover(startText ? `时间：${startText}` : '', 14, 28)
+  pushCover(ev.location ? `地点：${ev.location}` : '', 14, 28)
+  pushCover('', 11, 12)
+  pushCover(`已回礼 ${list.length} 位${copy.peopleNoun}　·　回礼合计 ${formatCurrency(totalReturned)}`, 13, 34)
+  pushCover('', 11, 12)
+  pushCover(`本表只列已登记回礼的${copy.peopleNoun}：每人一行，回礼金额为多次回礼的累计；「类型」列统一标注为回礼。`, 14, 64)
+  pushCover(`导出于 ${new Date().toLocaleString('zh-CN', { hour12: false })}`, 14, 30)
+  pushCover('', 11, 24)
+
+  XlsxLite.downloadWorkbook(
+    [
+      {
+        name: '封面',
+        theme,
+        widths: [14, 14, 14, 14, 14, 14, 14, 14],
+        rows: coverRows,
+        merges: coverRows.map((_, i) => `A${i + 1}:H${i + 1}`),
+        rowHeights: coverHeights,
+      },
+      {
+        name: '回礼明细',
+        theme,
+        widths: [6, 14, 10, 12, 12, 10, 20, 26, 8],
+        rows,
+        merges: ['A1:I1', 'A2:I2', `A${lastDataRow + 1}:I${lastDataRow + 1}`],
+        rowHeights,
+        freeze: { ySplit: 4, topLeft: 'A5' },
+        autoFilter: `A4:I${lastDataRow}`,
+      },
+    ],
+    `${ev.name}_回礼明细.xlsx`,
+  )
 }
 
 export function exportToWord() {

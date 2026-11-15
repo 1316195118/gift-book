@@ -145,38 +145,52 @@
     `<font><sz val="${size}"/>${bold ? "<b/>" : ""}<color rgb="${color}"/><name val="宋体"/><charset val="134"/></font>`;
   const FILL = (rgb) =>
     `<fill><patternFill patternType="solid"><fgColor rgb="${rgb}"/><bgColor indexed="64"/></patternFill></fill>`;
-  const BORDER =
-    '<border><left style="thin"><color rgb="FFD9C7B8"/></left><right style="thin"><color rgb="FFD9C7B8"/></right>' +
-    '<top style="thin"><color rgb="FFD9C7B8"/></top><bottom style="thin"><color rgb="FFD9C7B8"/></bottom><diagonal/></border>';
 
-  const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  // 主题化样式：accent / soft / paper / line 跟随红事或白事；索引 0-7 与旧版一致。
+  function stylesXml(theme = {}) {
+    const accent = theme.accent || "FFA3261E";
+    const soft = theme.soft || "FFFBE9E2";
+    const paper = theme.paper || "FFFFF7F3";
+    const lineColor = theme.line || "FFD9C7B8";
+    const ink = theme.ink || "FF333333";
+    const border = `<border><left style="thin"><color rgb="${lineColor}"/></left><right style="thin"><color rgb="${lineColor}"/></right><top style="thin"><color rgb="${lineColor}"/></top><bottom style="thin"><color rgb="${lineColor}"/></bottom><diagonal/></border>`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;¥&quot;#,##0.00"/></numFmts>
-<fonts count="6">
-${FONT(11, false, "FF333333")}
-${FONT(16, true, "FFA3261E")}
+<fonts count="8">
+${FONT(11, false, ink)}
+${FONT(16, true, accent)}
 ${FONT(10, false, "FF777777")}
 ${FONT(11, true, "FFFFFFFF")}
-${FONT(11, true, "FFA3261E")}
-${FONT(10, false, "FF333333")}
+${FONT(11, true, accent)}
+${FONT(10, false, ink)}
+${FONT(28, true, accent)}
+${FONT(13, false, accent)}
 </fonts>
-<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${FILL(
-    "FFFBE9E2"
-  )}${FILL("FFFFF7F3")}</fills>
-<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${BORDER}</borders>
+<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${FILL(soft)}${FILL(paper)}${FILL(accent)}</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${border}</borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="8">
+<cellXfs count="16">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
 <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="164" fontId="5" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
 <xf numFmtId="0" fontId="4" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="6" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="7" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="3" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="常规" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
+  }
 
   /* ---------- 工作表 ---------- */
   function buildSheetXml(sheet) {
@@ -266,7 +280,7 @@ ${FONT(10, false, "FF333333")}
       { name: "_rels/.rels", data: rootRels },
       { name: "xl/workbook.xml", data: workbook },
       { name: "xl/_rels/workbook.xml.rels", data: workbookRels },
-      { name: "xl/styles.xml", data: STYLES_XML },
+      { name: "xl/styles.xml", data: stylesXml((list[0] && list[0].theme) || {}) },
     ];
     list.forEach((sheet, i) => {
       files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: buildSheetXml(sheet) });
