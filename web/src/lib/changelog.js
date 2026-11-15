@@ -8,6 +8,14 @@ const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
   {
+    version: '2.4.5',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '查找更快：结果较多时先显示一屏，其余点「显示更多」逐步展开，不再一次生成上百行' },
+      { t: 'opt', text: '记一笔更快：录入后只更新刚记的这条，不再重载整本账簿' },
+    ],
+  },
+  {
     version: '2.4.4',
     date: '2026-11-15',
     notes: [

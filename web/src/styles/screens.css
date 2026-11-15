@@ -2188,6 +2188,12 @@ body.theme-solemn .hero-book-art .book {
   flex-direction: column;
 }
 
+/* 结果较多时的「显示更多」：居中一行，避免一屏塞上百条。 */
+.search-more {
+  margin-top: var(--sp-4);
+  text-align: center;
+}
+
 .search-row {
   display: flex;
   align-items: center;

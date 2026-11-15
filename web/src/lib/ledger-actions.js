@@ -16,6 +16,7 @@ import { getVoiceOptions, qrStorageKey } from './prefs.js'
 import { speakText, previewVoice } from './voice.js'
 import { showQrImage } from './qr.js'
 import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn } from './return-gift.js'
+import { compareGiftsByRegistration } from './gift-order.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
@@ -119,7 +120,7 @@ async function saveGift(giftData, resetForm) {
     const encryptedContent = await encryptData(fullGift, st.currentPassword)
     record = { eventId: st.currentEvent.id, encryptedContent, requestId: newRequestId() }
     queued = enqueueGift(record)
-    await api.createGift(record)
+    const created = await api.createGift(record)
     if (queued) removeQueued(queued.qid)
     closeModal()
     resetForm?.()
@@ -127,7 +128,20 @@ async function saveGift(giftData, resetForm) {
     stampSeal(getCoverTemplate(st.currentEvent, st.homeCategory).glyph)
     speakGift(giftData.name, giftData.amount)
     touchSession()
-    await loadGiftsForCurrentEvent()
+    // 只解密刚写入的这一条并插入，不再每次记账都重拉整本账簿。
+    const createdGift = created?.data
+    const createdData = createdGift?.encryptedContent ? decryptData(createdGift.encryptedContent, st.currentPassword) : null
+    if (createdGift && createdData) {
+      if (!st.gifts.some((g) => g.id === createdGift.id)) {
+        st.gifts.push({ ...createdGift, data: createdData })
+      }
+      st.gifts.sort(compareGiftsByRegistration)
+      st.currentPage = Math.ceil(st.gifts.length / 12) || 1
+      syncEventTotal()
+    } else {
+      // 万一返回内容异常，退回全量刷新，保证界面与数据一致。
+      await loadGiftsForCurrentEvent()
+    }
   } catch (error) {
     closeModal()
     if (record && queued) {
@@ -447,9 +461,9 @@ export async function runSearch(name, amountText) {
   if (amountTerm !== null) criteria.push(`金额 ${formatCurrency(amountTerm)}`)
   if (!results.length) return showAlert('查找结果', escapeHtml(`没有找到${criteria.join('、')}的记录。`))
 
-  const rows = results
-    .map(
-      (r) => `
+  // 结果多时只先渲染一屏，其余点「显示更多」追加，避免一次性生成上百行 DOM。
+  const SEARCH_BATCH = 30
+  const rowHtml = (r) => `
       <li class="search-row">
         <div class="search-row-main">
           <span class="search-avatar" aria-hidden="true">${escapeHtml(Array.from(String(r.data.name || '?'))[0] || '?')}</span>
@@ -466,17 +480,20 @@ export async function runSearch(name, amountText) {
           </div>
         </div>
         <button class="view-details-btn search-row-action" data-gift-index="${r.originalIndex}" type="button">详情</button>
-      </li>`,
-    )
-    .join('')
+      </li>`
+
+  const total = results.length
+  const firstBatch = results.slice(0, SEARCH_BATCH).map(rowHtml).join('')
+  const moreCount = total - Math.min(total, SEARCH_BATCH)
 
   const html = `
     <div class="search-panel">
       <div class="search-summary">
-        <span>共找到 <b>${results.length}</b> 条记录</span>
+        <span>共找到 <b>${total}</b> 条记录</span>
         <span class="search-summary-criteria">${escapeHtml(criteria.join(' · '))}</span>
       </div>
-      <ul class="search-list">${rows}</ul>
+      <ul class="search-list" id="search-list">${firstBatch}</ul>
+      ${moreCount > 0 ? `<div class="search-more"><button type="button" id="search-more-btn" class="modal-btn-ghost">显示更多（剩余 ${moreCount} 条）</button></div>` : ''}
     </div>`
 
   openModal(
@@ -485,12 +502,23 @@ export async function runSearch(name, amountText) {
     [{ text: '关闭', class: 'modal-btn-ghost' }],
   )
   afterModalRender(() => {
-    document.querySelectorAll('.view-details-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const index = Number(btn.dataset.giftIndex)
-        closeModal()
-        setTimeout(() => openGiftDetails(index), 150)
-      })
+    const listEl = document.querySelector('#search-list')
+    // 事件委托：后续追加的行无需再逐条绑定。
+    listEl?.addEventListener('click', (event) => {
+      const btn = event.target.closest('.view-details-btn')
+      if (!btn) return
+      const index = Number(btn.dataset.giftIndex)
+      closeModal()
+      setTimeout(() => openGiftDetails(index), 150)
+    })
+    const moreBtn = document.querySelector('#search-more-btn')
+    moreBtn?.addEventListener('click', () => {
+      const start = listEl.querySelectorAll('.search-row').length
+      const next = results.slice(start, start + SEARCH_BATCH)
+      listEl.insertAdjacentHTML('beforeend', next.map(rowHtml).join(''))
+      const left = total - (start + next.length)
+      if (left > 0) moreBtn.textContent = `显示更多（剩余 ${left} 条）`
+      else moreBtn.parentElement?.remove()
     })
   })
 }
