@@ -1,0 +1,338 @@
+/* ==========================================================================
+   新增能力：导出范围、未回礼名单、回收站、结簿只读
+   --------------------------------------------------------------------------
+   只做加法，配色沿用设计令牌，红事 / 白事主题自动跟随。
+   ========================================================================== */
+
+.gb-scope-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  font-size: var(--fs-sm);
+}
+
+.gb-scope-bar > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.gb-scope-bar b {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.gb-scope-bar span {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gb-inline-btn,
+.gb-link-btn {
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gb-inline-btn:hover,
+.gb-link-btn:hover {
+  text-decoration: underline;
+}
+
+.gb-scope-bar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 0 0 auto;
+}
+
+.gb-scope-bar .gb-inline-btn {
+  font-size: var(--fs-xs);
+}
+
+.gb-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  text-align: left;
+}
+
+.gb-picker-intro {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+.gb-picker-intro b {
+  color: var(--accent);
+}
+
+.gb-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.gb-form-grid .field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+
+.gb-form-grid input,
+.gb-picker-filters input,
+.gb-picker-filters select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.gb-picker-filters {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.gb-picker-filters > * {
+  flex: 1 1 160px;
+}
+
+.gb-picker-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--sp-2);
+}
+
+.gb-picker-count {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.gb-picker-actions {
+  display: inline-flex;
+  gap: var(--sp-4);
+}
+
+.gb-picker-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.gb-pick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.gb-pick-row:last-of-type {
+  border-bottom: 0;
+}
+
+.gb-pick-row:hover {
+  background: var(--surface-sunken);
+}
+
+.gb-pick-row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.gb-pick-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gb-pick-name {
+  color: var(--ink);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.gb-pick-meta {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gb-pick-amount {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.gb-pick-amount-input {
+  flex: 0 0 96px;
+  width: 96px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: text;
+}
+
+.gb-more-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.gb-empty {
+  padding: var(--sp-6) var(--sp-4);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.gb-picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+}
+
+.gb-inline-error {
+  min-height: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.gb-inline-error:empty {
+  display: none;
+}
+
+.gb-inline-warn {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+}
+
+.gb-trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  text-align: left;
+}
+
+.gb-trash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.gb-trash-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gb-trash-main b {
+  color: var(--ink);
+  font-size: var(--fs-base);
+}
+
+.gb-trash-main span,
+.gb-trash-note {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.gb-readonly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.gb-readonly-note {
+  margin-top: var(--sp-2);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 640px) {
+  .gb-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gb-picker-list {
+    max-height: 40vh;
+  }
+
+  .gb-pick-amount-input {
+    flex-basis: 76px;
+    width: 76px;
+  }
+
+  .gb-scope-bar {
+    flex-wrap: wrap;
+  }
+
+  .gb-trash-item {
+    flex-wrap: wrap;
+  }
+}

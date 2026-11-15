@@ -15,6 +15,7 @@
           <button type="button" class="home-help-btn large-text-toggle" :aria-pressed="st.largeText" @click="toggleLargeText">{{ st.largeText ? '标准字号' : '大字' }}</button>
           <button type="button" class="home-help-btn sound-toggle" :aria-pressed="soundOn" :title="soundOn ? '关闭提示音' : '开启提示音'" @click="toggleSound">{{ soundOn ? '音效开' : '静音' }}</button>
           <button type="button" class="home-help-btn" id="autobackup-btn" @click="showAutoBackupModal">备份</button>
+          <button type="button" class="home-help-btn" id="trash-btn" @click="showTrashModal">回收站</button>
           <button type="button" class="home-help-btn" id="access-btn" @click="showAccessModal">{{ st.authEnabled ? '访问保护 · 开' : '访问保护' }}</button>
           <button v-if="st.authEnabled" type="button" class="home-help-btn" id="logout-btn" @click="logout">退出</button>
         </div>
@@ -143,6 +144,7 @@ import { state as st } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
 import { showTemplates, showSetup, showHelpDialog, openEvent, versionLabel, showChangelog, showLicense } from '../lib/actions.js'
 import { showAccessModal, showAutoBackupModal, logout, showNetworkDetails, switchCategory, toggleLargeText } from '../lib/actions.js'
+import { showTrashModal } from '../lib/trash.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'
 import { soundEnabled, setSoundEnabled } from '../lib/prefs.js'

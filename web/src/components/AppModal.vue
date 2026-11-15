@@ -10,7 +10,7 @@
       :aria-labelledby="modal.title ? 'modal-title' : undefined"
       tabindex="-1"
     >
-      <div class="modal-head">
+      <div class="modal-head" :class="{ 'is-titleless': !modal.title }">
         <h3 id="modal-title" class="modal-title">{{ modal.title }}</h3>
         <button type="button" id="modal-close" class="modal-close" title="关闭" aria-label="关闭弹窗" @click="closeModal()">×</button>
       </div>

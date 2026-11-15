@@ -196,6 +196,18 @@ func validateEventBody(body map[string]any, existing map[string]any) error {
 			return fmt.Errorf("无效的语音播报开关")
 		}
 	}
+	// 结簿归档：只允许布尔开关与短时间字符串，避免写入任意内容。
+	if raw, ok := body["archived"]; ok && raw != nil {
+		if _, isBool := raw.(bool); !isBool {
+			return fmt.Errorf("无效的结簿状态")
+		}
+	}
+	if raw, ok := body["archivedAt"]; ok && raw != nil {
+		text, isString := raw.(string)
+		if !isString || len(text) > 32 || !utf8.ValidString(text) {
+			return fmt.Errorf("无效的结簿时间")
+		}
+	}
 	if raw, ok := body["minSpeechAmount"]; ok && raw != nil {
 		number, err := validateAmount(raw, 999999999999, true)
 		if err != nil {

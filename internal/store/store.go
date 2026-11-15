@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -176,6 +178,141 @@ func (s *Store) RestoreTrashedGifts(eventID, trashDir string) {
 	if _, err := os.Stat(src); err == nil {
 		_ = os.Rename(src, s.giftsPath(eventID))
 	}
+}
+
+// ---- 回收站：列出与恢复被删除的账簿 ----
+
+// TrashItem 描述 .trash 里的一份快照，供页面上的「回收站」展示与恢复。
+type TrashItem struct {
+	Name      string `json:"name"`
+	Kind      string `json:"kind"` // event：删除的单本账簿；import：备份导入前的整站快照
+	EventID   string `json:"eventId"`
+	EventName string `json:"eventName"`
+	DeletedAt string `json:"deletedAt"`
+	GiftCount int    `json:"giftCount"`
+	Restored  bool   `json:"restored"`
+}
+
+var trashNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,96}$`)
+var trashedEventIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+func (s *Store) trashPath(name string) string {
+	return filepath.Join(s.dir, ".trash", name)
+}
+
+// trashTime 从目录名里取出 20060102-150405 片段，只用于展示。
+func trashTime(name string) string {
+	parts := strings.Split(name, "-")
+	if strings.HasPrefix(name, "import-") && len(parts) >= 3 {
+		return parts[1] + "-" + parts[2]
+	}
+	if len(parts) >= 3 {
+		return parts[0] + "-" + parts[1]
+	}
+	return ""
+}
+
+// ListTrash 只读扫描 .trash；无法识别的目录一律跳过，不影响主流程。
+func (s *Store) ListTrash() ([]TrashItem, error) {
+	entries, err := os.ReadDir(filepath.Join(s.dir, ".trash"))
+	if os.IsNotExist(err) {
+		return []TrashItem{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	items := make([]TrashItem, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() || !trashNamePattern.MatchString(entry.Name()) {
+			continue
+		}
+		dir := s.trashPath(entry.Name())
+		item := TrashItem{Name: entry.Name(), DeletedAt: trashTime(entry.Name())}
+		if _, err := os.Stat(filepath.Join(dir, "restored")); err == nil {
+			item.Restored = true
+		}
+		if strings.HasPrefix(entry.Name(), "import-") {
+			item.Kind = "import"
+			item.EventName = "整站快照（备份导入前）"
+			if events, readErr := readMap(filepath.Join(dir, "events.json")); readErr == nil {
+				item.GiftCount = len(events)
+			}
+		} else {
+			raw, readErr := os.ReadFile(filepath.Join(dir, "event.json"))
+			if readErr != nil {
+				continue
+			}
+			var event Record
+			if json.Unmarshal(raw, &event) != nil {
+				continue
+			}
+			item.Kind = "event"
+			item.EventID, _ = event["id"].(string)
+			item.EventName, _ = event["name"].(string)
+			if !trashedEventIDPattern.MatchString(item.EventID) {
+				continue
+			}
+			if gifts, giftErr := readMap(filepath.Join(dir, "gifts.json")); giftErr == nil {
+				item.GiftCount = len(gifts)
+			}
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Name > items[j].Name })
+	return items, nil
+}
+
+// RestoreTrash 恢复一份被删除的单本账簿快照。
+// 快照原件保留不动（可再次恢复）；整站导入快照不提供一键恢复，避免覆盖现有全部账簿。
+func (s *Store) RestoreTrash(name string) (string, string, error) {
+	if !trashNamePattern.MatchString(name) || strings.HasPrefix(name, "import-") {
+		return "", "", ErrNotFound
+	}
+	dir := s.trashPath(name)
+	raw, err := os.ReadFile(filepath.Join(dir, "event.json"))
+	if err != nil {
+		return "", "", ErrNotFound
+	}
+	var event Record
+	if json.Unmarshal(raw, &event) != nil {
+		return "", "", ErrCorrupt
+	}
+	id, _ := event["id"].(string)
+	eventName, _ := event["name"].(string)
+	if !trashedEventIDPattern.MatchString(id) {
+		return "", "", ErrCorrupt
+	}
+
+	// 先把礼金快照读好并校验，损坏时绝不写入任何文件。
+	var giftMap map[string]Record
+	giftRaw, giftErr := os.ReadFile(filepath.Join(dir, "gifts.json"))
+	if giftErr == nil && json.Unmarshal(giftRaw, &giftMap) != nil {
+		return "", "", ErrCorrupt
+	}
+
+	// 目标位置若残留同名礼金文件，先留一份在快照目录里再覆盖。
+	if _, statErr := os.Stat(s.giftsPath(id)); statErr == nil {
+		if old, readErr := os.ReadFile(s.giftsPath(id)); readErr == nil {
+			_ = writeFileAtomic(filepath.Join(dir, "gifts-before-restore.json"), old)
+		}
+	}
+	if giftErr == nil {
+		if err := writeFileAtomic(s.giftsPath(id), giftRaw); err != nil {
+			return "", "", err
+		}
+	}
+	err = s.WithEvents(func(events map[string]Record) (bool, error) {
+		if _, exists := events[id]; exists {
+			return false, errors.New("同名账簿已存在，无需恢复")
+		}
+		events[id] = event
+		return true, nil
+	})
+	if err != nil {
+		return "", "", err
+	}
+	_ = writeFileAtomic(filepath.Join(dir, "restored"), []byte(time.Now().Format("2006-01-02 15:04:05")))
+	return id, eventName, nil
 }
 
 // BackupAll 读取全部账簿与礼金，按 ID 排序返回，用于整库备份导出。

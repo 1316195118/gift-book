@@ -20,7 +20,7 @@ export function toggleLargeText() {
 export function switchCategory(next) {
   if (next === st.homeCategory) return
   const label = next === 'white' ? '白事' : '红事'
-  showConfirm('切换分类', `确定切换到 <strong class="quote-word">${label}</strong> 吗？<br><span class="confirm-note">切换后首页配色和最近账簿会随之变化。</span>`, async () => {
+  showConfirm('切换分类', `确定切换到「${label}」吗？\n切换后首页配色和最近账簿会随之变化。`, async () => {
     setHomeCategory(next)
     st.homeCategory = next
     await loadEvents()
@@ -153,8 +153,9 @@ export async function openEvent(eventOrId) {
         startSession()
       },
     },
-    [],
-    { size: 'unlock', theme: solemn ? 'theme-solemn' : 'theme-festive' },
+    [{ text: '取消', class: 'modal-btn-ghost' }],
+    // 手机没有 ESC：解锁窗必须能点 ×、点「取消」或点遮罩退出，避免不输密码就被困住。
+    { size: 'unlock', theme: solemn ? 'theme-solemn' : 'theme-festive', dismissable: true },
   )
 }
 

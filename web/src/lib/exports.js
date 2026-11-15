@@ -7,8 +7,20 @@ import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collect
 import { XlsxLite } from './crypto.js'
 import { hasReturned, returnRecordsOf } from './return-gift.js'
 import { openImport } from './import.js'
+import { scopeGifts, scopeInfo, scopeEmptyMessage, resetExportScope, openScopePicker } from './export-scope.js'
 
 const ITEMS_PER_PAGE = 12
+
+// 范围为空时的提示：区分「整本本来就空」和「这次勾选范围里没有记录」。
+function emptyMessage(copy) {
+  return scopeInfo().active ? scopeEmptyMessage() : copy.exportEmpty
+}
+
+function returnsEmptyMessage(copy) {
+  return scopeInfo().active
+    ? scopeEmptyMessage()
+    : `当前账簿还没有登记回礼。先在礼金详情里登记回礼，再来导出${copy.peopleNoun}的回礼明细。`
+}
 
 // Excel 主题：与红事 / 白事的纸色、主色一致（ARGB）。
 const XLSX_THEMES = {
@@ -21,21 +33,36 @@ export function openExport() {
   const ev = st.currentEvent
   if (!ev) return
   const copy = copyOf(ev, st.homeCategory)
+  const info = scopeInfo()
   openModal(
     '',
     {
       type: 'export',
       eventName: ev.name,
-      count: st.gifts.length,
+      count: info.count,
       recordsLabel: copy.recordsLabel,
       bookTitle: copy.bookTitle,
       solemn: isSolemnEvent(ev, st.homeCategory),
+      scopeLabel: info.label,
+      scopeActive: info.active,
       onPick: (format) => {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
         if (format === 'returns') setTimeout(() => openReturnsExport(), 80)
         if (format === 'pdf') setTimeout(() => exportLedgerPdf(), 120)
         if (format === 'word') setTimeout(() => exportToWord(), 80)
         if (format === 'import') setTimeout(() => openImport(), 80)
+        if (format === 'scope') setTimeout(() => openScopePicker(() => openExport()), 80)
+        if (format === 'scopeAll') {
+          resetExportScope()
+          setTimeout(() => openExport(), 80)
+        }
+        // 未回礼名单会反向调用记账模块的写入函数，按需加载避免静态循环。
+        if (format === 'pending') {
+          setTimeout(async () => {
+            const module = await import('./pending-returns.js')
+            module.openPendingReturns()
+          }, 80)
+        }
       },
     },
     [],
@@ -63,8 +90,8 @@ import { computeStats as computeLedgerStats } from './stats-core.js'
 export function exportToExcel() {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
-  if (!st.gifts.length) return showAlert('无法导出', copy.exportEmpty)
-  const stats = computeLedgerStats(st.gifts)
+  if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
+  const stats = computeLedgerStats(scopeGifts())
   const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
@@ -76,7 +103,7 @@ export function exportToExcel() {
     [null],
     ['序号', '姓名', '金额', '大写金额', '收款方式', '关系', '备注', '录入时间'].map((v) => ({ v, s: style.head })),
   ]
-  st.gifts.forEach((g, i) => {
+  scopeGifts().forEach((g, i) => {
     const d = g.data || {}
     rows.push([
       { v: i + 1, s: style.center },
@@ -110,7 +137,7 @@ export function exportToExcel() {
   ]
 
   const history = []
-  st.gifts.forEach((g, i) => {
+  scopeGifts().forEach((g, i) => {
     const d = g.data || {}
     ;(Array.isArray(d.history) ? d.history : []).forEach((entry) => {
       history.push([
@@ -151,7 +178,7 @@ export function exportToExcel() {
 function collectReturns() {
   const ev = st.currentEvent
   if (!ev) return null
-  const list = st.gifts
+  const list = scopeGifts()
     .filter((g) => hasReturned(g.data))
     .map((g) => {
       const d = g.data
@@ -189,7 +216,7 @@ export function openReturnsExport() {
   const copy = copyOf(ev, st.homeCategory)
   const data = collectReturns()
   if (!data.list.length) {
-    return showAlert('无法导出', `当前账簿还没有登记回礼。先在礼金详情里登记回礼，再来导出${copy.peopleNoun}的回礼明细。`)
+    return showAlert('无法导出', returnsEmptyMessage(copy))
   }
   const html = `
     <div class="export-options">
@@ -206,7 +233,7 @@ export function openReturnsExport() {
         <span class="export-text"><b>Word 文档</b><small>A4 纵向 · 带封面</small></span>
       </button>
     </div>
-    <p class="unlock-note">共 ${data.list.length} 位${copy.peopleNoun}已登记回礼，合计 ${formatCurrency(data.total)}；只列已回礼的人，每人一行并标注为回礼。</p>`
+    <p class="unlock-note">${scopeInfo().active ? `当前导出范围：${scopeInfo().label}；` : ''}共 ${data.list.length} 位${copy.peopleNoun}已登记回礼，合计 ${formatCurrency(data.total)}；只列已回礼的人，每人一行并标注为回礼。</p>`
   openModal('回礼明细', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }])
   afterModalRender(() => {
     document.querySelectorAll('[data-returns-fmt]').forEach((btn) => {
@@ -224,7 +251,7 @@ export function openReturnsExport() {
 // Excel：封面页 + 明细（主题配色）。
 export function exportReturnsExcel() {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
   const { ev, list, total: totalReturned } = data
   const copy = copyOf(ev, st.homeCategory)
   const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
@@ -307,7 +334,7 @@ export function exportReturnsExcel() {
 // Word：A4 纵向，封面头 + 表格 + 合计。
 export function exportReturnsWord() {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
   const { ev, list, total } = data
   const copy = copyOf(ev, st.homeCategory)
   const solemn = isSolemnEvent(ev, st.homeCategory)
@@ -350,7 +377,7 @@ const RETURNS_PER_PAGE = 16
 
 export async function exportReturnsPdf() {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
   const { ev, list, total } = data
   const copy = copyOf(ev, st.homeCategory)
   const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'
@@ -403,16 +430,16 @@ export async function exportReturnsPdf() {
 export function exportToWord() {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
-  if (!st.gifts.length) return showAlert('无法导出', copy.exportEmpty)
+  if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
   const solemn = isSolemnEvent(ev, st.homeCategory)
   const primary = solemn ? '#374151' : '#a3261e'
   const bg = solemn ? '#eef0f3' : '#fbeceb'
   const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
-  const stats = computeLedgerStats(st.gifts)
+  const stats = computeLedgerStats(scopeGifts())
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
 
-  const rows = st.gifts
+  const rows = scopeGifts()
     .map((g, i) => {
       const d = g.data || {}
       const when = d.timestamp ? new Date(d.timestamp).toLocaleString('zh-CN', { hour12: false }) : ''
@@ -425,7 +452,7 @@ export function exportToWord() {
     .join('')
 
   const historyItems = []
-  st.gifts.forEach((g, i) => {
+  scopeGifts().forEach((g, i) => {
     const data = g.data || {}
     ;(Array.isArray(data.history) ? data.history : []).forEach((entry) => {
       historyItems.push({ index: i + 1, name: data.name || '', log: entry.changeLog || '修改记录', when: entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN', { hour12: false }) : '' })
@@ -451,8 +478,8 @@ export function exportToWord() {
 export async function exportLedgerPdf() {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
-  if (!st.gifts.length) return showAlert('无法导出', copy.exportEmpty)
-  const printView = buildPrintPages()
+  if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
+  const printView = buildPrintPages(scopeGifts())
   if (!printView) return
   const pages = Array.from(printView.querySelectorAll('.print-page'))
   const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'

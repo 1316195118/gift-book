@@ -41,7 +41,7 @@
             <button id="stats-btn" class="main-tool" type="button" @click="openStats">统计</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
             <button id="print-btn" class="main-tool" type="button" @click="openPrint">打印</button>
-            <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
+            <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
             <button id="export-btn" class="main-tool main-tool-primary" type="button" @click="openExport">导出</button>
           </div>
         </div>
@@ -50,6 +50,9 @@
       <div v-if="st.locked" class="lock-banner">
         <span>账簿已锁定，录入与修改已暂停。</span>
         <button id="unlock-btn" type="button" @click="onToggleLock">解锁</button>
+      </div>
+      <div v-else-if="isArchived()" class="gb-readonly-banner" role="status">
+        <span>这本账簿已结簿归档，只能查看、统计与导出；如需继续登记，请到「设置 → 结簿归档」解除。</span>
       </div>
 
       <div v-if="st.syncMessage" class="sync-status" :class="{ 'sync-error': st.syncIsError }" role="status">
@@ -72,14 +75,14 @@
               <label for="guest-name">{{ copy.nameLabel }} <span class="field-counter">{{ entry.name.length }}/20</span></label>
               <div class="field-shell">
                 <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6" /><path d="M4.8 19.5c.9-3.4 3.7-5.3 7.2-5.3s6.3 1.9 7.2 5.3" /></svg>
-                <input v-model="entry.name" type="text" id="guest-name" :placeholder="copy.namePlaceholder" required maxlength="20" autocomplete="off" :disabled="st.locked" />
+                <input v-model="entry.name" type="text" id="guest-name" :placeholder="copy.namePlaceholder" required maxlength="20" autocomplete="off" :disabled="readOnly" />
               </div>
             </div>
 
             <div class="entry-field">
               <label for="gift-amount">{{ copy.amountLabel }} <small>人民币 / 元</small></label>
               <div class="field-shell">
-                <input v-model="entry.amount" type="number" id="gift-amount" data-suffix="元" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" :disabled="st.locked" />
+                <input v-model="entry.amount" type="number" id="gift-amount" data-suffix="元" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" :disabled="readOnly" />
                 <span class="field-suffix">元</span>
               </div>
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
@@ -89,7 +92,7 @@
               <label>收款方式</label>
               <div class="payment-options">
                 <label v-for="option in PAYMENT_OPTIONS" :key="option">
-                  <input v-model="entry.type" type="radio" name="payment-type" :value="option" :disabled="st.locked" /><span>{{ option }}</span>
+                  <input v-model="entry.type" type="radio" name="payment-type" :value="option" :disabled="readOnly" /><span>{{ option }}</span>
                 </label>
               </div>
             </div>
@@ -98,20 +101,20 @@
               <label>关系 <small>选填 · 用于分类汇总</small></label>
               <div class="payment-options">
                 <label>
-                  <input v-model="entry.relation" type="radio" name="gift-relation" value="" :disabled="st.locked" /><span>未分类</span>
+                  <input v-model="entry.relation" type="radio" name="gift-relation" value="" :disabled="readOnly" /><span>未分类</span>
                 </label>
                 <label v-for="option in RELATION_OPTIONS" :key="option">
-                  <input v-model="entry.relation" type="radio" name="gift-relation" :value="option" :disabled="st.locked" /><span>{{ option }}</span>
+                  <input v-model="entry.relation" type="radio" name="gift-relation" :value="option" :disabled="readOnly" /><span>{{ option }}</span>
                 </label>
               </div>
             </div>
 
             <div class="entry-field entry-remarks">
               <label for="remarks">备注 <small>选填 · {{ entry.remarks.length }}/4000</small></label>
-              <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="st.locked"></textarea>
+              <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="readOnly"></textarea>
             </div>
 
-            <button type="submit" id="submit-gift-btn" :disabled="st.locked">确认录入</button>
+            <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
             <p class="entry-hint">按回车核对并提交 · Shift + 回车换行</p>
           </form>
         </section>
@@ -206,6 +209,7 @@ import {
 } from '../lib/ledger-view.js'
 import { focusGiftRow } from '../lib/ledger-actions.js'
 import { recentEntry } from '../lib/recent-entry.js'
+import { isArchived } from '../lib/archive.js'
 
 const dropdownOpen = ref(false)
 const searchName = ref('')
@@ -236,6 +240,8 @@ const queueCount = computed(() => queueFor(st.currentEvent?.id).length)
 const items = computed(() => pageItems())
 const pages = computed(() => totalPages())
 const stats = computed(() => computeStats(st.gifts))
+// 结簿归档与手动锁定共用一套禁用逻辑，但只读横幅单独提示、不遮住礼簿。
+const readOnly = computed(() => st.locked || isArchived())
 
 // 汇总金额变化时做一次 count-up；但首次拿到账簿数据要直接显示，
 // 否则进入账簿会先播 420ms 数字滚动，看起来像还在加载。

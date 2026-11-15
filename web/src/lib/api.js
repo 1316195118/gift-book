@@ -89,6 +89,7 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
       let code = transient ? 'NETWORK' : response.ok ? null : 'REJECT'
       if (result.code === 'ledger_key') code = 'LEDGER_KEY'
       if (result.code === 'ledger_locked') code = 'LEDGER_LOCKED'
+      if (result.code === 'archived') code = 'ARCHIVED'
       throw new ApiError(result.message || '请求失败', { code: code || 'REJECT', status: response.status })
     }
     return result
@@ -158,4 +159,8 @@ export const api = {
   autobackupRestore: (name) => apiRequest(`/api/autobackup/restore/${encodeURIComponent(name)}`, 'POST', {}),
 
   autobackupDelete: (name) => apiRequest(`/api/autobackup/file/${encodeURIComponent(name)}`, 'DELETE'),
+
+  listTrash: () => apiRequest('/api/trash'),
+
+  restoreTrash: (name) => apiRequest(`/api/trash/restore/${encodeURIComponent(name)}`, 'POST', {}),
 }

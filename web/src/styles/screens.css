@@ -2812,6 +2812,14 @@ body.theme-solemn .hero-book-art .book {
 }
 
 @media (max-width: 640px) {
+  /* 全屏视图（模板选择 / 创建账簿）的返回入口：放大到 44px 触控区，避免手机上点不中。 */
+  .back-link {
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-base);
+  }
+
   /* 手机：录入表单彻底单列，汇总卡改成「总额一行 + 两张并排」。 */
   #add-gift-form { grid-template-columns: 1fr; }
 

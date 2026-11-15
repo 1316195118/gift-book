@@ -105,8 +105,10 @@ function renderBookRows(items) {
   return `<div class="gift-book-row">${cells.name.join('')}</div><div class="gift-book-row flex-1">${cells.type.join('')}</div><div class="gift-book-row">${cells.amount.join('')}</div>`
 }
 
-export function buildPrintPages() {
-  if (!st.gifts.length) return null
+export function buildPrintPages(giftList = null) {
+  // 不传范围时打印整本；导出 PDF 传入所选记录，保证与 Excel / Word 是同一批数据。
+  const gifts = Array.isArray(giftList) ? giftList : st.gifts
+  if (!gifts.length) return null
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
   let printView = document.getElementById('print-view')
@@ -121,12 +123,12 @@ export function buildPrintPages() {
   coverPage.innerHTML = renderCoverMarkup(ev, false, st.homeCategory)
   printView.appendChild(coverPage)
 
-  const totalGiftPages = Math.ceil(st.gifts.length / ITEMS_PER_PAGE) || 1
+  const totalGiftPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1
   // 与页面/导出同一口径（分累加、人数去重）。
-  const stats = computeStats(st.gifts)
+  const stats = computeStats(gifts)
 
   for (let i = 0; i < totalGiftPages; i += 1) {
-    const pageGifts = st.gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE)
+    const pageGifts = gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE)
     const pageContainer = document.createElement('div')
     pageContainer.className = 'print-page'
     const content = document.createElement('div')
@@ -171,13 +173,13 @@ export function buildPrintPages() {
     printView.appendChild(pageContainer)
   }
 
-  if (getPrintOptions().appendix !== false) appendAppendix(printView, dateStr)
+  if (getPrintOptions().appendix !== false) appendAppendix(printView, dateStr, gifts)
   return printView
 }
 
-function appendAppendix(printView, dateStr) {
+function appendAppendix(printView, dateStr, gifts) {
   const copy = copyOf(st.currentEvent, st.homeCategory)
-  const remarked = st.gifts.map((gift, index) => ({ ...gift, originalIndex: index })).filter((g) => g.data && g.data.remarks)
+  const remarked = gifts.map((gift, index) => ({ ...gift, originalIndex: index })).filter((g) => g.data && g.data.remarks)
   if (!remarked.length) return
   const perPage = 10
   const total = Math.ceil(remarked.length / perPage)

@@ -18,7 +18,7 @@ var eventIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 var extraFields = []string{
 	"theme", "voiceName", "voiceEnabled", "coverImage", "startDateTime", "endDateTime",
 	"minSpeechAmount", "qrcode", "template", "category", "location", "note",
-	"totalAmount", "coverStyle",
+	"totalAmount", "coverStyle", "archived", "archivedAt",
 }
 
 // ---- GET /api/events ----

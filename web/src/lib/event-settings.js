@@ -139,6 +139,18 @@ export function openSettings({ section = 'general' } = {}) {
       </section>
 
       <section class="settings-section">
+        <h4 class="settings-title">结簿归档</h4>
+        <div class="voice-toggle-row">
+          <div>
+            <div class="voice-toggle-main">${ev.archived ? '已结簿 · 只读' : '未结簿 · 可录入'}</div>
+            <div class="field-hint">结簿后禁止录入、纠错、登记回礼、批量导入与扫描录入；查看、统计、打印与导出照常。</div>
+          </div>
+        </div>
+        <button type="button" id="edit-archive-btn" class="themed-button-secondary field-action">${ev.archived ? '解除结簿，恢复录入' : '结簿归档（设为只读）'}</button>
+        ${hint('结簿只影响这本账簿，不删除任何记录；其他设备刷新后会同步为只读。')}
+      </section>
+
+      <section class="settings-section">
         <h4 class="settings-title">数据</h4>
         <button type="button" id="edit-backup-btn" class="themed-button-secondary field-action">导出这本账簿</button>
         ${hint('导出的是当前账簿的密文数据，可在首页「备份」里还原。要备份全部账簿请用首页的备份。')}
@@ -203,6 +215,10 @@ export function openSettings({ section = 'general' } = {}) {
       closeModal()
       deleteEventFlow()
     })
+    document.getElementById('edit-archive-btn')?.addEventListener('click', () => {
+      closeModal()
+      setTimeout(() => toggleArchive(), 150)
+    })
     const rate = document.getElementById('edit-voice-rate')
     const volume = document.getElementById('edit-voice-volume')
     const syncVoice = () => {
@@ -227,6 +243,43 @@ export function openSettings({ section = 'general' } = {}) {
       reader.readAsDataURL(file)
     })
   })
+}
+
+// 结簿归档：把账簿切成只读；解除后立刻恢复录入。状态存在 events.json，服务端同步兜底。
+function toggleArchive() {
+  const ev = st.currentEvent
+  if (!ev) return
+  const next = ev.archived !== true
+  if (next && st.queueCount > 0) {
+    return showAlert('暂不能结簿', `还有 ${st.queueCount} 笔离线记录待同步，请先联网同步完成再结簿。`)
+  }
+  const html = next
+    ? `<p>结簿后这本账簿将设为只读：不能录入、纠错、登记回礼、批量导入或扫描录入；查看、统计、打印与导出不受影响。</p>
+       <p class="field-hint">已录入的 ${st.gifts.length} 条记录原样保留，随时可以在「账簿设置」里解除结簿。</p>`
+    : '<p>解除结簿后，这本账簿会恢复录入与修改。</p>'
+  openModal(next ? '结簿归档' : '解除结簿', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: next ? '确认结簿' : '解除结簿',
+      class: 'modal-btn-primary',
+      keepOpen: true,
+      handler: async () => {
+        try {
+          const archivedAt = next ? new Date().toISOString() : ''
+          const result = await api.updateEvent(ev.id, { archived: next, archivedAt })
+          st.currentEvent = { ...st.currentEvent, archived: next, archivedAt, ...(result.data || {}) }
+          updateSessionEvent(st.currentEvent)
+          closeModal()
+          notify.success(
+            next ? '已结簿归档' : '已解除结簿',
+            next ? '账簿现在为只读，可在设置里随时解除。' : '账簿已恢复录入与修改。',
+          )
+        } catch (error) {
+          showAlert('操作失败', error.message ? `结簿设置保存失败：${error.message}` : '结簿设置保存失败。')
+        }
+      },
+    },
+  ], { dismissable: true })
 }
 
 // 导出当前这本账簿（只含密文）。带账簿钥匙，服务端据此放行。
@@ -275,7 +328,7 @@ export async function deleteEventFlow() {
   const copy = copyOf(ev, st.homeCategory)
   const hasPassword = ev.hasPassword
   const html = `
-    <div class="modal-danger-tip"><span aria-hidden="true">⚠️</span><span>即将删除账簿「${escapeHtml(ev.name)}」<b>及其全部${copy.recordsLabel}</b>，删除后无法在页面中恢复（服务器会在数据目录 .trash 中保留一份备份）。<br>${copy.deleteSingleNote}</span></div>
+    <div class="modal-danger-tip"><span aria-hidden="true">⚠️</span><span>即将删除账簿「${escapeHtml(ev.name)}」<b>及其全部${copy.recordsLabel}</b>，删除后可在首页「回收站」里一键恢复（服务器会把整本账簿连同记录留在数据目录 .trash 中）。<br>${copy.deleteSingleNote}</span></div>
     ${hasPassword
       ? '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-password">请输入管理密码以继续</label><input type="password" id="delete-confirm-password" class="w-full p-2 border rounded themed-ring mt-1" autocomplete="current-password" />'
       : '<label class="block text-sm text-gray-600 mt-3" for="delete-confirm-text">该账簿没有管理密码，请输入「确认」两个字以继续</label><input type="text" id="delete-confirm-text" class="w-full p-2 border rounded themed-ring mt-1" placeholder="确认" autocomplete="off" />'}

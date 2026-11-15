@@ -96,6 +96,9 @@ export function mapRows(rows) {
 }
 
 export function openImport() {
+  if (st.currentEvent?.archived === true) {
+    return showAlert('账簿已结簿', '这本账簿已结簿并设为只读；如需导入请先到「设置」解除结簿。')
+  }
   if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再导入。')
   if (!st.currentEvent?.id) return
   pending = { records: [], errors: [], fileName: '' }

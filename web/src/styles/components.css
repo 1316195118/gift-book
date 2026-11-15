@@ -725,10 +725,16 @@ body.theme-solemn #modal-container {
   background: var(--accent);
 }
 
-/* 导出弹窗没有标题，隐藏空标题栏 */
-.modal-head:has(#modal-title:empty) {
-  display: none;
+/* 无标题弹窗（进入账簿、导出面板）只隐藏标题文字，绝不隐藏整条标题栏：
+   标题栏里的 #modal-close 是手机端唯一的 ×，整条隐藏会变成关不掉的死弹窗。 */
+.modal-head.is-titleless {
+  justify-content: flex-end;
+  padding: var(--sp-2) var(--sp-3) 0;
+  border-bottom: 0;
+  background: transparent;
 }
+
+.modal-head.is-titleless #modal-title { display: none; }
 
 #modal-close {
   flex: none;
@@ -906,27 +912,10 @@ body.theme-solemn #modal-container {
   color: var(--ink);
 }
 
-/* 标题栏已有统一关闭键；卡片内再放一个 × 会与其重叠，点击时互相抢焦点，
-   表现为「关闭按钮乱跳」。统一只保留 #modal-close。 */
+/* 所有卡片内的旧 × 一律隐藏：关闭统一由标题栏的 #modal-close 承担。
+   两个 × 叠在一起会抢焦点，历史上表现为「关闭按钮乱跳」；
+   标题栏 × 现在对所有弹窗（含无标题弹窗）常驻，手机端放大到 44px 圆形。 */
 .unlock-card .unlock-close { display: none; }
-
-/* 导出面板有自己的关闭键：手机没有 ESC，必须有可点的 ×。
-   收进卡片内（#modal 是 overflow:hidden，负偏移会被裁掉），并放大到 40px 便于触控。 */
-.unlock-card.export-card .unlock-close {
-  display: grid;
-  place-items: center;
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 40px;
-  height: 40px;
-  font-size: 22px;
-  line-height: 1;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface-sunken);
-  color: var(--ink);
-}
 
 .unlock-seal {
   display: grid;
@@ -1974,10 +1963,15 @@ body.theme-solemn #modal-container {
     padding: var(--sp-5) var(--sp-4) var(--sp-3);
   }
 
+  /* 手机抽屉：常驻、够大、有明显边界的关闭键 */
   #modal-close {
     width: 44px;
     height: 44px;
     font-size: 22px;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--surface-sunken);
+    color: var(--ink);
   }
 
   #modal-content {

@@ -11,6 +11,7 @@ import './styles/ocr.css'
 import './styles/print.css'
 import './styles/large-text.css'
 import './styles/motion.css'
+import './styles/features.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'

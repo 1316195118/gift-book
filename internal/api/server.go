@@ -82,6 +82,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/events/{id}", s.protectedID(s.handleDeleteEvent))
 	mux.HandleFunc("POST /api/events/{id}/verify", s.protectedID(s.handleVerifyEvent))
 	mux.HandleFunc("GET /api/stream", s.protected(s.handleStream))
+	mux.HandleFunc("GET /api/trash", s.protected(s.handleListTrash))
+	mux.HandleFunc("POST /api/trash/restore/{name}", s.protected(s.handleRestoreTrash))
 
 	mux.HandleFunc("GET /api/gifts", s.protected(s.handleGetGifts))
 	mux.HandleFunc("POST /api/gifts", s.protected(s.handleCreateGift))

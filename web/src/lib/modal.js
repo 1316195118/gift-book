@@ -3,6 +3,12 @@ import { reactive } from 'vue'
 import { h } from 'vue'
 import { escapeHtml } from './crypto.js'
 
+// 提示 / 确认弹窗统一按纯文本转义后再渲染；只把换行转成 <br>。
+// 调用方不要再手写 HTML 标签，否则会被转义成可见的标签源码。
+function messageHtml(message) {
+  return escapeHtml(String(message ?? '')).replace(/\r?\n/g, '<br>')
+}
+
 export const modal = reactive({
   open: false,
   title: '',
@@ -49,7 +55,7 @@ export function afterModalRender(callback) {
 export function alert(title, message, callback = null) {
   openModal(
     title,
-    { type: 'html', html: `<p>${escapeHtml(message)}</p>` },
+    { type: 'html', html: `<p>${messageHtml(message)}</p>` },
     [
       {
         text: '确定',
@@ -66,7 +72,7 @@ export function alert(title, message, callback = null) {
 export function confirm(title, message, onConfirm) {
   openModal(
     title,
-    { type: 'html', html: `<div class="confirm-body"><div class="confirm-sub">${escapeHtml(message)}</div></div>` },
+    { type: 'html', html: `<div class="confirm-body"><div class="confirm-sub">${messageHtml(message)}</div></div>` },
     [
       { text: '取消', class: 'modal-btn-ghost' },
       { text: '确定', class: 'modal-btn-primary', handler: onConfirm },

@@ -13,6 +13,14 @@ import (
 
 const maxCipherSize = 8 << 20
 
+// 结簿归档后账簿只读：前端入口会隐藏，这里再兜一层，防止绕过界面直接写接口。
+const archivedMessage = "账簿已结簿，处于只读状态；如需录入或修改，请先在「账簿设置」里解除结簿。"
+
+func isArchived(event map[string]any) bool {
+	value, _ := event["archived"].(bool)
+	return value
+}
+
 // 礼金接口全部通过 store.Tx 在一次读-改-写里完成：
 // 父账簿存在性检查、账簿钥匙校验与礼金落盘共享同一把锁，
 // 不会出现「账簿刚被删除还写入礼金」，也不会在同一把锁内重复加锁。
@@ -100,6 +108,11 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 			status = -1
 			return false, false, errors.New("rejected")
 		}
+		if isArchived(event) {
+			failCode(w, http.StatusForbidden, "archived", archivedMessage)
+			status = -1
+			return false, false, errors.New("rejected")
+		}
 		migrated, valid := ledger.Migrate(event)
 		if requestID != "" {
 			for _, existing := range gifts {
@@ -179,6 +192,11 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 			status = -1
 			return false, false, errors.New("rejected")
 		}
+		if isArchived(event) {
+			failCode(w, http.StatusForbidden, "archived", archivedMessage)
+			status = -1
+			return false, false, errors.New("rejected")
+		}
 		migrated, valid := ledger.Migrate(event)
 		gift, ok := gifts[giftID]
 		if !ok {
@@ -236,6 +254,11 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 			return false, false, errors.New(message)
 		}
 		if !s.requireLedgerKey(w, r, event) {
+			status = -1
+			return false, false, errors.New("rejected")
+		}
+		if isArchived(event) {
+			failCode(w, http.StatusForbidden, "archived", archivedMessage)
 			status = -1
 			return false, false, errors.New("rejected")
 		}

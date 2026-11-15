@@ -19,6 +19,7 @@ import { showQrImage } from './qr.js'
 import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn } from './return-gift.js'
 import { compareGiftsByRegistration } from './gift-order.js'
 import { markRecentEntry } from './recent-entry.js'
+import { isArchived, ensureWritable } from './archive.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
@@ -27,6 +28,7 @@ export const MIN_GIFT_AMOUNT = 0.01
 // ---- 录入 ----
 
 export async function submitGift(giftData, resetForm) {
+  if (!ensureWritable()) return
   if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再录入。')
   const name = String(giftData.name || '').trim()
   const amountText = String(giftData.amount ?? '')
@@ -48,7 +50,7 @@ export async function submitGift(giftData, resetForm) {
   const hasWindow = Number.isFinite(start) && Number.isFinite(end)
   const outOfTime = hasWindow && (Date.now() < start || Date.now() > end)
   if (outOfTime && isSolemnEvent(st.currentEvent, st.homeCategory)) {
-    return showAlert('白事已停止录入', '这本白事账簿已超出设定的起止时间，录入已关闭。<br>如确需补录，请先在「设置」里调整结束时间。')
+    return showAlert('白事已停止录入', '这本白事账簿已超出设定的起止时间，录入已关闭。\n如确需补录，请先在「设置」里调整结束时间。')
   }
   showConfirmation(name, amount, remarks, relation, sameName.length > 0, exactMatch, outOfTime, type, resetForm)
 }
@@ -105,6 +107,10 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
 }
 
 async function saveGift(giftData, resetForm) {
+  if (isArchived()) {
+    closeModal()
+    return ensureWritable()
+  }
   if (st.locked) {
     closeModal()
     return showAlert('账簿已锁定', '请先解锁账簿后再录入。')
@@ -298,6 +304,7 @@ export function openGiftDetails(index) {
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
         <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
+        ${isArchived() ? '<p class="gb-readonly-note">账簿已结簿，现在只能查看</p>' : ''}
       </div>
     </div>`
   const timeline = hasHistory
@@ -311,6 +318,8 @@ export function openGiftDetails(index) {
   )
   afterModalRender(() => {
     const container = document.querySelector('[data-details-index]')
+    // 结簿后详情只展示，去掉所有纠错 / 回礼按钮。
+    if (isArchived()) container?.querySelectorAll('[data-edit], [data-remove-return]').forEach((el) => el.remove())
     container?.addEventListener('click', (event) => {
       const field = event.target.closest('[data-edit]')?.dataset.edit
       if (field) return showInlineEdit(index, field)
@@ -401,9 +410,19 @@ function showInlineEdit(index, field) {
   })
 }
 
-export async function updateWithHistory(index, fields, changeLog) {
-  if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再修改。')
+// options.silent：批量登记回礼时逐条调用，不弹窗、不重开详情，由调用方统一收尾。
+export async function updateWithHistory(index, fields, changeLog, options = {}) {
+  const silent = options.silent === true
+  if (st.locked) {
+    if (!silent) showAlert('账簿已锁定', '请先解锁账簿后再修改。')
+    return false
+  }
+  if (isArchived()) {
+    if (!silent) showAlert('账簿已结簿', '这本账簿已结簿并设为只读；如需修改请先到「设置」解除结簿。')
+    return false
+  }
   const gift = st.gifts[index]
+  if (!gift) return false
   const current = { ...gift.data }
   const now = new Date().toISOString()
   const snapshot = { name: current.name, amount: current.amount, type: current.type, relation: current.relation, remarks: current.remarks, timestamp: current.timestamp }
@@ -423,16 +442,20 @@ export async function updateWithHistory(index, fields, changeLog) {
     await api.updateGift(st.currentEvent.id, gift.id, body)
     gift.data = updated
     gift.encryptedContent = encryptedContent
-    closeModal()
     syncEventTotal()
-    setTimeout(() => openGiftDetails(index), 200)
+    if (!silent) {
+      closeModal()
+      setTimeout(() => openGiftDetails(index), 200)
+    }
+    return true
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
-      showAlert('未保存', error.message || '这笔记录已在其他设备上修改，请刷新后再改。')
+      if (!silent) showAlert('未保存', error.message || '这笔记录已在其他设备上修改，请刷新后再改。')
       loadGiftsForCurrentEvent()
-    } else {
+    } else if (!silent) {
       showAlert('系统错误', '保存修改记录时失败。')
     }
+    return false
   }
 }
 
@@ -636,6 +659,7 @@ export async function openPrint(...args) {
 }
 
 export async function openOcr(...args) {
+  if (!ensureWritable()) return
   const mod = await safeImport(() => import('./ocr-entry.js'), '扫码识别')
   if (!mod) return
   return mod.openOcr(...args)
