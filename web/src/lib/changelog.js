@@ -1,11 +1,18 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.0'
+export const APP_VERSION = '2.4.1'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.1',
+    date: '2026-11-15',
+    notes: [
+      { t: 'opt', text: '补充开源许可与版权说明：MIT License，运行时依赖仅 Vue 3（MIT）' },
+    ],
+  },
   {
     version: '2.4.0',
     date: '2026-11-15',
@@ -241,5 +248,6 @@ export function renderLogEntries(entries) {
 export function renderChangelog() {
   return `
     <div class="log-wrap">${renderLogEntries(CHANGELOG)}</div>
-    <p class="hint" style="margin-top:14px">当前版本 v${APP_VERSION} · 发布源 单文件 / Docker / GHCR 镜像</p>`
+    <p class="hint" style="margin-top:14px">当前版本 v${APP_VERSION} · 发布源 单文件 / Docker / GHCR 镜像</p>
+    <p class="hint" style="margin-top:6px">© 2026 Gift Book contributors · MIT License · 运行时依赖 Vue 3 (MIT)</p>`
 }
