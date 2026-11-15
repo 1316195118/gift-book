@@ -253,6 +253,7 @@ const eventSub = computed(() => {
   return [ev.template, date, ev.location].filter(Boolean).join(' · ')
 })
 
+let pageTimer = 0
 function pageBy(direction) {
   const next = st.currentPage + direction
   if (next >= 1 && next <= pages.value) {
@@ -260,10 +261,12 @@ function pageBy(direction) {
     const el = document.getElementById('gift-book-content')
     if (el) {
       const cls = direction > 0 ? 'gb-page-turn-next' : 'gb-page-turn-prev'
+      // 连翻时先清掉上一次的收尾定时器，否则旧定时器会把新动画提前掐断（闪跳）。
+      clearTimeout(pageTimer)
       el.classList.remove('gb-page-turn-next', 'gb-page-turn-prev')
       void el.offsetWidth
       el.classList.add(cls)
-      setTimeout(() => el.classList.remove(cls), 420)
+      pageTimer = window.setTimeout(() => el.classList.remove(cls), 320)
     }
     playPage(direction)
   }

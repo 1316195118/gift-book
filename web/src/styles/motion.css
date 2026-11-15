@@ -321,8 +321,8 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
   0% { opacity: .55; transform: translateX(-10px) rotateY(3deg); }
   100% { opacity: 1; transform: none; }
 }
-#gift-book-content.gb-page-turn-next { animation: gb-page-next 420ms var(--ease-out) both; }
-#gift-book-content.gb-page-turn-prev { animation: gb-page-prev 420ms var(--ease-out) both; }
+#gift-book-content.gb-page-turn-next { animation: gb-page-next 320ms var(--ease-out) both; }
+#gift-book-content.gb-page-turn-prev { animation: gb-page-prev 320ms var(--ease-out) both; }
 
 @keyframes gb-value-pulse {
   0% { transform: scale(1); }

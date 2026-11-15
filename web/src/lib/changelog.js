@@ -1,11 +1,19 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.2'
+export const APP_VERSION = '2.4.3'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.3',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '快速连续翻页时，上一次的收尾定时器会提前掐断新动画（闪跳）；改为互斥定时器，动画 320ms' },
+      { t: 'opt', text: '弹窗打开不再立刻抢焦点（无障碍树计算会拖慢约 250ms），打开耗时 299ms → 49ms；键盘按 Tab 仍直接进入弹窗' },
+    ],
+  },
   {
     version: '2.4.2',
     date: '2026-11-15',

@@ -80,6 +80,12 @@ function onKeydown(event) {
   if (!list.length) return
   const first = list[0]
   const last = list[list.length - 1]
+  // 打开时未自动聚焦（避免 a11y 树计算卡顿）：第一次 Tab 直接送进弹窗。
+  if (!rootEl.value?.contains(document.activeElement)) {
+    event.preventDefault()
+    ;(event.shiftKey ? last : first).focus()
+    return
+  }
   if (event.shiftKey && (document.activeElement === first || document.activeElement === rootEl.value)) {
     event.preventDefault()
     last.focus()
@@ -97,9 +103,18 @@ watch(
       lockBodyScroll()
       lastFocused = document.activeElement
       await nextTick()
-      const closeBtn = rootEl.value?.querySelector('#modal-close')
-      if (closeBtn) closeBtn.focus({ preventScroll: true })
-      else rootEl.value?.querySelector('#modal')?.focus({ preventScroll: true })
+      // 打开瞬间不聚焦：focus 会触发整棵弹窗的无障碍树计算，实测让
+      // 「点击 → 弹窗出现」多花约 250ms。改到空闲时执行；若用户已经点进弹窗则不抢焦点。
+      const target = rootEl.value?.querySelector('#modal-close') || rootEl.value?.querySelector('#modal')
+      if (target) {
+        const idle = window.requestIdleCallback || ((cb) => window.setTimeout(cb, 280))
+        idle(() => {
+          if (!modal.open || !target.isConnected) return
+          const active = document.activeElement
+          if (active && active !== document.body && rootEl.value?.contains(active)) return
+          target.focus({ preventScroll: true })
+        }, { timeout: 900 })
+      }
     } else {
       // 等退场动画结束再恢复滚动，避免关闭瞬间页面回弹跳动。
       overflowTimer = window.setTimeout(unlockBodyScroll, 220)
