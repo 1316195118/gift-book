@@ -921,7 +921,11 @@ body.theme-solemn #modal-container {
   width: 40px;
   height: 40px;
   font-size: 22px;
-  border-radius: var(--r-sm);
+  line-height: 1;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink);
 }
 
 .unlock-seal {
