@@ -459,6 +459,9 @@ export async function focusGiftRow(index) {
     st.currentPage = page
     await nextTick()
   }
+  // 刚关掉弹窗时 body 还锁着滚动（overflow:hidden），此时 scrollIntoView 会被忽略；
+  // 等锁解开再滚，否则手机上会出现「点了定位但页面没动」。
+  await waitScrollUnlocked()
   const cell = document.querySelector(`#gift-book-content .name-cell[data-gift-index="${i}"]`)
   if (!cell) return false
   const reduce = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
@@ -470,9 +473,21 @@ export async function focusGiftRow(index) {
   return true
 }
 
+async function waitScrollUnlocked(timeout = 700) {
+  if (typeof document === 'undefined') return
+  const locked = () => getComputedStyle(document.body).overflow === 'hidden'
+  const start = performance.now()
+  while (locked() && performance.now() - start < timeout) {
+    await new Promise((resolve) => setTimeout(resolve, 40))
+  }
+}
+
 // ---- 查询 ----
 
 export async function runSearch(name, amountText) {
+  // 手机端点到「查找」时输入框还带着焦点，软键盘会占掉半屏：
+  // 先收起键盘，后面翻页定位才不会在缩小的视口里算错位置。
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   const normalize = (value) => String(value || '').replace(/[\s　​-‍﻿]/g, '')
   const nameTerm = normalize(name)
   const amountRaw = String(amountText ?? '').trim()
@@ -498,6 +513,8 @@ export async function runSearch(name, amountText) {
   if (results.length === 1) {
     const only = results[0].originalIndex
     closeModal()
+    // 留一点时间让软键盘收回去，再算滚动位置。
+    await new Promise((resolve) => setTimeout(resolve, 120))
     await focusGiftRow(only)
     setTimeout(() => openGiftDetails(only), 300)
     return
