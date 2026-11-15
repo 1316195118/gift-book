@@ -330,6 +330,40 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
 }
 .ledger-summary.gb-value-pulse { animation: gb-value-pulse 520ms var(--ease-out) both; }
 
+/* 刚录入的那一格：落笔一样亮一下，再退回纸色 —— 只做一次视觉确认，不留常驻样式。 */
+@keyframes gb-cell-land {
+  0% { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+  55% { background: var(--accent-soft); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent); }
+  100% { background: transparent; box-shadow: inset 0 0 0 1px transparent; }
+}
+#gift-book-content .book-cell.is-new { animation: gb-cell-land 1600ms var(--ease-out) both; }
+
+/* 「在礼簿中查看」的定位强调：描一圈主色，1.8s 后由脚本移除。 */
+@keyframes gb-cell-focus {
+  0% { box-shadow: inset 0 0 0 2px var(--accent); }
+  70% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { box-shadow: inset 0 0 0 1px transparent; }
+}
+#gift-book-content .book-cell.is-focus { animation: gb-cell-focus 1800ms var(--ease-out) both; }
+
+/* 录入回执：从按钮上方轻轻落下，不挤压页面高度（高度变化由容器自然撑开）。 */
+@keyframes gb-receipt-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.motion-full) #gift-book-content .book-cell.is-new,
+  :root:not(.motion-full) #gift-book-content .book-cell.is-focus,
+  :root:not(.motion-full) .entry-receipt {
+    animation: none !important;
+  }
+  :root:not(.motion-full) #gift-book-content .book-cell.is-new,
+  :root:not(.motion-full) #gift-book-content .book-cell.is-focus {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
 /* --------------------------------------------------------------------------
    8. 白事专属：素银淡墨扩散，无红金、无喜字
    -------------------------------------------------------------------------- */

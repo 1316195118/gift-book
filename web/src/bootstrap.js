@@ -12,6 +12,7 @@ import { ledgerKeyForEvent } from './store.js'
 import { refreshNetwork, startNetworkMonitor } from './lib/network.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './lib/modal.js'
 import { compareGiftsByRegistration } from './lib/gift-order.js'
+import { clearRecentEntry } from './lib/recent-entry.js'
 
 setAuthGateHandler(() => {
   st.authGate = true
@@ -196,6 +197,8 @@ function restoreSession() {
 export function startSession() {
   const event = st.currentEvent
   if (!event) return
+  // 换账簿时清掉上一本的回执，避免显示别人的名字。
+  clearRecentEntry()
   setHomeCategory(categoryForEvent(event, st.homeCategory))
   setHomeCategoryState(categoryForEvent(event, st.homeCategory))
   rememberLedgerKey(event.id, st.currentPassword)

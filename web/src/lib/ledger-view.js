@@ -4,6 +4,7 @@ import { state as st } from '../store.js'
 import { copyOf } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { hasReturned } from './return-gift.js'
+import { recentEntry } from './recent-entry.js'
 import {
   submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
@@ -58,6 +59,11 @@ export function isLateGift(gift) {
   return at < start || at > end
 }
 
+// 刚录入的那一格加一次高亮，让「记进去了」在礼簿上看得见。
+function newCls(index) {
+  return recentEntry.index >= 0 && recentEntry.index === index ? ' is-new' : ''
+}
+
 function nameCell(gift, index) {
   if (!gift?.data) return `<div class="book-cell name-cell" data-gift-index="${index}"></div>`
   const data = gift.data
@@ -78,14 +84,14 @@ function nameCell(gift, index) {
   const tip = modified
     ? `${data.name} · 已修改 ${data.history.length} 次，最后一次 ${new Date(data.updatedAt || data.timestamp).toLocaleString('zh-CN')}`
     : `${data.name} · 录入于 ${new Date(data.timestamp).toLocaleString('zh-CN')}`
-  return `<div class="book-cell name-cell" data-gift-index="${index}" title="${escapeHtml(tip)}">${late}<div class="name${String(data.name).length > 4 ? ' scale' : ''}" data-len="${len}" style="--name-chars:${shown.length + (chars.length > shown.length ? 1 : 0)}">${nameHtml}</div>${marks}</div>`
+  return `<div class="book-cell name-cell${newCls(index)}" data-gift-index="${index}" title="${escapeHtml(tip)}">${late}<div class="name${String(data.name).length > 4 ? ' scale' : ''}" data-len="${len}" style="--name-chars:${shown.length + (chars.length > shown.length ? 1 : 0)}">${nameHtml}</div>${marks}</div>`
 }
 
 function amountCell(gift, index) {
   if (!gift?.data) return `<div class="book-cell amount-cell" data-gift-index="${index}"></div>`
   const chinese = amountToChinese(gift.data.amount)
   const cnClass = chinese.length > 18 ? ' scale tiny' : chinese.length > 8 ? ' scale' : ''
-  return `<div class="book-cell amount-cell" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? ' scale' : ''}">${formatCurrency(gift.data.amount)}</div></div>`
+  return `<div class="book-cell amount-cell${newCls(index)}" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? ' scale' : ''}">${formatCurrency(gift.data.amount)}</div></div>`
 }
 
 export function bookMarkup() {

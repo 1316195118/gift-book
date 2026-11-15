@@ -161,6 +161,14 @@
       </div>
     </div>
 
+    <!-- 录入回执：手机端礼簿在表单上方，记完一笔看不到更新；这条浮在底部，可一键回礼簿定位。 -->
+    <div v-if="receiptVisible && recentEntry.name" id="entry-receipt" class="entry-receipt" role="status">
+      <span class="entry-receipt-dot" aria-hidden="true"></span>
+      <span class="entry-receipt-text">已录入 <b>{{ recentEntry.name }}</b> · {{ formatCurrency(recentEntry.amount) }}</span>
+      <button type="button" class="entry-receipt-link" @click="revealRecent">在礼簿中查看</button>
+      <button type="button" class="entry-receipt-close" aria-label="关闭提示" @click="receiptVisible = false">×</button>
+    </div>
+
     <!-- 锁定时整页磨砂遮罩：防止路过的人看到礼金内容 -->
     <div v-if="st.locked" class="lock-veil" role="dialog" aria-modal="true" aria-label="账簿已锁定">
       <div class="lock-veil-card">
@@ -196,10 +204,31 @@ import {
   totalPages, amountPreview, submitGift, runSearch, openGiftDetails, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock, showQrDialog,
 } from '../lib/ledger-view.js'
+import { focusGiftRow } from '../lib/ledger-actions.js'
+import { recentEntry } from '../lib/recent-entry.js'
 
 const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
+
+// 录入回执只在刚记完的一小段时间里出现，避免常驻挡视线。
+const receiptVisible = ref(false)
+let receiptTimer = 0
+watch(
+  () => recentEntry.at,
+  (at) => {
+    clearTimeout(receiptTimer)
+    if (!at || !recentEntry.name) {
+      receiptVisible.value = false
+      return
+    }
+    receiptVisible.value = true
+    receiptTimer = window.setTimeout(() => {
+      receiptVisible.value = false
+    }, 12000)
+  },
+  { immediate: true },
+)
 
 const copy = computed(() => copyOf(st.currentEvent, st.homeCategory))
 const version = computed(() => versionLabel())
@@ -280,6 +309,16 @@ watch(
 
 function onSubmit() {
   submitGift({ ...entry }, resetEntry)
+}
+
+// 「在礼簿中查看」：翻到那一页并把它滚到视野中间，闪一下做定位。
+async function revealRecent() {
+  receiptVisible.value = false
+  if (recentEntry.index < 0) {
+    document.querySelector('.gift-book-frame')?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' })
+    return
+  }
+  await focusGiftRow(recentEntry.index)
 }
 
 const onSearch = () => runSearch(searchName.value, searchAmount.value)

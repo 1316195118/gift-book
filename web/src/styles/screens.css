@@ -1804,6 +1804,97 @@ body.theme-solemn .hero-book-art .book {
   text-align: center;
 }
 
+/* 录入回执：手机端礼簿在表单上方，记完一笔看不到更新；这条浮在底部，可一键回礼簿定位。
+   用 fixed 而不是插在表单里，避免出现时把「确认录入」按钮顶走。 */
+.entry-receipt {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-float);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* 居中用 margin 而不是 translateX：入场动画要占用 transform，否则会把居中覆盖掉。 */
+  width: fit-content;
+  max-width: min(92vw, 440px);
+  margin-inline: auto;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 94%, var(--accent-soft));
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 14%, transparent);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  /* 浮在底部但不吃点击：只让两个按钮可点，避免在小屏上挡住「确认录入」。 */
+  pointer-events: none;
+  animation: gb-receipt-in 240ms var(--ease-out) both;
+}
+
+.entry-receipt-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.entry-receipt-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-receipt b {
+  font-weight: 600;
+}
+
+.entry-receipt-link {
+  flex: none;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.entry-receipt-link:hover {
+  color: var(--accent-hover);
+}
+
+.entry-receipt-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.entry-receipt-close:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+/* 宽屏礼簿与表单并排，高亮本身就看得到，不再浮一条回执挡住账簿。 */
+@media (min-width: 901px) {
+  .entry-receipt { display: none; }
+}
+
 /* ---- 账簿面板 ---- */
 
 .book-panel {
@@ -2289,6 +2380,31 @@ body.theme-solemn .hero-book-art .book {
 .search-row-action:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* 「定位」是辅助动作：弱化成文字按钮，不打乱结果行的主次。 */
+.search-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.search-row-locate {
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.search-row-locate:hover {
+  color: var(--accent-hover);
 }
 
 /* --------------------------------------------------------------------------

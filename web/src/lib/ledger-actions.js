@@ -1,4 +1,5 @@
 // 记账页的全部业务动作：录入、修改留痕、详情、统计、导出、打印、设置、锁定、OCR。
+import { nextTick } from 'vue'
 import { state as st, hashPassword, NO_PASSWORD_KEY, rememberLedgerKey, touchSession, clearSession } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
@@ -17,6 +18,7 @@ import { speakText, previewVoice } from './voice.js'
 import { showQrImage } from './qr.js'
 import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn } from './return-gift.js'
 import { compareGiftsByRegistration } from './gift-order.js'
+import { markRecentEntry } from './recent-entry.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
@@ -138,6 +140,12 @@ async function saveGift(giftData, resetForm) {
       st.gifts.sort(compareGiftsByRegistration)
       st.currentPage = Math.ceil(st.gifts.length / 12) || 1
       syncEventTotal()
+      // 记下这一笔在礼簿里的位置：录入卡片给出回执，礼簿上标出那一格。
+      markRecentEntry({
+        index: st.gifts.findIndex((g) => g.id === createdGift.id),
+        name: giftData.name,
+        amount: giftData.amount,
+      })
     } else {
       // 万一返回内容异常，退回全量刷新，保证界面与数据一致。
       await loadGiftsForCurrentEvent()
@@ -166,6 +174,7 @@ async function handleOffline(record, giftData, item, serverIssue) {
     data: { ...giftData, timestamp: item.queuedAt },
   })
   st.currentPage = Math.ceil(st.gifts.length / 12) || 1
+  markRecentEntry({ index: st.gifts.length - 1, name: giftData.name, amount: giftData.amount })
   if (serverIssue) {
     setSyncStatus('服务暂时不可用，这一笔已加密暂存在本机，恢复后会自动补传。', true)
     return
@@ -441,6 +450,26 @@ function isLate(gift) {
   return at < start || at > end
 }
 
+// 把某一笔翻到它所在的页、滚进视野并闪一下描边：搜索定位与录入回执共用。
+export async function focusGiftRow(index) {
+  const i = Number(index)
+  if (!Number.isInteger(i) || i < 0 || i >= st.gifts.length) return false
+  const page = Math.floor(i / 12) + 1
+  if (page !== st.currentPage) {
+    st.currentPage = page
+    await nextTick()
+  }
+  const cell = document.querySelector(`#gift-book-content .name-cell[data-gift-index="${i}"]`)
+  if (!cell) return false
+  const reduce = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  cell.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center', inline: 'center' })
+  cell.classList.remove('is-focus')
+  void cell.offsetWidth
+  cell.classList.add('is-focus')
+  window.setTimeout(() => cell.classList.remove('is-focus'), 1800)
+  return true
+}
+
 // ---- 查询 ----
 
 export async function runSearch(name, amountText) {
@@ -464,6 +493,16 @@ export async function runSearch(name, amountText) {
   if (amountTerm !== null) criteria.push(`金额 ${formatCurrency(amountTerm)}`)
   if (!results.length) return showAlert('查找结果', escapeHtml(`没有找到${criteria.join('、')}的记录。`))
 
+  // 只命中一条：不绕结果列表，直接翻到那一页再弹详情，
+  // 关掉详情时正好停在礼簿里，能看到前后是谁。
+  if (results.length === 1) {
+    const only = results[0].originalIndex
+    closeModal()
+    await focusGiftRow(only)
+    setTimeout(() => openGiftDetails(only), 300)
+    return
+  }
+
   // 结果多时只先渲染一屏，其余点「显示更多」追加，避免一次性生成上百行 DOM。
   const SEARCH_BATCH = 30
   const rowHtml = (r) => `
@@ -482,7 +521,10 @@ export async function runSearch(name, amountText) {
             </div>
           </div>
         </div>
-        <button class="view-details-btn search-row-action" data-gift-index="${r.originalIndex}" type="button">详情</button>
+        <div class="search-row-actions">
+          <button class="search-row-locate" data-locate-index="${r.originalIndex}" type="button" aria-label="在礼簿中定位">定位</button>
+          <button class="view-details-btn search-row-action" data-gift-index="${r.originalIndex}" type="button">详情</button>
+        </div>
       </li>`
 
   const total = results.length
@@ -508,11 +550,23 @@ export async function runSearch(name, amountText) {
     const listEl = document.querySelector('#search-list')
     // 事件委托：后续追加的行无需再逐条绑定。
     listEl?.addEventListener('click', (event) => {
+      // 「定位」：关掉结果面板，翻到那一页并标出这一格，不弹详情。
+      const locate = event.target.closest('.search-row-locate')
+      if (locate) {
+        const index = Number(locate.dataset.locateIndex)
+        closeModal()
+        setTimeout(() => focusGiftRow(index), 150)
+        return
+      }
       const btn = event.target.closest('.view-details-btn')
       if (!btn) return
       const index = Number(btn.dataset.giftIndex)
       closeModal()
-      setTimeout(() => openGiftDetails(index), 150)
+      // 详情也先定位：关掉详情时停在礼簿的这一页，能直接看到前后的人。
+      setTimeout(async () => {
+        await focusGiftRow(index)
+        openGiftDetails(index)
+      }, 150)
     })
     const moreBtn = document.querySelector('#search-more-btn')
     moreBtn?.addEventListener('click', () => {
