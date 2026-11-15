@@ -910,6 +910,20 @@ body.theme-solemn #modal-container {
    表现为「关闭按钮乱跳」。统一只保留 #modal-close。 */
 .unlock-card .unlock-close { display: none; }
 
+/* 导出面板有自己的关闭键：手机没有 ESC，必须有可点的 ×。
+   收进卡片内（#modal 是 overflow:hidden，负偏移会被裁掉），并放大到 40px 便于触控。 */
+.unlock-card.export-card .unlock-close {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  border-radius: var(--r-sm);
+}
+
 .unlock-seal {
   display: grid;
   place-items: center;

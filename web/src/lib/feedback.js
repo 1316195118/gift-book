@@ -71,6 +71,12 @@ function onPointerDown(event) {
   const size = Math.max(rect.width, rect.height) * 1.25
   const layer = document.createElement('span')
   layer.className = 'gb-ripple-layer'
+  // 用视口坐标铺满被点元素：layer 挂在 body 上，不改变宿主定位，避免按钮跳位。
+  layer.style.left = `${rect.left}px`
+  layer.style.top = `${rect.top}px`
+  layer.style.width = `${rect.width}px`
+  layer.style.height = `${rect.height}px`
+  layer.style.borderRadius = getComputedStyle(el).borderRadius
   const dot = document.createElement('i')
   dot.className = 'gb-ripple-dot'
   dot.style.width = `${size}px`
@@ -79,8 +85,7 @@ function onPointerDown(event) {
   dot.style.left = `${(event.clientX ?? rect.left + rect.width / 2) - rect.left - size / 2}px`
   dot.style.top = `${(event.clientY ?? rect.top + rect.height / 2) - rect.top - size / 2}px`
   layer.appendChild(dot)
-  el.classList.add('gb-ripple-host')
-  el.appendChild(layer)
+  document.body.appendChild(layer)
   const drop = () => layer.remove()
   dot.addEventListener('animationend', drop, { once: true })
   setTimeout(drop, 700)

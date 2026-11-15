@@ -39,7 +39,7 @@ export function openExport() {
       },
     },
     [],
-    { size: 'unlock', theme: isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive' },
+    { size: 'unlock', theme: isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive', dismissable: true },
   )
 }
 

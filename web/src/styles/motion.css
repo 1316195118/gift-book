@@ -75,13 +75,12 @@
    2. 点击涟漪：以点击位置为中心扩散，指向刚刚按下的地方
    -------------------------------------------------------------------------- */
 
-.gb-ripple-host { position: relative; }
-
+/* 涟漪层挂在 body 上、用 fixed 定位：这样「给宿主加定位」不再是必需，
+   也不会把绝对定位的按钮（如导出面板的 ×）临时改成 relative 而跳位。 */
 .gb-ripple-layer {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  z-index: 9999;
   overflow: hidden;
-  border-radius: inherit;
   pointer-events: none;
 }
 

@@ -8,6 +8,14 @@ const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
   {
+    version: '2.4.9',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '手机端「导出 / 导入」面板无法关闭：现在点右上角 ×、点遮罩、或点「取消」都能退出' },
+      { t: 'fix', text: '修复按下按钮瞬间按钮位置跳动、导致点击没反应的问题' },
+    ],
+  },
+  {
     version: '2.4.8',
     date: '2026-11-15',
     notes: [
