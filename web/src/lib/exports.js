@@ -1,6 +1,6 @@
 // 导出：Excel 明细、PDF 礼簿（A4 横向）、Word 文档（A4 纵向）。
 import { state as st } from '../store.js'
-import { openModal, closeModal, alert as showAlert } from './modal.js'
+import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { copyOf, isSolemnEvent } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml, formatDateTime } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
@@ -32,7 +32,7 @@ export function openExport() {
       solemn: isSolemnEvent(ev, st.homeCategory),
       onPick: (format) => {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
-        if (format === 'returns') setTimeout(() => exportReturns(), 80)
+        if (format === 'returns') setTimeout(() => openReturnsExport(), 80)
         if (format === 'pdf') setTimeout(() => exportLedgerPdf(), 120)
         if (format === 'word') setTimeout(() => exportToWord(), 80)
         if (format === 'import') setTimeout(() => openImport(), 80)
@@ -145,16 +145,12 @@ export function exportToExcel() {
   XlsxLite.downloadWorkbook(sheets, `${ev.name}_${copy.fileSuffix}.xlsx`)
 }
 
-// 一键导出「已回礼的人与金额」：每人一行，类型列标注「回礼」，附合计。
-export function exportReturns() {
-  const ev = st.currentEvent
-  if (!ev) return
-  if (isSolemnEvent(ev, st.homeCategory)) {
-    return showAlert('不支持', '白事账簿不提供回礼功能，无需导出回礼明细。')
-  }
-  const copy = copyOf(ev, st.homeCategory)
-  const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
+// ---- 回礼明细：Excel / PDF / Word 三种格式 ----
 
+// 汇总「已回礼的人与金额」，三种格式共用同一份数据。
+function collectReturns() {
+  const ev = st.currentEvent
+  if (!ev) return null
   const list = st.gifts
     .filter((g) => hasReturned(g.data))
     .map((g) => {
@@ -172,17 +168,67 @@ export function exportReturns() {
         notes: records.map((r) => r.note).filter(Boolean).join('；'),
       }
     })
+  return { ev, list, total: list.reduce((sum, r) => sum + r.total, 0) }
+}
 
-  if (!list.length) {
-    return showAlert('无法导出', `当前账簿还没有登记回礼。先在礼金详情里登记回礼，再来导出${copy.peopleNoun}的回礼明细。`)
-  }
-
-  const totalReturned = list.reduce((sum, r) => sum + r.total, 0)
-  const metaLine = [
+function returnsMetaLine(ev, list, total, copy) {
+  return [
     ev.displayId ? `No.${ev.displayId}` : '',
     `已回礼 ${list.length} 位${copy.peopleNoun}`,
-    `回礼合计 ${formatCurrency(totalReturned)}`,
+    `回礼合计 ${formatCurrency(total)}`,
   ].filter(Boolean).join('　·　')
+}
+
+// 入口：先选格式（与账簿导出同样的三种文件类型）。
+export function openReturnsExport() {
+  const ev = st.currentEvent
+  if (!ev) return
+  if (isSolemnEvent(ev, st.homeCategory)) {
+    return showAlert('不支持', '白事账簿不提供回礼功能，无需导出回礼明细。')
+  }
+  const copy = copyOf(ev, st.homeCategory)
+  const data = collectReturns()
+  if (!data.list.length) {
+    return showAlert('无法导出', `当前账簿还没有登记回礼。先在礼金详情里登记回礼，再来导出${copy.peopleNoun}的回礼明细。`)
+  }
+  const html = `
+    <div class="export-options">
+      <button type="button" class="export-option" data-returns-fmt="excel">
+        <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9 9.5v10M15 9.5v10"/></svg></span>
+        <span class="export-text"><b>Excel 表格</b><small>.xlsx · 带封面与主题底色</small></span>
+      </button>
+      <button type="button" class="export-option" data-returns-fmt="pdf">
+        <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 13h6M9 16.5h4"/></svg></span>
+        <span class="export-text"><b>PDF 明细</b><small>A4 横向 · 带封面</small></span>
+      </button>
+      <button type="button" class="export-option" data-returns-fmt="word">
+        <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14v16H5z"/><path d="M8 8l1.6 8 1.4-5 1.4 5L14 8"/></svg></span>
+        <span class="export-text"><b>Word 文档</b><small>A4 纵向 · 带封面</small></span>
+      </button>
+    </div>
+    <p class="unlock-note">共 ${data.list.length} 位${copy.peopleNoun}已登记回礼，合计 ${formatCurrency(data.total)}；只列已回礼的人，每人一行并标注为回礼。</p>`
+  openModal('回礼明细', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }])
+  afterModalRender(() => {
+    document.querySelectorAll('[data-returns-fmt]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const fmt = btn.dataset.returnsFmt
+        closeModal()
+        if (fmt === 'excel') setTimeout(() => exportReturnsExcel(), 80)
+        if (fmt === 'pdf') setTimeout(() => exportReturnsPdf(), 80)
+        if (fmt === 'word') setTimeout(() => exportReturnsWord(), 80)
+      })
+    })
+  })
+}
+
+// Excel：封面页 + 明细（主题配色）。
+export function exportReturnsExcel() {
+  const data = collectReturns()
+  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  const { ev, list, total: totalReturned } = data
+  const copy = copyOf(ev, st.homeCategory)
+  const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
+  const metaLine = returnsMetaLine(ev, list, totalReturned, copy)
 
   const rows = [
     [{ v: `${ev.name} 回礼明细`, s: style.title }, null, null, null, null, null, null, null, null],
@@ -214,8 +260,8 @@ export function exportReturns() {
   const solemn = isSolemnEvent(ev, st.homeCategory)
   const coverRows = []
   const coverHeights = {}
-  const pushCover = (text, style, height) => {
-    coverRows.push([{ v: text, s: style }, ...Array(7).fill(null)])
+  const pushCover = (text, styleIdx, height) => {
+    coverRows.push([{ v: text, s: styleIdx }, ...Array(7).fill(null)])
     coverHeights[coverRows.length] = height
   }
   const startText = ev.startDateTime ? new Date(ev.startDateTime).toLocaleString('zh-CN', { hour12: false }) : ''
@@ -256,6 +302,102 @@ export function exportReturns() {
     ],
     `${ev.name}_回礼明细.xlsx`,
   )
+}
+
+// Word：A4 纵向，封面头 + 表格 + 合计。
+export function exportReturnsWord() {
+  const data = collectReturns()
+  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  const { ev, list, total } = data
+  const copy = copyOf(ev, st.homeCategory)
+  const solemn = isSolemnEvent(ev, st.homeCategory)
+  const primary = solemn ? '#33475a' : '#ab2b21'
+  const bg = solemn ? '#eef0f3' : '#f9eae4'
+  const rows = list
+    .map(
+      (r, i) =>
+        `<tr><td class="c">${i + 1}</td><td class="c">${escapeHtml(r.name)}</td><td class="c">${escapeHtml(r.relation)}</td><td class="num">${formatCurrency(r.gift)}</td><td class="num">${formatCurrency(r.total)}</td><td class="c">${r.times}</td><td class="time">${r.lastAt ? escapeHtml(formatDateTime(r.lastAt)) : ''}</td><td class="remark">${escapeHtml(r.notes)}</td><td class="c">回礼</td></tr>`,
+    )
+    .join('')
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${escapeHtml(ev.name)} 回礼明细</title><style>
+    @page { size: A4 portrait; margin: 1.8cm 1.6cm; }
+    body { font-family: "SimSun","Songti SC",serif; font-size: 10.5pt; color: #222; line-height: 1.5; }
+    .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; text-align: center; }
+    .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; }
+    .doc-head h1 { font-family: "KaiTi","STKaiti",serif; font-size: 24pt; color: ${primary}; margin: 6px 0; }
+    .doc-head .meta { font-size: 9pt; color: #666; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; table-layout: fixed; }
+    th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; }
+    th { background: ${bg}; color: ${primary}; font-weight: bold; }
+    td.c { text-align: center; } td.num { text-align: right; white-space: nowrap; } td.time { text-align: center; font-size: 8.5pt; color: #555; }
+    td.remark { text-align: left; word-break: break-word; }
+    tr { page-break-inside: avoid; }
+    .totals { margin-top: 12px; font-size: 10.5pt; text-align: right; }
+    .note { margin-top: 10px; font-size: 8.5pt; color: #777; }
+  </style></head><body>
+    <div class="doc-head"><div class="kicker">${solemn ? '白 事 · 奠 仪' : '红 事 · 贺 礼'} · 回 礼</div>
+    <h1>${escapeHtml(ev.name)} 回礼明细</h1>
+    <div class="meta">${escapeHtml(returnsMetaLine(ev, list, total, copy))}</div></div>
+    <table><thead><tr><th style="width:6%">序号</th><th style="width:12%">姓名</th><th style="width:9%">关系</th><th style="width:11%">原礼金</th><th style="width:12%">回礼金额</th><th style="width:8%">次数</th><th style="width:14%">最近回礼</th><th>备注</th><th style="width:7%">类型</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="totals">已回礼 ${list.length} 位 · 合计 <b>${formatCurrency(total)}</b></div>
+    <div class="note">本文件只列已登记回礼的${copy.peopleNoun}，每人一行，回礼金额为多次回礼的累计；「类型」列统一标注为回礼。</div>
+  </body></html>`
+  downloadBlob(new Blob([html], { type: 'application/msword' }), `${ev.name}_回礼明细.doc`)
+}
+
+// PDF：A4 横向，与礼簿同一套渲染链（逐页转图再写 PDF）。
+const RETURNS_PER_PAGE = 16
+
+export async function exportReturnsPdf() {
+  const data = collectReturns()
+  if (!data?.list.length) return showAlert('无法导出', '当前账簿还没有登记回礼。')
+  const { ev, list, total } = data
+  const copy = copyOf(ev, st.homeCategory)
+  const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'
+  const totalPages = Math.max(1, Math.ceil(list.length / RETURNS_PER_PAGE))
+  const printView = document.createElement('div')
+  printView.id = 'print-view'
+  printView.style.cssText = 'position:fixed;left:-9999px;top:0;width:297mm;'
+  const pages = []
+  for (let p = 0; p < totalPages; p += 1) {
+    const slice = list.slice(p * RETURNS_PER_PAGE, (p + 1) * RETURNS_PER_PAGE)
+    const page = document.createElement('div')
+    page.className = 'print-page'
+    const head =
+      p === 0
+        ? `<h1 class="print-header"><span class="print-header-name">${escapeHtml(ev.name)}</span><span class="print-header-sep">·</span><span class="print-header-kind">回礼明细</span></h1><p class="returns-print-meta">${escapeHtml(returnsMetaLine(ev, list, total, copy))}</p>`
+        : `<h1 class="print-header"><span class="print-header-name">${escapeHtml(ev.name)}</span><span class="print-header-sep">·</span><span class="print-header-kind">回礼明细（续）</span></h1>`
+    page.innerHTML = `${head}
+      <table class="returns-print-table"><thead><tr><th>序号</th><th>姓名</th><th>关系</th><th>原礼金</th><th>回礼金额</th><th>次数</th><th>最近回礼</th><th>备注</th><th>类型</th></tr></thead>
+      <tbody>${slice
+        .map(
+          (r, i) =>
+            `<tr><td>${p * RETURNS_PER_PAGE + i + 1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.relation)}</td><td class="num">${formatCurrency(r.gift)}</td><td class="num">${formatCurrency(r.total)}</td><td>${r.times}</td><td>${r.lastAt ? escapeHtml(formatDateTime(r.lastAt)) : ''}</td><td class="note-cell">${escapeHtml(r.notes)}</td><td>回礼</td></tr>`,
+        )
+        .join('')}</tbody></table>
+      <div class="returns-print-foot">第 ${p + 1} / ${totalPages} 页 · 已回礼 ${list.length} 位 · 合计 ${formatCurrency(total)}</div>`
+    printView.appendChild(page)
+    pages.push(page)
+  }
+  document.body.appendChild(printView)
+  const progress = showPdfProgress(pages.length)
+  try {
+    const css = collectPrintCss() + '\n' + printOptionsCss()
+    const images = []
+    for (let i = 0; i < pages.length; i += 1) {
+      progress.update(`正在排版第 ${i + 1} / ${pages.length} 页…`)
+      images.push(await rasterizePrintPage(pages[i], css, themeClass, 2))
+    }
+    progress.update('正在写入 PDF…')
+    const blob = buildPdfBlob(images, PDF_PAGE_W_PT, PDF_PAGE_H_PT)
+    downloadBlob(blob, `${ev.name}_回礼明细.pdf`)
+  } catch (error) {
+    console.error('回礼 PDF 生成失败:', error)
+    showAlert('导出失败', 'PDF 生成失败，请重试；也可改用 Excel 或 Word。')
+  } finally {
+    progress.close()
+    printView.remove()
+  }
 }
 
 export function exportToWord() {

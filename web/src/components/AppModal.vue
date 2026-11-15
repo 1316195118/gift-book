@@ -36,13 +36,18 @@ const view = ModalContent
 const rootEl = ref(null)
 let lastFocused = null
 let overflowTimer = 0
-let scrollbarPad = 0
 
 // 锁定背景滚动时补上滚动条宽度，避免页面内容在「有/无滚动条」之间左右跳。
+// html 已声明 scrollbar-gutter: stable，锁定滚动不会再改变页面宽度；
+// 这里若再补一次 padding，反而会把整页左移 15px（按钮边框闪一下就是这个原因）。
+// 只有不支持 scrollbar-gutter 的浏览器才做宽度补偿。
+const supportsGutter = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('scrollbar-gutter', 'stable')
+
 function lockBodyScroll() {
-  scrollbarPad = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
   document.body.style.overflow = 'hidden'
-  if (scrollbarPad > 0) document.body.style.paddingRight = `${scrollbarPad}px`
+  if (supportsGutter) return
+  const pad = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+  if (pad > 0) document.body.style.paddingRight = `${pad}px`
 }
 
 function unlockBodyScroll() {

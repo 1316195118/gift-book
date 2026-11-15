@@ -2,11 +2,19 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.10'
+export const APP_VERSION = '2.4.11'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.11',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '回礼明细支持 Excel / PDF / Word 三种格式，与账簿导出一致，均带封面与主题配色' },
+      { t: 'fix', text: '修复打开弹窗时页面按钮边框闪一下的问题（滚动锁定重复补偿导致整页左移 15px）' },
+    ],
+  },
   {
     version: '2.4.10',
     date: '2026-11-15',
