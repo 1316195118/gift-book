@@ -30,7 +30,7 @@
         <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14v16H5z"/><path d="M8 8l1.6 8 1.4-5 1.4 5L14 8"/></svg></span>
         <span class="export-text"><b>Word 文档</b><small>明细 + 备注 + 修改记录</small></span>
       </button>
-      <button type="button" class="export-option" @click="pick('returns')">
+      <button v-if="!content.solemn" type="button" class="export-option" @click="pick('returns')">
         <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9h11a4 4 0 0 1 0 8H9"/><path d="m8 6 3 3-3 3"/></svg></span>
         <span class="export-text"><b>回礼明细</b><small>已回礼的人与金额</small></span>
       </button>
@@ -39,7 +39,7 @@
         <span class="export-text"><b>批量导入 CSV</b><small>从名单批量录入</small></span>
       </button>
     </div>
-    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。「回礼明细」只列已登记回礼的人，每人一行并标注为回礼。</p>
+    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。<template v-if="!content.solemn">「回礼明细」只列已登记回礼的人，每人一行并标注为回礼。</template></p>
   </div>
 
   <div v-else-if="content.type === 'html'" v-html="content.html"></div>

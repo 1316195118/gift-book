@@ -255,6 +255,17 @@ export function openGiftDetails(index) {
   const warning = hasHistory ? `<div class="modal-notice modal-notice-warn">${copy.historyWarning}</div>` : ''
   const returns = returnRecordsOf(data)
   const returnTotal = totalReturnedOf(data)
+  const solemn = isSolemnEvent(st.currentEvent, st.homeCategory)
+  // 白事不提供回礼功能：整个回礼区块不渲染。
+  const returnBlock = solemn ? '' : `<div class="p-2 hover:bg-gray-50 rounded">
+        <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">登记一次</button></div>
+        ${returns.length
+          ? `<div class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">
+              <p class="text-sm"><b>累计 ${formatCurrency(returnTotal)}</b> <span class="text-gray-500">（${returns.length} 次）</span></p>
+              <ul class="mt-1 space-y-1">${returns.map((r, i) => `<li class="flex items-center justify-between gap-2 text-sm"><span>${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-CN') : '—'} · ${formatCurrency(r.amount)}${r.note ? ` · ${escapeHtml(r.note)}` : ''}</span><button type="button" class="text-xs text-red-600 hover:underline" data-remove-return="${i}">撤销</button></li>`).join('')}</ul>
+            </div>`
+          : '<p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">未回礼</p>'}
+      </div>`
   const details = `
     <div class="space-y-4 text-left h-full flex flex-col" data-details-index="${index}">
       <h4 class="font-bold text-lg border-b pb-2 mb-2">当前记录信息</h4>
@@ -274,15 +285,7 @@ export function openGiftDetails(index) {
         <div class="flex justify-between items-start"><strong>备注:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="remarks">修改</button></div>
         <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.remarks ? escapeHtml(data.remarks) : '（无备注）'}</p>
       </div>
-      <div class="p-2 hover:bg-gray-50 rounded">
-        <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">登记一次</button></div>
-        ${returns.length
-          ? `<div class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">
-              <p class="text-sm"><b>累计 ${formatCurrency(returnTotal)}</b> <span class="text-gray-500">（${returns.length} 次）</span></p>
-              <ul class="mt-1 space-y-1">${returns.map((r, i) => `<li class="flex items-center justify-between gap-2 text-sm"><span>${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-CN') : '—'} · ${formatCurrency(r.amount)}${r.note ? ` · ${escapeHtml(r.note)}` : ''}</span><button type="button" class="text-xs text-red-600 hover:underline" data-remove-return="${i}">撤销</button></li>`).join('')}</ul>
-            </div>`
-          : '<p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">未回礼</p>'}
-      </div>
+      ${returnBlock}
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
         <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>

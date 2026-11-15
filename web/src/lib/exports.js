@@ -29,6 +29,7 @@ export function openExport() {
       count: st.gifts.length,
       recordsLabel: copy.recordsLabel,
       bookTitle: copy.bookTitle,
+      solemn: isSolemnEvent(ev, st.homeCategory),
       onPick: (format) => {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
         if (format === 'returns') setTimeout(() => exportReturns(), 80)
@@ -148,6 +149,9 @@ export function exportToExcel() {
 export function exportReturns() {
   const ev = st.currentEvent
   if (!ev) return
+  if (isSolemnEvent(ev, st.homeCategory)) {
+    return showAlert('不支持', '白事账簿不提供回礼功能，无需导出回礼明细。')
+  }
   const copy = copyOf(ev, st.homeCategory)
   const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
 
