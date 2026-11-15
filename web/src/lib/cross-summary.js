@@ -6,7 +6,7 @@
 // 其余账簿会列在「需单独解锁」里，不臆造数据。
 import { state as st, ledgerKeyForEvent, NO_PASSWORD_KEY } from '../store.js'
 import { api } from './api.js'
-import { decryptData } from '../bootstrap.js'
+import { decryptData, setSyncStatus } from '../bootstrap.js'
 import { openModal, alert as showAlert } from './modal.js'
 import { escapeHtml, formatCurrency } from './crypto.js'
 
@@ -14,11 +14,17 @@ export async function openCrossSummary() {
   let events = []
   try {
     const res = await api.listEvents()
-    events = Array.isArray(res.data) ? res.data : Array.isArray(res.events) ? res.events : []
+    // /api/events 的 data 是 { id: event } 映射，不是数组。
+    const raw = res?.data ?? res?.events ?? res
+    events = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.values(raw) : []
   } catch (error) {
     return showAlert('无法读取账簿列表', error.message || '请检查网络后重试。')
   }
   if (!events.length) return showAlert('没有账簿', '当前还没有任何账簿。')
+
+  // 没有礼金的账簿直接跳过，避免上百次空请求。
+  const withGifts = events.filter((ev) => Number(ev.giftCount || 0) > 0)
+  if (!withGifts.length) return showAlert('没有记录', '所有账簿都还没有礼金记录，暂时没有可汇总的内容。')
 
   const passwords = [...new Set([st.currentPassword, NO_PASSWORD_KEY].filter((p) => typeof p === 'string'))]
   const byName = new Map()
@@ -26,50 +32,57 @@ export async function openCrossSummary() {
   let scannedEvents = 0
   let scannedGifts = 0
 
-  for (const ev of events) {
-    const key = ledgerKeyForEvent(ev.id)
-    if (ev.hasPassword && !key) {
-      skipped.push({ name: ev.name, reason: '需先单独打开解锁' })
-      continue
-    }
-    let list = null
-    try {
-      const res = await api.listGifts(ev.id, key)
-      list = res.data || {}
-    } catch (error) {
-      skipped.push({ name: ev.name, reason: error.message || '读取失败' })
-      continue
-    }
-    let unlocked = false
-    for (const gift of Object.values(list)) {
-      const cipher = gift?.encryptedContent
-      if (!cipher) continue
-      let data = null
-      for (const pwd of passwords) {
-        try {
-          data = decryptData(cipher, pwd)
-          break
-        } catch {
-          /* 换下一个密码 */
-        }
+  // 逐本读取可能要几秒：用顶部状态条给反馈，不碰弹窗内部（那是 Vue 管理的节点）。
+  setSyncStatus('正在汇总跨账簿数据…', false)
+  try {
+    for (let index = 0; index < withGifts.length; index += 1) {
+      const ev = withGifts[index]
+      setSyncStatus(`正在汇总：${ev.name}（${index + 1} / ${withGifts.length}）`, false)
+      const key = ledgerKeyForEvent(ev.id)
+      if (ev.hasPassword && !key) {
+        skipped.push({ name: ev.name, reason: '需先单独打开解锁' })
+        continue
       }
-      if (!data?.name) continue
-      unlocked = true
-      scannedGifts += 1
-      const amount = Number(data.amount) || 0
-      const rec = byName.get(data.name) || { name: data.name, count: 0, total: 0, events: new Set(), relations: new Set() }
-      rec.count += 1
-      rec.total += amount
-      rec.events.add(ev.name)
-      if (data.relation) rec.relations.add(data.relation)
-      byName.set(data.name, rec)
+      let list = null
+      try {
+        const res = await api.listGifts(ev.id, key)
+        list = res.data || {}
+      } catch (error) {
+        skipped.push({ name: ev.name, reason: error.message || '读取失败' })
+        continue
+      }
+      let unlocked = false
+      for (const gift of Object.values(list)) {
+        const cipher = gift?.encryptedContent
+        if (!cipher) continue
+        let data = null
+        for (const pwd of passwords) {
+          try {
+            data = decryptData(cipher, pwd)
+            break
+          } catch {
+            /* 换下一个密码 */
+          }
+        }
+        if (!data?.name) continue
+        unlocked = true
+        scannedGifts += 1
+        const amount = Number(data.amount) || 0
+        const rec = byName.get(data.name) || { name: data.name, count: 0, total: 0, events: new Set(), relations: new Set() }
+        rec.count += 1
+        rec.total += amount
+        rec.events.add(ev.name)
+        if (data.relation) rec.relations.add(data.relation)
+        byName.set(data.name, rec)
+      }
+      if (unlocked) scannedEvents += 1
+      else if (Object.keys(list).length) skipped.push({ name: ev.name, reason: '密码不同，无法解密' })
     }
-    if (unlocked) scannedEvents += 1
-    else if (Object.keys(list).length) skipped.push({ name: ev.name, reason: '密码不同，无法解密' })
+  } finally {
+    setSyncStatus('')
   }
-
   const rows = [...byName.values()].sort((a, b) => b.total - a.total)
-  renderSummary(rows, skipped, { scannedEvents, scannedGifts, totalEvents: events.length })
+  renderSummary(rows, skipped, { scannedEvents, scannedGifts, totalEvents: withGifts.length })
 }
 
 function renderSummary(rows, skipped, meta) {

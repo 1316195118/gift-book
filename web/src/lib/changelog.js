@@ -8,6 +8,14 @@ const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
   {
+    version: '2.4.10',
+    date: '2026-11-15',
+    notes: [
+      { t: 'fix', text: '修复「跨账簿汇总」点击后一直停在正在汇总、看不到结果的问题' },
+      { t: 'opt', text: '跨账簿汇总只读取有礼金的账簿并显示进度；没有可汇总内容时给出明确提示' },
+    ],
+  },
+  {
     version: '2.4.9',
     date: '2026-11-15',
     notes: [
