@@ -13,6 +13,12 @@ export function readCache() {
   }
 }
 
+// 备份恢复后清掉本机缓存的账簿数据，避免离线打开时看到恢复前的旧记录。
+export function clearLedgerCache() {
+  const cache = readCache()
+  writeCache({ ...cache, ledgers: {} })
+}
+
 export function writeCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data))

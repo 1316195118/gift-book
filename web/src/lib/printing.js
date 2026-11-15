@@ -6,6 +6,7 @@ import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { getPrintOptions, applyPrintOptionsToView, savePrintOptions, printOptionsCss } from './prefs.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { openSignInSheet } from './sign-in.js'
+import { computeStats } from './stats-core.js'
 
 export const ITEMS_PER_PAGE = 12
 export const PDF_PAGE_W_PT = 841.89
@@ -121,10 +122,8 @@ export function buildPrintPages() {
   printView.appendChild(coverPage)
 
   const totalGiftPages = Math.ceil(st.gifts.length / ITEMS_PER_PAGE) || 1
-  const stats = { totalAmount: 0, totalGivers: st.gifts.length }
-  st.gifts.forEach(({ data }) => {
-    if (data) stats.totalAmount += Number(data.amount) || 0
-  })
+  // 与页面/导出同一口径（分累加、人数去重）。
+  const stats = computeStats(st.gifts)
 
   for (let i = 0; i < totalGiftPages; i += 1) {
     const pageGifts = st.gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE)

@@ -14,17 +14,17 @@ export function openStats() {
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div id="grid-container" class="md:col-span-3"></div>
       <div class="space-y-4">
-        <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsGivers}:</span><span class="font-bold themed-text">${stats.totalGivers} 人</span></div>
+        <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsGivers}:</span><span class="font-bold themed-text">${stats.uniqueGivers} 人</span></div>
         <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsTotal}:</span><span class="font-bold themed-text">${formatCurrency(stats.totalAmount)}</span></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">按收款方式统计:</h4><ul class="space-y-2">${Object.entries(stats.byType).map(([type, amount]) => `<li class="flex justify-between"><span>${type}:</span> <span>${formatCurrency(amount)}</span></li>`).join('')}</ul></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">按关系统计:</h4><ul class="space-y-2">${Object.entries(stats.byRelation).sort((a, b) => b[1] - a[1]).map(([relation, amount]) => `<li class="flex justify-between"><span>${escapeHtml(relation)}:</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">人情往来:</h4><ul class="space-y-2">
           <li class="flex justify-between"><span>已回礼:</span> <span>${formatCurrency(stats.totalReturned)}（${stats.returnedCount} 笔）</span></li>
-          <li class="flex justify-between"><span>未回礼:</span> <span>${stats.totalGivers - stats.returnedCount} 笔</span></li>
+          <li class="flex justify-between"><span>未回礼:</span> <span>${stats.recordCount - stats.returnedCount} 笔</span></li>
           <li class="flex justify-between"><span>净人情:</span> <span>${formatCurrency(stats.totalAmount - stats.totalReturned)}</span></li>
         </ul></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">概览:</h4><ul class="space-y-2">
-          <li class="flex justify-between"><span>去重人数:</span> <span>${stats.uniqueGivers} 人</span></li>
+          <li class="flex justify-between"><span>记录笔数:</span> <span>${stats.recordCount} 笔</span></li>
           <li class="flex justify-between"><span>人均礼金:</span> <span>${formatCurrency(stats.average)}</span></li>
         </ul></div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">金额 Top 5:</h4><ul class="space-y-2">${stats.topGivers.map(([name, amount], i) => `<li class="flex justify-between"><span>${i + 1}. ${escapeHtml(name)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>

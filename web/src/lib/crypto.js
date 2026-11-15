@@ -37,7 +37,7 @@ export const amountToChinese = (n) => {
   let unit = '京亿万仟佰拾兆万仟佰拾亿仟佰拾万仟佰拾元角分'
   let str = ''
   let s = n.toString()
-  if (s.indexOf('.') > -1) s = (n * 100).toFixed(0)
+  if (s.indexOf('.') > -1) s = Math.round(n * 100).toString()
   else s += '00'
   if (s.length > unit.length) return '金额过大'
   unit = unit.substr(unit.length - s.length)
@@ -58,8 +58,12 @@ export const amountToChinese = (n) => {
     .replace(/角$/g, '角整')
 }
 
-export const formatCurrency = (amount) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(amount || 0)
+// 复用一个 Intl 实例：既避免每次渲染新建对象，也保证非法金额不会显示成 ¥NaN。
+const CNY_FORMATTER = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+export const formatCurrency = (amount) => {
+  const n = Number(amount)
+  return CNY_FORMATTER.format(Number.isFinite(n) ? n : 0)
+}
 
 export const escapeHtml = (s) =>
   String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))

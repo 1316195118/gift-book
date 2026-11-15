@@ -1,36 +1,55 @@
-// 统计汇总的纯函数实现：主界面汇总卡与统计弹窗共用，避免两份口径。
-// 不依赖全局 store，调用方传入礼金数组，便于单测。
+// 统计汇总的唯一实现：主界面汇总卡、统计弹窗、Excel/Word 导出、打印共用同一口径。
+// 金额一律按「分」整数累加，避免浮点误差；人数按姓名去重（空名不计入人数，但计入笔数）。
 import { totalReturnedOf, hasReturned } from './return-gift.js'
 
+// 元 → 分（四舍五入到分），非数字返回 0。
+export const toCents = (value) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.round(n * 100) : 0
+}
+
 export function computeStats(gifts = []) {
-  const result = {
-    totalAmount: 0,
-    totalGivers: gifts.length,
-    byType: { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 },
-    byRelation: {},
-    totalReturned: 0,
-    returnedCount: 0,
-    uniqueGivers: 0,
-    average: 0,
-    topGivers: [],
-  }
-  const byName = {}
+  const byTypeCents = { 现金: 0, 支付宝: 0, 微信: 0, 其他: 0 }
+  const byRelationCents = {}
+  const byNameCents = {}
+  let totalCents = 0
+  let returnedCents = 0
+  let returnedCount = 0
+  let recordCount = 0
+
   gifts.forEach(({ data }) => {
     if (!data) return
-    const amount = Number(data.amount) || 0
-    result.totalAmount += amount
-    result.byType[data.type] = (result.byType[data.type] || 0) + amount
+    recordCount += 1
+    const cents = toCents(data.amount)
+    totalCents += cents
+    byTypeCents[data.type] = (byTypeCents[data.type] || 0) + cents
     const relation = data.relation || '未分类'
-    result.byRelation[relation] = (result.byRelation[relation] || 0) + amount
-    if (data.name) byName[data.name] = (byName[data.name] || 0) + amount
+    byRelationCents[relation] = (byRelationCents[relation] || 0) + cents
+    if (data.name) byNameCents[data.name] = (byNameCents[data.name] || 0) + cents
     if (hasReturned(data)) {
-      result.totalReturned += totalReturnedOf(data)
-      result.returnedCount += 1
+      returnedCents += toCents(totalReturnedOf(data))
+      returnedCount += 1
     }
   })
-  const names = Object.entries(byName).sort((a, b) => b[1] - a[1])
-  result.uniqueGivers = names.length
-  result.average = names.length ? result.totalAmount / names.length : 0
-  result.topGivers = names.slice(0, 5)
-  return result
+
+  const names = Object.entries(byNameCents).sort((a, b) => b[1] - a[1])
+  const uniqueGivers = names.length
+  const byType = {}
+  for (const [type, cents] of Object.entries(byTypeCents)) byType[type] = cents / 100
+  const byRelation = {}
+  for (const [relation, cents] of Object.entries(byRelationCents)) byRelation[relation] = cents / 100
+
+  return {
+    totalAmount: totalCents / 100,
+    // totalGivers 保留旧字段名，但统一表示「去重人数」，与导出/打印的「共 N 位」一致。
+    totalGivers: uniqueGivers,
+    uniqueGivers,
+    recordCount,
+    byType,
+    byRelation,
+    totalReturned: returnedCents / 100,
+    returnedCount,
+    average: uniqueGivers ? totalCents / 100 / uniqueGivers : 0,
+    topGivers: names.slice(0, 5).map(([name, cents]) => [name, cents / 100]),
+  }
 }

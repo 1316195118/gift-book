@@ -3,10 +3,13 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"giftbook/internal/backup"
 	"giftbook/internal/store"
 )
 
@@ -26,78 +30,27 @@ const (
 	maxTotalSize  = 512 << 20
 )
 
-// backupManifest 是备份包里的 manifest.json。
-type backupManifest struct {
-	Format    string `json:"format"`
-	Version   int    `json:"version"`
-	CreatedAt string `json:"createdAt"`
-	App       string `json:"app"`
-	Events    int    `json:"events"`
-	Gifts     int    `json:"gifts"`
-	HasAuth   bool   `json:"hasAuth"`
+// backupManifest 直接复用 backup.Manifest，避免两处结构漂移。
+type backupManifest = backup.Manifest
+
+// contentHash 计算备份文件的 sha256（测试里已有同名 sha256Hex(string)，这里换个名字避免冲突）。
+func contentHash(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // ---- GET /api/backup 导出整库为 zip ----
 
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
-	events, gifts, err := s.store.BackupAll()
-	if err != nil {
-		fail(w, http.StatusInternalServerError, "备份失败：无法读取账簿数据")
-		return
-	}
-
-	total := 0
-	for _, items := range gifts {
-		total += len(items)
-	}
-	manifest := backupManifest{
-		Format:    backupFormat,
-		Version:   backupVersion,
-		CreatedAt: time.Now().Format("2006-01-02T15:04:05-07:00"),
-		App:       s.buildLabel(),
-		Events:    len(events),
-		Gifts:     total,
-		HasAuth:   s.auth.Enabled(),
-	}
-
 	filename := fmt.Sprintf("giftbook-backup-%s.zip", time.Now().Format("20060102-150405"))
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-
-	zw := zip.NewWriter(w)
-	writeJSONEntry := func(name string, value any) error {
-		entry, err := zw.Create(name)
-		if err != nil {
-			return err
-		}
-		payload, err := json.MarshalIndent(value, "", "  ")
-		if err != nil {
-			return err
-		}
-		_, err = entry.Write(payload)
-		return err
+	// 与定时备份共用同一实现：带 manifest 计数与逐文件 sha256 校验和。
+	if _, err := backup.Write(w, s.store, s.buildLabel(), s.auth.Enabled(), s.auth.ExportState()); err != nil {
+		log.Printf("下载备份失败: %v", err)
 	}
-	if err := writeJSONEntry("manifest.json", manifest); err != nil {
-		return
-	}
-	if err := writeJSONEntry("data/events.json", events); err != nil {
-		return
-	}
-	for id, items := range gifts {
-		if err := writeJSONEntry("data/gifts_"+store.SanitizeID(id)+".json", items); err != nil {
-			return
-		}
-	}
-	// 访问保护状态随包备份，恢复后无需重新设置访问密码。
-	if raw := s.auth.ExportState(); len(raw) > 0 {
-		entry, err := zw.Create("config/auth-state.json")
-		if err == nil {
-			_, _ = entry.Write(raw)
-		}
-	}
-	_ = zw.Close()
 }
 
 // ---- POST /api/backup 导入 zip ----
@@ -108,6 +61,7 @@ type parsedBackup struct {
 	events    map[string]store.Record
 	gifts     map[string]map[string]store.Record
 	authState []byte
+	checksums map[string]string
 }
 
 func (p *parsedBackup) accept(name string, content []byte) error {
@@ -136,6 +90,10 @@ func (p *parsedBackup) accept(name string, content []byte) error {
 	case name == "config/auth-state.json":
 		p.authState = content
 	}
+	if p.checksums == nil {
+		p.checksums = map[string]string{}
+	}
+	p.checksums[name] = contentHash(content)
 	return nil
 }
 
@@ -246,6 +204,25 @@ func (s *Server) parseBackup(reader *zip.Reader) (*parsedBackup, error) {
 	}
 	if out.events == nil {
 		return nil, errors.New("备份包缺少账簿数据")
+	}
+	// 逐文件校验和：能发现截断、位腐或被改动的备份包。
+	if len(out.manifest.Checksums) > 0 {
+		for name, want := range out.manifest.Checksums {
+			if got := out.checksums[name]; got != want {
+				return nil, fmt.Errorf("备份包校验失败：%s 与清单不一致", name)
+			}
+		}
+	}
+	// 数量核对：清单记录的总数必须与实际解析出的数量一致。
+	actualGifts := 0
+	for _, items := range out.gifts {
+		actualGifts += len(items)
+	}
+	if out.manifest.Events > 0 && out.manifest.Events != len(out.events) {
+		return nil, fmt.Errorf("备份包不完整：清单 %d 本账簿，实际 %d 本", out.manifest.Events, len(out.events))
+	}
+	if out.manifest.Gifts > 0 && out.manifest.Gifts != actualGifts {
+		return nil, fmt.Errorf("备份包不完整：清单 %d 条礼金，实际 %d 条", out.manifest.Gifts, actualGifts)
 	}
 	if err := out.normalize(); err != nil {
 		return nil, err

@@ -188,7 +188,7 @@ import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verif
 import { writeLocked } from '../lib/prefs.js'
 import { startRealtime, stopRealtime } from '../lib/realtime.js'
 import { netState as net } from '../lib/network.js'
-import { queueFor } from '../lib/offline.js'
+import { queueFor, clearLedgerCache } from '../lib/offline.js'
 import { pulse } from '../lib/feedback.js'
 import { playPage } from '../lib/sound.js'
 import {
@@ -357,6 +357,8 @@ function onRemoteChange(payload) {
     remoteTimer = window.setTimeout(async () => {
       setSyncStatus('数据已恢复，正在刷新…', false)
       try {
+        // 恢复后旧缓存已失效，先清掉，避免离线时读到恢复前的数据。
+        clearLedgerCache()
         await loadEvents()
         await loadGiftsForCurrentEvent()
       } finally {

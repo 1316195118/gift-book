@@ -47,19 +47,14 @@ function isLate(gift) {
   return at < start || at > end
 }
 
-function computeStats() {
-  const out = { totalAmount: 0, totalGivers: st.gifts.length }
-  st.gifts.forEach(({ data }) => {
-    if (data) out.totalAmount += Number(data.amount) || 0
-  })
-  return out
-}
+// 统计与页面/打印共用同一份实现，避免「导出合计和页面不一致」。
+import { computeStats as computeLedgerStats } from './stats-core.js'
 
 export function exportToExcel() {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
   if (!st.gifts.length) return showAlert('无法导出', copy.exportEmpty)
-  const stats = computeStats()
+  const stats = computeLedgerStats(st.gifts)
   const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
@@ -146,7 +141,7 @@ export function exportToWord() {
   const primary = solemn ? '#374151' : '#a3261e'
   const bg = solemn ? '#eef0f3' : '#fbeceb'
   const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
-  const stats = computeStats()
+  const stats = computeLedgerStats(st.gifts)
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
 

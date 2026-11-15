@@ -4,6 +4,8 @@ package backup
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +33,14 @@ type Manifest struct {
 	Events    int    `json:"events"`
 	Gifts     int    `json:"gifts"`
 	HasAuth   bool   `json:"hasAuth"`
+	// Checksums 记录每个数据文件的 sha256（不含 manifest.json 自身），
+	// 恢复时逐项比对，能发现截断、位腐或被改动的备份包。
+	Checksums map[string]string `json:"checksums,omitempty"`
+}
+
+func sha256Hex(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // Write 把全部账簿以 zip 格式流式写入 w，内存占用与数据量无关。
@@ -44,6 +54,38 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 	for _, items := range gifts {
 		total += len(items)
 	}
+	// 先把全部数据文件序列化并算校验和，再写 manifest，最后写文件；
+	// 这样清单里的 checksums 与包内内容严格一致，恢复时可逐项比对。
+	type archiveFile struct {
+		name    string
+		payload []byte
+	}
+	files := make([]archiveFile, 0, len(gifts)+1)
+	eventsPayload, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		return Manifest{}, err
+	}
+	files = append(files, archiveFile{"data/events.json", eventsPayload})
+	ids := make([]string, 0, len(gifts))
+	for id := range gifts {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		payload, err := json.MarshalIndent(gifts[id], "", "  ")
+		if err != nil {
+			return Manifest{}, err
+		}
+		files = append(files, archiveFile{"data/gifts_" + store.SanitizeID(id) + ".json", payload})
+	}
+	checksums := make(map[string]string, len(files)+1)
+	for _, f := range files {
+		checksums[f.name] = sha256Hex(f.payload)
+	}
+	if len(authState) > 0 {
+		checksums["config/auth-state.json"] = sha256Hex(authState)
+	}
+
 	manifest := Manifest{
 		Format:    Format,
 		Version:   Version,
@@ -52,43 +94,32 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 		Events:    len(events),
 		Gifts:     total,
 		HasAuth:   authEnabled,
+		Checksums: checksums,
 	}
 
 	zw := zip.NewWriter(w)
-	writeJSON := func(name string, value any) error {
+	writeEntry := func(name string, payload []byte) error {
 		entry, err := zw.Create(name)
-		if err != nil {
-			return err
-		}
-		payload, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
 			return err
 		}
 		_, err = entry.Write(payload)
 		return err
 	}
-	if err := writeJSON("manifest.json", manifest); err != nil {
+	manifestPayload, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := writeEntry("manifest.json", manifestPayload); err != nil {
 		return manifest, err
 	}
-	if err := writeJSON("data/events.json", events); err != nil {
-		return manifest, err
-	}
-	ids := make([]string, 0, len(gifts))
-	for id := range gifts {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	for _, id := range ids {
-		if err := writeJSON("data/gifts_"+store.SanitizeID(id)+".json", gifts[id]); err != nil {
+	for _, f := range files {
+		if err := writeEntry(f.name, f.payload); err != nil {
 			return manifest, err
 		}
 	}
 	if len(authState) > 0 {
-		entry, err := zw.Create("config/auth-state.json")
-		if err != nil {
-			return manifest, err
-		}
-		if _, err := entry.Write(authState); err != nil {
+		if err := writeEntry("config/auth-state.json", authState); err != nil {
 			return manifest, err
 		}
 	}
