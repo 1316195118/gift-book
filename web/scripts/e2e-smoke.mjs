@@ -24,6 +24,20 @@ page.on('console', (msg) => {
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
 
+// 0) 首页版权行：可见且可点开许可说明
+const legal = page.locator('.home-legal-btn')
+check('首页显示版权行', (await legal.count()) > 0)
+if (await legal.count()) {
+  const text = await legal.innerText()
+  check('版权行含 MIT', /MIT/.test(text), text)
+  await legal.click()
+  await page.waitForTimeout(500)
+  const licenseTitle = await page.locator('#modal-title').innerText().catch(() => '')
+  check('点击版权打开许可说明', licenseTitle.includes('许可'), licenseTitle)
+  await page.keyboard.press('Escape')
+  await page.waitForFunction(() => !document.querySelector('#modal-container'), null, { timeout: 3000 }).catch(() => {})
+}
+
 // 1) 首页版本号 → 更新说明
 const hasChip = (await page.locator('.version-chip').count()) > 0
 check('首页版本号存在', hasChip)

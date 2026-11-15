@@ -130,6 +130,9 @@
       </div>
 
       <footer class="home-footer"><span>本地部署 · 自主管理</span><span>建议定期导出，妥善留存每一份记录</span></footer>
+      <p class="home-legal">
+        <button type="button" class="home-legal-btn" @click="showLicense">© 2026 Gift Book contributors · MIT License</button>
+      </p>
     </div>
   </div>
 </template>
@@ -138,7 +141,7 @@
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { state as st } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
-import { showTemplates, showSetup, showHelpDialog, openEvent, versionLabel, showChangelog } from '../lib/actions.js'
+import { showTemplates, showSetup, showHelpDialog, openEvent, versionLabel, showChangelog, showLicense } from '../lib/actions.js'
 import { showAccessModal, showAutoBackupModal, logout, showNetworkDetails, switchCategory, toggleLargeText } from '../lib/actions.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor } from '../lib/offline.js'

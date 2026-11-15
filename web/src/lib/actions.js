@@ -62,6 +62,23 @@ export function showChangelog() {
   })
 }
 
+// 首页版权行：展示许可要点；完整许可见仓库根目录 LICENSE。
+export function showLicense() {
+  openModal(
+    '开源许可与版权',
+    {
+      type: 'html',
+      html: `<div class="text-sm text-gray-700 space-y-2">
+        <p><b>© 2026 Gift Book contributors</b></p>
+        <p>本项目以 <b>MIT License</b> 开源：可自由使用、修改、分发（含商业用途），但需在副本或衍生作品中保留版权声明与本许可声明。</p>
+        <p>软件按「现状」提供，不附带任何担保；账簿数据请自行定期备份。</p>
+        <p class="text-xs text-gray-500">运行时依赖：Vue 3（MIT）；后端仅 Go 标准库（BSD）。完整许可见仓库根目录 LICENSE。</p>
+      </div>`,
+    },
+    [{ text: '知道了', class: 'modal-btn-primary' }],
+  )
+}
+
 export async function showAccessModal() {
   const mod = await safeImport(() => import('../components/dialogs.js'), '访问保护面板')
   if (!mod) return

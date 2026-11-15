@@ -1,11 +1,18 @@
 // 更新说明：v2 的新架构说明 + 原项目的历史发布记录（原样保留）。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.1'
+export const APP_VERSION = '2.4.2'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.2',
+    date: '2026-11-15',
+    notes: [
+      { t: 'feat', text: '首页页脚直接显示版权行「© 2026 Gift Book contributors · MIT License」，点击可查看许可要点' },
+    ],
+  },
   {
     version: '2.4.1',
     date: '2026-11-15',
