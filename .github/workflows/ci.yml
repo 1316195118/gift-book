@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: web
+        run: npm ci
+
+      # 先构建前端产物（embed 需要 webapp/dist 存在），再跑后端检查。
+      - name: Build frontend + binary
+        run: node scripts/build.mjs
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go test
+        run: go test ./...
+
+      - name: Frontend unit tests
+        working-directory: web
+        run: npx vitest run
+
+      # 有 error 即失败；存量 warning 不阻塞，后续再逐条清理。
+      - name: Frontend lint
+        working-directory: web
+        run: npx eslint src
