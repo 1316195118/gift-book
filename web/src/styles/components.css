@@ -1410,6 +1410,21 @@ body.theme-solemn #modal-container {
   background: var(--accent-hover);
 }
 
+.family-default-btn {
+  width: 100%;
+  height: 42px;
+  margin-top: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+
+.family-default-btn:hover {
+  border-color: var(--accent);
+}
+
 .auth-note {
   margin-top: var(--sp-4) !important;
   color: var(--faint) !important;

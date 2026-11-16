@@ -171,7 +171,7 @@ func (m *Manager) Unreadable() bool {
 	return m.loadState().Unreadable
 }
 
-// VerifyPassword 校验访问密码。
+// VerifyPassword 校验管理员密码。
 func (m *Manager) VerifyPassword(password string) bool {
 	if password == "" {
 		return false

@@ -12,17 +12,17 @@ import (
 
 type streamHub struct {
 	mu      sync.Mutex
-	clients map[chan []byte]struct{}
+	clients map[chan []byte]string // 信道 -> 家庭 ID
 }
 
 func newStreamHub() *streamHub {
-	return &streamHub{clients: make(map[chan []byte]struct{})}
+	return &streamHub{clients: make(map[chan []byte]string)}
 }
 
-func (h *streamHub) add() chan []byte {
+func (h *streamHub) add(familyID string) chan []byte {
 	ch := make(chan []byte, 16)
 	h.mu.Lock()
-	h.clients[ch] = struct{}{}
+	h.clients[ch] = familyID
 	h.mu.Unlock()
 	return ch
 }
@@ -43,7 +43,26 @@ func (h *streamHub) count() int {
 }
 
 // broadcast 非阻塞推送：慢客户端丢这一条，等它下次事件或重连后自行补齐。
-func (h *streamHub) broadcast(payload map[string]any) {
+func (h *streamHub) broadcast(familyID string, payload map[string]any) {
+	msg, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for ch, clientFamily := range h.clients {
+		if clientFamily != familyID {
+			continue
+		}
+		select {
+		case ch <- msg:
+		default:
+		}
+	}
+}
+
+// broadcastAll 向所有家庭广播，仅用于整站还原这类会影响全部数据的操作。
+func (h *streamHub) broadcastAll(payload map[string]any) {
 	msg, err := json.Marshal(payload)
 	if err != nil {
 		return
@@ -58,13 +77,35 @@ func (h *streamHub) broadcast(payload map[string]any) {
 	}
 }
 
-// notifyChange 在写操作成功后广播。actor 用于让发起方忽略自己的事件。
-func (s *Server) notifyChange(r *http.Request, kind, action, eventID, giftID string) {
+// notifyAllChange 通知所有在线页面刷新；只用于整站级操作，不携带家庭数据。
+func (s *Server) notifyAllChange(r *http.Request, kind, action string) {
 	actor := r.Header.Get("X-Client-Id")
 	if actor == "" {
 		actor = r.URL.Query().Get("client")
 	}
-	s.stream.broadcast(map[string]any{
+	s.stream.broadcastAll(map[string]any{
+		"type":   kind,
+		"action": action,
+		"actor":  actor,
+		"at":     time.Now().UnixMilli(),
+	})
+}
+
+// notifyChange 在写操作成功后广播。actor 用于让发起方忽略自己的事件。
+func (s *Server) notifyChange(r *http.Request, kind, action, eventID, giftID string) {
+	familyID := ""
+	if s.store != nil {
+		family, ok := s.resolveFamily(r)
+		if !ok {
+			return // 没有家庭上下文（例如站点管理员整站操作）不广播，避免跨家庭泄露
+		}
+		familyID = family.ID
+	}
+	actor := r.Header.Get("X-Client-Id")
+	if actor == "" {
+		actor = r.URL.Query().Get("client")
+	}
+	s.stream.broadcast(familyID, map[string]any{
 		"type":    kind,
 		"action":  action,
 		"eventId": eventID,
@@ -76,6 +117,10 @@ func (s *Server) notifyChange(r *http.Request, kind, action, eventID, giftID str
 
 // handleStream 处理 GET /api/stream（text/event-stream）。
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
+	family, familyOK := s.requireFamily(w, r)
+	if !familyOK {
+		return
+	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		fail(w, http.StatusInternalServerError, "当前连接不支持实时推送")
@@ -90,7 +135,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ch := s.stream.add()
+	ch := s.stream.add(family.ID)
 	defer s.stream.remove(ch)
 
 	fmt.Fprint(w, "event: ready\ndata: {\"ok\":true}\n\n")

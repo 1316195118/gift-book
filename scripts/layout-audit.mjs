@@ -441,8 +441,14 @@ async function gotoHome(category) {
   if (process.env.LARGE_TEXT === '1') {
     const on = await evaluate(`document.documentElement.classList.contains('large-text')`)
     if (!on) {
-      await click('.home-topbar .large-text-toggle')
-      await sleep(450)
+      await click('#home-settings-btn')
+      await sleep(500)
+      await click('[data-settings-act="about"]')
+      await sleep(650)
+      await click('#about-large-text')
+      await sleep(400)
+      await click('#modal-close')
+      await sleep(350)
     }
   }
 }

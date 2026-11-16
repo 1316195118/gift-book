@@ -26,6 +26,10 @@ func isArchived(event map[string]any) bool {
 // 不会出现「账簿刚被删除还写入礼金」，也不会在同一把锁内重复加锁。
 
 func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
+	family, familyOK := s.requireFamily(w, r)
+	if !familyOK {
+		return
+	}
 	eventID := r.URL.Query().Get("eventId")
 	if !eventIDPattern.MatchString(eventID) {
 		fail(w, http.StatusBadRequest, "缺少事件ID")
@@ -36,7 +40,7 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 	var message string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, ok := events[eventID]
-		if !ok {
+		if !ok || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
@@ -65,6 +69,10 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
+	family, familyOK := s.requireFamily(w, r)
+	if !familyOK {
+		return
+	}
 	var body map[string]any
 	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -100,7 +108,7 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 	var message string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, exists := events[eventID]
-		if !exists {
+		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
@@ -158,6 +166,10 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID string) {
+	family, familyOK := s.requireFamily(w, r)
+	if !familyOK {
+		return
+	}
 	var body map[string]any
 	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -184,7 +196,7 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 	var message, code string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, exists := events[eventID]
-		if !exists {
+		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
@@ -235,11 +247,17 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 		fail(w, status, message)
 		return
 	}
-	s.notifyChange(r, "gift", "updated", r.URL.Query().Get("eventId"), giftID)
+	// 用请求体里已校验的 eventID：编辑礼金时前端把 eventId 放在请求体，
+	// 只读查询串会拿到空值，其它设备就收不到这条更新。
+	s.notifyChange(r, "gift", "updated", eventID, giftID)
 	writeJSON(w, http.StatusOK, response{Success: true, Data: updated})
 }
 
 func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID string) {
+	family, familyOK := s.requireFamily(w, r)
+	if !familyOK {
+		return
+	}
 	eventID := r.URL.Query().Get("eventId")
 	if !eventIDPattern.MatchString(eventID) {
 		fail(w, http.StatusBadRequest, "缺少事件ID")
@@ -249,7 +267,7 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 	var message string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, exists := events[eventID]
-		if !exists {
+		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}

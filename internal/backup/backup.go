@@ -21,7 +21,7 @@ import (
 // Format 与 Version 用于标识备份包。
 const (
 	Format  = "giftbook-backup"
-	Version = 1
+	Version = 2
 )
 
 // Manifest 是备份包里的 manifest.json。
@@ -32,7 +32,12 @@ type Manifest struct {
 	App       string `json:"app"`
 	Events    int    `json:"events"`
 	Gifts     int    `json:"gifts"`
+	Families  int    `json:"families,omitempty"`
 	HasAuth   bool   `json:"hasAuth"`
+	// Scope 为空表示整站备份；family 表示只含一个家庭的家庭备份。
+	Scope      string `json:"scope,omitempty"`
+	FamilyID   string `json:"familyId,omitempty"`
+	FamilyName string `json:"familyName,omitempty"`
 	// Checksums 记录每个数据文件的 sha256（不含 manifest.json 自身），
 	// 恢复时逐项比对，能发现截断、位腐或被改动的备份包。
 	Checksums map[string]string `json:"checksums,omitempty"`
@@ -50,6 +55,23 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 	if err != nil {
 		return Manifest{}, fmt.Errorf("读取账簿失败: %w", err)
 	}
+	families, err := st.ReadFamilies()
+	if err != nil {
+		return Manifest{}, fmt.Errorf("读取家庭失败: %w", err)
+	}
+	return writeArchive(w, events, gifts, families, buildLabel, authEnabled, authState, "", "", "")
+}
+
+// WriteFamily 只打包指定家庭的账簿与礼金，不含管理员密码状态。
+func WriteFamily(w io.Writer, st *store.Store, familyID, familyName, buildLabel string) (Manifest, error) {
+	events, gifts, err := st.BackupFamily(familyID)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("读取家庭账簿失败: %w", err)
+	}
+	return writeArchive(w, events, gifts, nil, buildLabel, false, nil, "family", familyID, familyName)
+}
+
+func writeArchive(w io.Writer, events map[string]store.Record, gifts map[string]map[string]store.Record, families map[string]store.Record, buildLabel string, authEnabled bool, authState []byte, scope, familyID, familyName string) (Manifest, error) {
 	total := 0
 	for _, items := range gifts {
 		total += len(items)
@@ -60,12 +82,19 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 		name    string
 		payload []byte
 	}
-	files := make([]archiveFile, 0, len(gifts)+1)
+	files := make([]archiveFile, 0, len(gifts)+2)
 	eventsPayload, err := json.MarshalIndent(events, "", "  ")
 	if err != nil {
 		return Manifest{}, err
 	}
 	files = append(files, archiveFile{"data/events.json", eventsPayload})
+	if len(families) > 0 {
+		familiesPayload, err := json.MarshalIndent(families, "", "  ")
+		if err != nil {
+			return Manifest{}, err
+		}
+		files = append(files, archiveFile{"data/families.json", familiesPayload})
+	}
 	ids := make([]string, 0, len(gifts))
 	for id := range gifts {
 		ids = append(ids, id)
@@ -87,14 +116,18 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 	}
 
 	manifest := Manifest{
-		Format:    Format,
-		Version:   Version,
-		CreatedAt: time.Now().Format(time.RFC3339),
-		App:       buildLabel,
-		Events:    len(events),
-		Gifts:     total,
-		HasAuth:   authEnabled,
-		Checksums: checksums,
+		Format:     Format,
+		Version:    Version,
+		CreatedAt:  time.Now().Format(time.RFC3339),
+		App:        buildLabel,
+		Events:     len(events),
+		Gifts:      total,
+		Families:   len(families),
+		HasAuth:    authEnabled,
+		Scope:      scope,
+		FamilyID:   familyID,
+		FamilyName: familyName,
+		Checksums:  checksums,
 	}
 
 	zw := zip.NewWriter(w)

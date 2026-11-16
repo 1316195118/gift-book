@@ -1,6 +1,7 @@
 // 首页回收站：把 data/.trash 里删除账簿留下的快照列出来，支持一键恢复。
 // 只恢复「单本账簿」快照；整站导入快照涉及覆盖现有数据，仍由首页「备份」流程处理。
 import { api } from './api.js'
+import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender, alert as showAlert, confirm } from './modal.js'
 import { escapeHtml } from './crypto.js'
 import { notify } from './notify.js'
@@ -11,13 +12,29 @@ function displayTime(raw) {
   return match ? `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}` : raw || '—'
 }
 
+function sizeText(bytes) {
+  const value = Number(bytes) || 0
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(value / 1024))} KB`
+}
+
 export async function showTrashModal() {
   let items = []
+  let snapshots = []
   try {
     const result = await api.listTrash()
     items = Array.isArray(result.data) ? result.data : []
   } catch (error) {
     return showAlert('回收站', `读取失败：${error.message || '请稍后重试'}`)
+  }
+  // 服务器快照只有管理员能看：家庭成员不需要知道整站/其它家庭的快照存在。
+  if (st.family?.admin) {
+    try {
+      const result = await api.listSnapshots()
+      snapshots = Array.isArray(result.data) ? result.data : []
+    } catch {
+      snapshots = []
+    }
   }
 
   const list = items.length
@@ -33,13 +50,32 @@ export async function showTrashModal() {
               : '<span class="gb-trash-note">整站快照 · 请到首页「备份」按需恢复</span>'}
           </div>`)
         .join('')
-    : '<div class="gb-empty">回收站是空的。删除账簿后，这里会出现可恢复的快照。</div>'
+    : '<div class="gb-empty">没有可恢复的账簿快照。删除账簿后，这里会出现。</div>'
+
+  const snapshotList = snapshots
+    .map((item) => `
+      <div class="gb-trash-item">
+        <div class="gb-trash-main">
+          <b>${escapeHtml(item.title || '服务器快照')}</b>
+          <span>${escapeHtml(displayTime(item.createdAt))} · ${item.files} 个文件 · ${sizeText(item.bytes)}</span>
+        </div>
+        <a class="gb-link-btn" href="/api/trash/snapshots/${encodeURIComponent(item.name)}" download>下载</a>
+      </div>`)
+    .join('')
+  const snapshotSection = snapshotList
+    ? `<section class="gb-snapshot-section">
+        <h4>服务器快照</h4>
+        <p class="gb-picker-intro">整站还原、家庭还原或删除家庭前留下的原始目录，不提供一键恢复（避免绕过家庭与账簿校验）；可以先下载留存。</p>
+        ${snapshotList}
+      </section>`
+    : ''
 
   const html = `
     <div id="gb-trash-list" class="gb-trash-list">
       <p class="gb-picker-intro">删除账簿时，服务器会在数据目录保留一份快照。这里可以恢复单本账簿；恢复不会覆盖现有账簿，快照本身也会保留。</p>
       ${list}
       <p class="gb-picker-hint">恢复后请用原来的管理密码打开账簿。整站快照（导入备份前的旧数据）涉及覆盖现有账簿，不提供一键恢复。</p>
+      ${snapshotSection}
     </div>`
 
   openModal('回收站', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }], { size: 'large', dismissable: true })

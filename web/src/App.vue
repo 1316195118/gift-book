@@ -1,6 +1,7 @@
 <template>
   <div id="app-shell">
-    <AuthGate v-if="st.authGate" @submitted="onAuthSuccess" />
+    <FamilyGate v-if="st.familyGate" />
+    <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
     <HomeScreen v-if="st.route === 'home'" />
     <TemplateScreen v-else-if="st.route === 'template'" />
     <SetupScreen v-else-if="st.route === 'setup'" />
@@ -17,6 +18,7 @@ import { onMounted, watch } from 'vue'
 import { state as st, setBodyTheme } from './store.js'
 import { eventTheme } from './lib/content.js'
 import AuthGate from './components/AuthGate.vue'
+import FamilyGate from './components/FamilyGate.vue'
 import HomeScreen from './views/HomeScreen.vue'
 import TemplateScreen from './views/TemplateScreen.vue'
 import SetupScreen from './views/SetupScreen.vue'
@@ -44,6 +46,7 @@ onMounted(() => {
 
 const onAuthSuccess = () => {
   st.authGate = false
-  bootstrap({ skipAuth: true })
+  // 管理员登录后整页重载：家庭门要重新拉取「全部家庭」列表，普通家庭状态也一起刷新。
+  location.reload()
 }
 </script>

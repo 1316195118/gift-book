@@ -25,6 +25,7 @@ type response struct {
 	Authenticated *bool `json:"authenticated,omitempty"`
 	Enabled       *bool `json:"enabled,omitempty"`
 	SetupRequired *bool `json:"setupRequired,omitempty"`
+	MultiFamily   *bool `json:"multiFamily,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload response) {

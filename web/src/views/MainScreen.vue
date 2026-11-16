@@ -199,7 +199,7 @@ import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verif
 import { writeLocked } from '../lib/prefs.js'
 import { startRealtime, stopRealtime } from '../lib/realtime.js'
 import { netState as net } from '../lib/network.js'
-import { queueFor, clearLedgerCache } from '../lib/offline.js'
+import { queueFor, clearAllLedgerCaches } from '../lib/offline.js'
 import { pulse } from '../lib/feedback.js'
 import { playPage } from '../lib/sound.js'
 import {
@@ -397,13 +397,13 @@ function onKeydown(event) {
 // 其他设备写入后：防抖重拉当前账簿，保留页码，不打断正在输入的表单。
 let remoteTimer = 0
 function onRemoteChange(payload) {
-  if (payload.type === 'restore') {
+  if (payload.type === 'restore' || payload.type === 'family-restore') {
     clearTimeout(remoteTimer)
     remoteTimer = window.setTimeout(async () => {
       setSyncStatus('数据已恢复，正在刷新…', false)
       try {
-        // 恢复后旧缓存已失效，先清掉，避免离线时读到恢复前的数据。
-        clearLedgerCache()
+        // 整站恢复会影响所有家庭：清掉全部家庭的礼金缓存，避免离线时读到恢复前的数据。
+        clearAllLedgerCaches()
         await loadEvents()
         await loadGiftsForCurrentEvent()
       } finally {

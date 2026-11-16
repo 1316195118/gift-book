@@ -1,11 +1,48 @@
 // 离线缓存与待补传队列：只保存密文与公开参数，不保存姓名、金额等明文。
-const CACHE_KEY = 'giftbook_offline_cache.v1'
-const QUEUE_KEY = 'giftbook_offline_queue.v1'
+// 缓存与队列按家庭分键，换家庭后不会读到上一家的数据。
+const CACHE_BASE = 'giftbook_offline_cache.v2'
+const QUEUE_BASE = 'giftbook_offline_queue.v2'
+const LEGACY_CACHE = 'giftbook_offline_cache.v1'
+const LEGACY_QUEUE = 'giftbook_offline_queue.v1'
+const MIGRATED_FLAG = 'giftbook_offline_family_migrated'
 const CACHE_MAX_GIFTS = 800
+
+let activeFamily = ''
+const familySuffix = () => activeFamily || 'default'
+const cacheKey = () => `${CACHE_BASE}:${familySuffix()}`
+const queueKey = () => `${QUEUE_BASE}:${familySuffix()}`
+
+// 由启动流程在拿到当前家庭后调用；只影响此后读写哪个家庭的缓存。
+export function setCacheFamily(familyId) {
+  const next = familyId || ''
+  if (next === activeFamily) return
+  activeFamily = next
+  migrateLegacy()
+}
+
+// 单家庭升级到多家庭时，旧缓存没有 familyId，归入默认家庭；只迁移一次。
+function migrateLegacy() {
+  const suffix = familySuffix()
+  if (suffix !== 'default' && suffix !== 'fam_default') return
+  try {
+    if (localStorage.getItem(MIGRATED_FLAG)) return
+    if (!localStorage.getItem(cacheKey()) && localStorage.getItem(LEGACY_CACHE)) {
+      localStorage.setItem(cacheKey(), localStorage.getItem(LEGACY_CACHE))
+    }
+    if (!localStorage.getItem(queueKey()) && localStorage.getItem(LEGACY_QUEUE)) {
+      localStorage.setItem(queueKey(), localStorage.getItem(LEGACY_QUEUE))
+    }
+    localStorage.removeItem(LEGACY_CACHE)
+    localStorage.removeItem(LEGACY_QUEUE)
+    localStorage.setItem(MIGRATED_FLAG, '1')
+  } catch {
+    /* 隐私模式下忽略 */
+  }
+}
 
 export function readCache() {
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem(cacheKey())
     const data = raw ? JSON.parse(raw) : null
     return data && typeof data === 'object' ? data : { events: {}, ledgers: {} }
   } catch {
@@ -19,13 +56,37 @@ export function clearLedgerCache() {
   writeCache({ ...cache, ledgers: {} })
 }
 
+// 整站还原会改动所有家庭：把各家庭的礼金缓存都清掉，避免离线读到旧数据。
+export function clearAllLedgerCaches() {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('giftbook_offline_cache.')) keys.push(key)
+    }
+    keys.forEach((key) => {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || 'null')
+        if (data && typeof data === 'object') {
+          data.ledgers = {}
+          localStorage.setItem(key, JSON.stringify(data))
+        }
+      } catch {
+        /* 忽略单个损坏的缓存 */
+      }
+    })
+  } catch {
+    /* 隐私模式忽略 */
+  }
+}
+
 export function writeCache(data) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+    localStorage.setItem(cacheKey(), JSON.stringify(data))
     return true
   } catch {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ events: data.events, ledgers: {} }))
+      localStorage.setItem(cacheKey(), JSON.stringify({ events: data.events, ledgers: {} }))
     } catch {
       /* 隐私模式忽略 */
     }
@@ -92,7 +153,7 @@ export function readCachedLedger(eventId) {
 
 export function readQueue() {
   try {
-    const raw = localStorage.getItem(QUEUE_KEY)
+    const raw = localStorage.getItem(queueKey())
     if (!raw) return []
     const list = JSON.parse(raw)
     if (!Array.isArray(list)) return []
@@ -111,8 +172,8 @@ export function readQueue() {
     const encoded = JSON.stringify(clean)
     if (encoded !== raw) {
       try {
-        if (clean.length) localStorage.setItem(QUEUE_KEY, encoded)
-        else localStorage.removeItem(QUEUE_KEY)
+        if (clean.length) localStorage.setItem(queueKey(), encoded)
+        else localStorage.removeItem(queueKey())
       } catch {
         /* 忽略 */
       }
@@ -125,8 +186,8 @@ export function readQueue() {
 
 export function writeQueue(list) {
   try {
-    if (list.length) localStorage.setItem(QUEUE_KEY, JSON.stringify(list))
-    else localStorage.removeItem(QUEUE_KEY)
+    if (list.length) localStorage.setItem(queueKey(), JSON.stringify(list))
+    else localStorage.removeItem(queueKey())
     return true
   } catch {
     return false

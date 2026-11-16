@@ -20,8 +20,18 @@
     </div>
 
     <div class="field">
-      <label class="field-label" for="auto-keep">保留份数 <span class="opt">最近 {{ keep }} 份，更早的自动清理</span></label>
+      <label class="field-label" for="auto-keep">整站备份保留份数 <span class="opt">最近 {{ keep }} 份，更早的自动清理</span></label>
       <input id="auto-keep" v-model.number="keep" type="number" min="1" max="200" step="1" inputmode="numeric" />
+    </div>
+
+    <label class="access-switch-row" for="family-auto-toggle">
+      <span><b>同时为每个家庭单独备份</b><small>每个家庭生成独立 zip，存放在 config/family-backups/；家庭成员可在「家庭备份」里下载或还原自己的那份。</small></span>
+      <input type="checkbox" id="family-auto-toggle" v-model="familyEnabled" />
+    </label>
+    <p v-if="familyEnabled && !enabled" class="field-hint is-warning">「定时自动备份」关闭时，家庭备份也不会运行；打开上面的开关才会按频率生成。</p>
+    <div class="field" v-if="familyEnabled">
+      <label class="field-label" for="family-auto-keep">每个家庭保留份数 <span class="opt">最近 {{ familyKeep }} 份</span></label>
+      <input id="family-auto-keep" v-model.number="familyKeep" type="number" min="1" max="200" step="1" inputmode="numeric" />
     </div>
 
     <div class="autobackup-actions">
@@ -32,6 +42,7 @@
       <input ref="fileInput" type="file" accept=".zip,application/zip" class="ocr-file-input" @change="onFilePicked" />
     </div>
     <p class="field-hint">备份只包含加密后的礼金内容。设了管理密码的账簿，别人拿到文件也打不开，需要对应密码；没设密码的账簿备份不设防，请自行妥善保管。</p>
+    <p class="field-hint is-warning">整站备份包含全部家庭、账簿名称与管理员密码状态，只应保存在管理员可控的位置；普通家庭成员请使用「家庭备份」。</p>
 
     <div class="autobackup-status">
       <div><span>上次备份</span><b>{{ lastBackupAt ? lastBackupAt : '从未备份' }}</b></div>
@@ -86,6 +97,8 @@ const INTERVALS = [
 const enabled = ref(false)
 const interval = ref(24)
 const keep = ref(14)
+const familyEnabled = ref(true)
+const familyKeep = ref(7)
 const lastBackupAt = ref('')
 const dir = ref('')
 const files = ref([])
@@ -105,6 +118,8 @@ async function load() {
     enabled.value = Boolean(data.enabled)
     interval.value = Number(data.intervalHours) || 24
     keep.value = Number(data.keep) || 14
+    familyEnabled.value = data.familyEnabled !== false
+    familyKeep.value = Number(data.familyKeep) || 7
     lastBackupAt.value = data.lastBackupAt || ''
     dir.value = data.dir || ''
     files.value = Array.isArray(data.files) ? data.files : []
@@ -119,7 +134,7 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    await api.autobackupSave({ enabled: enabled.value, intervalHours: interval.value, keep: keep.value })
+    await api.autobackupSave({ enabled: enabled.value, intervalHours: interval.value, keep: keep.value, familyEnabled: familyEnabled.value, familyKeep: familyKeep.value })
     await load()
     message.value = '设置已保存'
   } catch (err) {
@@ -137,7 +152,7 @@ async function runNow() {
   try {
     await api.autobackupRun()
     await load()
-    message.value = '已生成一份备份，包含全部账簿'
+    message.value = familyEnabled.value ? '已生成整站备份，并为每个家庭各生成一份' : '已生成整份备份，包含全部账簿'
   } catch (err) {
     error.value = err.message || '备份失败'
   } finally {
@@ -163,7 +178,7 @@ async function onFilePicked(event) {
   await restoreFromFile(file)
 }
 
-// 还原前必须二次确认：有访问密码要输密码，没有要求手输「还原」
+// 还原前必须二次确认：已设置管理员密码要输密码，没有则要求手输「还原」
 function confirmRestore(label) {
   return new Promise((resolve) => {
     const needPassword = Boolean(st.authEnabled)
@@ -173,7 +188,7 @@ function confirmRestore(label) {
         <p class="confirm-note">现有数据会先移入数据目录的 .trash，确认无误后可手动删除。</p>
         <p class="confirm-note is-warning">此操作无法在页面中撤销。</p>
         ${needPassword
-          ? '<label class="field-label" for="restore-pwd">请输入访问密码以继续</label><input id="restore-pwd" type="password" autocomplete="current-password" placeholder="访问密码" />'
+          ? '<label class="field-label" for="restore-pwd">请输入管理员密码以继续</label><input id="restore-pwd" type="password" autocomplete="current-password" placeholder="管理员密码" />'
           : '<label class="field-label" for="restore-text">请输入「还原」两个字以继续</label><input id="restore-text" type="text" placeholder="还原" autocomplete="off" />'}
         <div class="access-error hidden" id="restore-error" role="alert"></div>
       </div>`
@@ -191,11 +206,11 @@ function confirmRestore(label) {
           handler: async () => {
             if (needPassword) {
               const pwd = document.getElementById('restore-pwd')?.value || ''
-              if (!pwd) return fail('请输入访问密码')
+              if (!pwd) return fail('请输入管理员密码')
               try {
                 await api.login(pwd)
               } catch (err) {
-                return fail(err.message || '访问密码不正确')
+                return fail(err.message || '管理员密码不正确')
               }
             } else {
               const text = (document.getElementById('restore-text')?.value || '').trim()

@@ -188,6 +188,7 @@ type TrashItem struct {
 	Kind      string `json:"kind"` // event：删除的单本账簿；import：备份导入前的整站快照
 	EventID   string `json:"eventId"`
 	EventName string `json:"eventName"`
+	FamilyID  string `json:"-"` // 只用于服务端按家庭过滤，不对外暴露
 	DeletedAt string `json:"deletedAt"`
 	GiftCount int    `json:"giftCount"`
 	Restored  bool   `json:"restored"`
@@ -210,6 +211,107 @@ func trashTime(name string) string {
 		return parts[0] + "-" + parts[1]
 	}
 	return ""
+}
+
+// ---- 服务器快照：整站导入前、家庭还原前、删除家庭时留下的原始目录 ----
+
+// RawSnapshot 是 .trash 里不提供一键恢复、但需要让管理员取回的目录。
+// 这些目录是原始 JSON/zip，不是标准备份包，所以只做展示与打包下载。
+type RawSnapshot struct {
+	Name      string `json:"name"`
+	Kind      string `json:"kind"` // import：整站导入前；family-restore：家庭还原前；family-backups：删除家庭留下的备份
+	Title     string `json:"title"`
+	CreatedAt string `json:"createdAt"`
+	Files     int    `json:"files"`
+	Bytes     int64  `json:"bytes"`
+}
+
+// snapshotKind 只认这三种前缀，其它目录交给账簿回收站或家庭归档处理。
+func snapshotKind(name string) (string, string) {
+	switch {
+	case strings.HasPrefix(name, "import-"):
+		return "import", "整站快照（导入备份前）"
+	case strings.HasPrefix(name, "family-restore-"):
+		return "family-restore", "家庭还原前快照"
+	case strings.HasPrefix(name, "family-backups-"):
+		return "family-backups", "家庭自动备份（删除家庭时留下）"
+	}
+	return "", ""
+}
+
+// SnapshotDir 校验名称并返回快照目录的绝对路径。
+// 带 family.json 的目录属于「家庭归档」，由家庭归档面板负责，这里一律不认。
+func (s *Store) SnapshotDir(name string) (string, error) {
+	if !trashNamePattern.MatchString(name) {
+		return "", ErrNotFound
+	}
+	if kind, _ := snapshotKind(name); kind == "" {
+		return "", ErrNotFound
+	}
+	dir := s.trashPath(name)
+	if _, err := os.Stat(filepath.Join(dir, "family.json")); err == nil {
+		return "", ErrNotFound
+	}
+	return dir, nil
+}
+
+// snapshotTime 从目录名里取出 20060102-150405 片段，取不到就用目录修改时间。
+var snapshotStampPattern = regexp.MustCompile(`(\d{8}-\d{6})`)
+
+func snapshotTime(name string, info os.FileInfo) string {
+	if match := snapshotStampPattern.FindStringSubmatch(name); match != nil {
+		return match[1]
+	}
+	return info.ModTime().Format("20060102-150405")
+}
+
+// ListRawSnapshots 列出可下载的服务器快照，按目录名倒序（新的在前）。
+func (s *Store) ListRawSnapshots() ([]RawSnapshot, error) {
+	entries, err := os.ReadDir(filepath.Join(s.dir, ".trash"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []RawSnapshot{}, nil
+		}
+		return nil, err
+	}
+	out := make([]RawSnapshot, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		kind, title := snapshotKind(name)
+		if kind == "" || !trashNamePattern.MatchString(name) {
+			continue
+		}
+		dir := s.trashPath(name)
+		// 家庭归档（删家庭时生成）带 family.json，归「家庭归档」面板，不算服务器快照；
+		// 这条判断也顺带避开「家庭名恰好叫 restore / backups」造成的目录名撞车。
+		if _, err := os.Stat(filepath.Join(dir, "family.json")); err == nil {
+			continue
+		}
+		snapshot := RawSnapshot{Name: name, Kind: kind, Title: title}
+		if info, statErr := entry.Info(); statErr == nil {
+			snapshot.CreatedAt = snapshotTime(name, info)
+		}
+		if files, readErr := os.ReadDir(dir); readErr == nil {
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				snapshot.Files++
+				if info, infoErr := file.Info(); infoErr == nil {
+					snapshot.Bytes += info.Size()
+				}
+			}
+		}
+		if snapshot.Files == 0 {
+			continue
+		}
+		out = append(out, snapshot)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name > out[j].Name })
+	return out, nil
 }
 
 // ListTrash 只读扫描 .trash；无法识别的目录一律跳过，不影响主流程。
@@ -249,6 +351,7 @@ func (s *Store) ListTrash() ([]TrashItem, error) {
 			item.Kind = "event"
 			item.EventID, _ = event["id"].(string)
 			item.EventName, _ = event["name"].(string)
+			item.FamilyID, _ = event["familyId"].(string)
 			if !trashedEventIDPattern.MatchString(item.EventID) {
 				continue
 			}
@@ -355,23 +458,294 @@ func (s *Store) BackupAll() (map[string]Record, map[string]map[string]Record, er
 	return events, gifts, nil
 }
 
+// DefaultFamilyID 是升级前所有账簿的归属家庭。
+const DefaultFamilyID = "fam_default"
+
+// eventFamilyID 返回账簿所属家庭；旧数据没有 familyId 时归入默认家庭。
+func eventFamilyID(event Record) string {
+	id, _ := event["familyId"].(string)
+	if id == "" {
+		return DefaultFamilyID
+	}
+	return id
+}
+
+// BackupFamily 读取指定家庭的账簿与礼金，按 ID 排序返回，用于家庭级备份导出。
+func (s *Store) BackupFamily(familyID string) (map[string]Record, map[string]map[string]Record, error) {
+	all, err := s.ReadEvents()
+	if err != nil {
+		return nil, nil, err
+	}
+	events := make(map[string]Record)
+	ids := make([]string, 0)
+	for id, event := range all {
+		if eventFamilyID(event) != familyID {
+			continue
+		}
+		events[id] = event
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	gifts := make(map[string]map[string]Record, len(ids))
+	for _, id := range ids {
+		items, err := s.ReadGifts(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		gifts[id] = items
+	}
+	return events, gifts, nil
+}
+
+// ReplaceFamily 只用备份数据替换指定家庭的账簿，其他家庭原样保留。
+func (s *Store) ReplaceFamily(familyID string, events map[string]Record, gifts map[string]map[string]Record) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, err := readMap(s.eventsPath())
+	if err != nil {
+		return err
+	}
+	oldIDs := make([]string, 0)
+	next := make(map[string]Record, len(current)+len(events))
+	for id, event := range current {
+		if eventFamilyID(event) == familyID {
+			oldIDs = append(oldIDs, id)
+			continue
+		}
+		if _, conflict := events[id]; conflict {
+			return errors.New("备份包与现有账簿编号冲突")
+		}
+		next[id] = event
+	}
+	for id, event := range events {
+		event["familyId"] = familyID
+		next[id] = event
+	}
+
+	// 只给当前家庭的旧礼金留一份回滚副本，不碰其它家庭。
+	trash := filepath.Join(s.dir, ".trash", "family-restore-"+time.Now().Format("20060102-150405")+"-"+randomSuffix())
+	oldExisted := map[string]bool{}
+	if len(oldIDs) > 0 {
+		if err := os.MkdirAll(trash, 0o770); err != nil {
+			return err
+		}
+		oldEvents := make(map[string]Record, len(oldIDs))
+		for _, id := range oldIDs {
+			oldEvents[id] = current[id]
+			src := s.giftsPath(id)
+			raw, readErr := os.ReadFile(src)
+			if readErr == nil {
+				oldExisted[id] = true
+				if err := writeFileAtomic(filepath.Join(trash, "gifts_"+SanitizeID(id)+".json"), raw); err != nil {
+					return err
+				}
+			}
+		}
+		raw, err := json.MarshalIndent(oldEvents, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := writeFileAtomic(filepath.Join(trash, "events.json"), raw); err != nil {
+			return err
+		}
+	}
+
+	rollback := func() {
+		for _, id := range oldIDs {
+			src := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
+			if oldExisted[id] {
+				_ = os.Rename(src, s.giftsPath(id))
+			} else {
+				_ = os.Remove(s.giftsPath(id))
+			}
+		}
+		for id := range events {
+			if !oldExisted[id] {
+				_ = os.Remove(s.giftsPath(id))
+			}
+		}
+	}
+
+	type staged struct{ final, tmp string }
+	ready := make([]staged, 0, len(events))
+	for id := range events {
+		items := gifts[id]
+		if items == nil {
+			items = map[string]Record{}
+		}
+		raw, err := json.MarshalIndent(items, "", "  ")
+		if err != nil {
+			for _, item := range ready {
+				_ = os.Remove(item.tmp)
+			}
+			return err
+		}
+		tmp := s.giftsPath(id) + "." + randomSuffix() + ".restore.tmp"
+		if err := writeRawFile(tmp, raw); err != nil {
+			for _, item := range ready {
+				_ = os.Remove(item.tmp)
+			}
+			return err
+		}
+		ready = append(ready, staged{s.giftsPath(id), tmp})
+	}
+	for _, item := range ready {
+		if err := os.Rename(item.tmp, item.final); err != nil {
+			for _, other := range ready {
+				_ = os.Remove(other.tmp)
+			}
+			rollback()
+			return err
+		}
+	}
+	if err := writeJSON(s.eventsPath(), next); err != nil {
+		rollback()
+		return err
+	}
+	// 备份里没有的旧账簿：礼金文件已在 trash 里，删除主目录副本。
+	for _, id := range oldIDs {
+		if _, keep := events[id]; !keep {
+			_ = os.Remove(s.giftsPath(id))
+		}
+	}
+	// trash 不删：家庭还原会覆盖本家庭全部账簿，和整站还原一样留一份快照，
+	// 万一选错了备份包还能从 .trash/family-restore-* 人工取回。
+	return nil
+}
+
+// ArchiveFamily 把指定家庭的账簿与礼金移入 .trash/family-<name>-<时间>/，
+// 返回移走的账簿数与目录名。数据不删除，便于管理员事后人工取回。
+func (s *Store) ArchiveFamily(familyID, familyName string) (int, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	events, err := readMap(s.eventsPath())
+	if err != nil {
+		return 0, "", err
+	}
+	ids := make([]string, 0)
+	selected := make(map[string]Record)
+	for id, event := range events {
+		if eventFamilyID(event) != familyID {
+			continue
+		}
+		ids = append(ids, id)
+		selected[id] = event
+	}
+	if len(ids) == 0 {
+		return 0, "", nil
+	}
+	sort.Strings(ids)
+	name := "family-" + sanitizeDirName(familyName) + "-" + time.Now().Format("20060102-150405")
+	dir := filepath.Join(s.dir, ".trash", name)
+	// 同名家庭在同一秒内被删两次时，目录名会撞在一起：
+	// MkdirAll 对已存在目录不报错，后一次会直接覆盖前一次的归档。
+	if _, statErr := os.Stat(dir); statErr == nil {
+		name += "-" + randomSuffix()
+		dir = filepath.Join(s.dir, ".trash", name)
+	}
+	if err := os.MkdirAll(dir, 0o770); err != nil {
+		return 0, "", err
+	}
+	raw, err := json.MarshalIndent(selected, "", "  ")
+	if err != nil {
+		return 0, "", err
+	}
+	if err := writeFileAtomic(filepath.Join(dir, "events.json"), raw); err != nil {
+		return 0, "", err
+	}
+	meta, _ := json.MarshalIndent(Record{
+		"id":         familyID,
+		"name":       familyName,
+		"archivedAt": time.Now().Format("2006-01-02 15:04:05"),
+	}, "", "  ")
+	_ = writeFileAtomic(filepath.Join(dir, "family.json"), meta)
+	moved := make([]string, 0, len(ids))
+	for _, id := range ids {
+		src := s.giftsPath(id)
+		if _, statErr := os.Stat(src); statErr == nil {
+			if err := os.Rename(src, filepath.Join(dir, "gifts_"+SanitizeID(id)+".json")); err != nil {
+				// 已移走的礼金放回去，避免事件清单还在、礼金文件却不见了。
+				for _, back := range moved {
+					_ = os.Rename(filepath.Join(dir, "gifts_"+SanitizeID(back)+".json"), s.giftsPath(back))
+				}
+				return 0, "", err
+			}
+			moved = append(moved, id)
+		}
+		delete(events, id)
+	}
+	if err := writeJSON(s.eventsPath(), events); err != nil {
+		for _, back := range moved {
+			_ = os.Rename(filepath.Join(dir, "gifts_"+SanitizeID(back)+".json"), s.giftsPath(back))
+		}
+		return 0, "", err
+	}
+	return len(ids), name, nil
+}
+
+func sanitizeDirName(name string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		switch r {
+		case '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\n', '\r', '\t', ' ':
+			return '-'
+		}
+		return r
+	}, strings.TrimSpace(name))
+	if cleaned == "" {
+		return "family"
+	}
+	runes := []rune(cleaned)
+	if len(runes) > 30 {
+		cleaned = string(runes[:30])
+	}
+	return cleaned
+}
+
 // ReplaceAll 用给定数据整体替换现有账簿（导入备份时使用）。
 // 先把全部新数据序列化并写成同目录临时文件，就绪后再把旧文件移进 .trash/、
 // 统一改名切换；切换阶段失败会删掉已切换的新文件并把旧文件放回。
 func (s *Store) ReplaceAll(events map[string]Record, gifts map[string]map[string]Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.replaceAllLocked(events, gifts, nil)
+}
 
+// ReplaceAllWithFamilies 在 ReplaceAll 的基础上把家庭清单一起纳入同一次切换：
+// 账簿、礼金与 families.json 要么全部换成新的，要么全部保持原样。
+// 整站还原必须走这里，否则家庭清单写失败会留下「新账簿 + 旧家庭」的中间状态，
+// 那些归属新家庭的账簿会因为家庭不存在而谁也看不到。
+func (s *Store) ReplaceAllWithFamilies(events map[string]Record, gifts map[string]map[string]Record, families map[string]Record) error {
+	if families == nil {
+		return s.ReplaceAll(events, gifts)
+	}
+	if _, ok := families[DefaultFamilyID]; !ok {
+		return errors.New("备份包缺少默认家庭")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.replaceAllLocked(events, gifts, families)
+}
+
+func (s *Store) replaceAllLocked(events map[string]Record, gifts map[string]map[string]Record, families map[string]Record) error {
 	type payload struct {
 		path string
 		data []byte
 	}
-	payloads := make([]payload, 0, 1+len(gifts))
+	payloads := make([]payload, 0, 2+len(gifts))
 	raw, err := json.MarshalIndent(events, "", "  ")
 	if err != nil {
 		return err
 	}
 	payloads = append(payloads, payload{s.eventsPath(), raw})
+	if families != nil {
+		familiesRaw, err := json.MarshalIndent(families, "", "  ")
+		if err != nil {
+			return err
+		}
+		payloads = append(payloads, payload{s.familiesPath(), familiesRaw})
+	}
 	for id, items := range gifts {
 		raw, err := json.MarshalIndent(items, "", "  ")
 		if err != nil {
@@ -399,7 +773,36 @@ func (s *Store) ReplaceAll(events map[string]Record, gifts map[string]map[string
 	type moved struct{ from, to string }
 	var backedUp []moved
 	trash := filepath.Join(s.dir, ".trash", "import-"+time.Now().Format("20060102-150405"))
-	if existing, err := readMap(s.eventsPath()); err == nil && len(existing) > 0 {
+	existing, existingErr := readMap(s.eventsPath())
+	if existingErr != nil {
+		existing = map[string]Record{}
+	}
+	// 要搬走的礼金文件按账簿 ID 列表来定；events.json 读不出来时改成直接扫文件名，
+	// 否则切换会把那些礼金原地覆盖，连回滚副本都没有。
+	giftIDs := make([]string, 0, len(existing))
+	for id := range existing {
+		giftIDs = append(giftIDs, id)
+	}
+	if existingErr != nil {
+		if entries, readErr := os.ReadDir(s.dir); readErr == nil {
+			for _, entry := range entries {
+				name := entry.Name()
+				if entry.IsDir() || !strings.HasPrefix(name, "gifts_") || !strings.HasSuffix(name, ".json") {
+					continue
+				}
+				giftIDs = append(giftIDs, strings.TrimSuffix(strings.TrimPrefix(name, "gifts_"), ".json"))
+			}
+		}
+	}
+	familiesExist := false
+	if families != nil {
+		if _, statErr := os.Stat(s.familiesPath()); statErr == nil {
+			familiesExist = true
+		}
+	}
+	// 旧数据只要有任何一部分会被覆盖，就先整体挪进 .trash 再切换：
+	// 切换阶段出错能原样放回，成功后也留下一份可人工取回的快照。
+	if len(existing) > 0 || len(giftIDs) > 0 || familiesExist {
 		if err := os.MkdirAll(trash, 0o770); err != nil {
 			// 旧数据没地方放时绝不切换，否则后续出错就再也无法回滚。
 			dropTemps()
@@ -411,13 +814,20 @@ func (s *Store) ReplaceAll(events map[string]Record, gifts map[string]map[string
 				backedUp = append(backedUp, moved{dst, s.eventsPath()})
 			}
 		}
-		for id := range existing {
+		for _, id := range giftIDs {
 			src := s.giftsPath(id)
-			if _, err := os.Stat(src); err == nil {
-				dst := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
-				if os.Rename(src, dst) == nil {
-					backedUp = append(backedUp, moved{dst, src})
-				}
+			if _, err := os.Stat(src); err != nil {
+				continue
+			}
+			dst := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
+			if os.Rename(src, dst) == nil {
+				backedUp = append(backedUp, moved{dst, src})
+			}
+		}
+		if familiesExist {
+			dst := filepath.Join(trash, "families.json")
+			if os.Rename(s.familiesPath(), dst) == nil {
+				backedUp = append(backedUp, moved{dst, s.familiesPath()})
 			}
 		}
 	}

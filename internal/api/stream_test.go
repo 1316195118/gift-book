@@ -9,7 +9,7 @@ import (
 
 func TestStreamBroadcastCarriesActorAndIDs(t *testing.T) {
 	s := &Server{stream: newStreamHub()}
-	ch := s.stream.add()
+	ch := s.stream.add("")
 	defer s.stream.remove(ch)
 
 	req := httptest.NewRequest("POST", "/api/gifts", nil)
@@ -38,7 +38,7 @@ func TestStreamBroadcastCarriesActorAndIDs(t *testing.T) {
 
 func TestStreamBroadcastFallsBackToQueryActor(t *testing.T) {
 	s := &Server{stream: newStreamHub()}
-	ch := s.stream.add()
+	ch := s.stream.add("")
 	defer s.stream.remove(ch)
 
 	req := httptest.NewRequest("POST", "/api/gifts?client=tab-2", nil)
@@ -58,7 +58,7 @@ func TestStreamBroadcastFallsBackToQueryActor(t *testing.T) {
 
 func TestStreamRemoveStopsDelivery(t *testing.T) {
 	s := &Server{stream: newStreamHub()}
-	ch := s.stream.add()
+	ch := s.stream.add("")
 	if s.stream.count() != 1 {
 		t.Fatalf("在线连接数应为 1，得到 %d", s.stream.count())
 	}
@@ -68,4 +68,24 @@ func TestStreamRemoveStopsDelivery(t *testing.T) {
 	}
 	// 已移除的通道不应再被关闭或阻塞广播
 	s.notifyChange(httptest.NewRequest("POST", "/api/gifts", nil), "gift", "deleted", "ev", "g")
+}
+
+// 实时推送只发给同一家庭，避免跨家庭泄露账簿 ID。
+func TestStreamFamilyIsolation(t *testing.T) {
+	h := newStreamHub()
+	a := h.add("fam_a")
+	b := h.add("fam_b")
+	defer h.remove(a)
+	defer h.remove(b)
+	h.broadcast("fam_a", map[string]any{"type": "gift", "eventId": "ev-a"})
+	select {
+	case <-a:
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("同家庭没有收到广播")
+	}
+	select {
+	case <-b:
+		t.Fatal("其它家庭收到了广播")
+	case <-time.After(200 * time.Millisecond):
+	}
 }

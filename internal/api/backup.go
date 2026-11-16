@@ -23,7 +23,7 @@ import (
 
 const (
 	backupFormat  = "giftbook-backup"
-	backupVersion = 1
+	backupVersion = 2
 	maxBackupSize = 512 << 20
 	maxZipEntries = 10000
 	maxEntrySize  = 64 << 20
@@ -41,16 +41,72 @@ func contentHash(payload []byte) string {
 
 // ---- GET /api/backup 导出整库为 zip ----
 
-func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
-	filename := fmt.Sprintf("giftbook-backup-%s.zip", time.Now().Format("20060102-150405"))
+// contentDisposition 生成下载头：纯 ASCII 文件名用 filename=，
+// 含中文（家庭名）时用 RFC 5987 的 filename*=，两者不能混用。
+func contentDisposition(filename string) string {
+	for _, r := range filename {
+		if r > 127 {
+			return `attachment; filename*=UTF-8''` + urlEscape(filename)
+		}
+	}
+	return `attachment; filename="` + filename + `"`
+}
+
+// writeZipToResponse 先把 zip 完整写到临时文件，打包成功后再回传。
+// 直接往 ResponseWriter 写时，中途读文件失败已经发出了 200，
+// 客户端只会拿到一个截断的 zip，还会以为备份成功。
+// 返回 true 表示整包已生成并开始回传。
+func (s *Server) writeZipToResponse(w http.ResponseWriter, r *http.Request, filename string, build func(out io.Writer) error) bool {
+	// 优先放在数据目录：容器里的 /tmp 往往是内存盘，大备份会把它撑爆。
+	tmp, err := os.CreateTemp(s.store.Dir(), ".export-*.zip.tmp")
+	if err != nil {
+		tmp, err = os.CreateTemp("", "giftbook-export-*.zip")
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "无法生成备份文件")
+		return false
+	}
+	path := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(path)
+	}()
+	if err := build(tmp); err != nil {
+		log.Printf("生成备份失败: %v", err)
+		fail(w, http.StatusInternalServerError, "生成备份失败，请稍后重试")
+		return false
+	}
+	if err := tmp.Sync(); err != nil {
+		fail(w, http.StatusInternalServerError, "生成备份失败，请稍后重试")
+		return false
+	}
+	info, err := tmp.Stat()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "生成备份失败，请稍后重试")
+		return false
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		fail(w, http.StatusInternalServerError, "生成备份失败，请稍后重试")
+		return false
+	}
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Disposition", contentDisposition(filename))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	// 与定时备份共用同一实现：带 manifest 计数与逐文件 sha256 校验和。
-	if _, err := backup.Write(w, s.store, s.buildLabel(), s.auth.Enabled(), s.auth.ExportState()); err != nil {
-		log.Printf("下载备份失败: %v", err)
+	http.ServeContent(w, r, filename, info.ModTime(), tmp)
+	return true
+}
+
+func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
 	}
+	filename := fmt.Sprintf("giftbook-backup-%s.zip", time.Now().Format("20060102-150405"))
+	// 与定时备份共用同一实现：带 manifest 计数与逐文件 sha256 校验和。
+	s.writeZipToResponse(w, r, filename, func(out io.Writer) error {
+		_, err := backup.Write(out, s.store, s.buildLabel(), s.auth.Enabled(), s.auth.ExportState())
+		return err
+	})
 }
 
 // ---- POST /api/backup 导入 zip ----
@@ -60,6 +116,7 @@ type parsedBackup struct {
 	manifest  backupManifest
 	events    map[string]store.Record
 	gifts     map[string]map[string]store.Record
+	families  map[string]store.Record
 	authState []byte
 	checksums map[string]string
 }
@@ -73,6 +130,10 @@ func (p *parsedBackup) accept(name string, content []byte) error {
 	case name == "data/events.json":
 		if err := json.Unmarshal(content, &p.events); err != nil {
 			return errors.New("账簿数据损坏")
+		}
+	case name == "data/families.json":
+		if err := json.Unmarshal(content, &p.families); err != nil {
+			return errors.New("家庭数据损坏")
 		}
 	case strings.HasPrefix(name, "data/gifts_") && strings.HasSuffix(name, ".json"):
 		id := strings.TrimSuffix(strings.TrimPrefix(name, "data/gifts_"), ".json")
@@ -119,6 +180,28 @@ func (p *parsedBackup) normalize() error {
 	for id := range p.gifts {
 		if _, ok := p.events[id]; !ok {
 			delete(p.gifts, id)
+		}
+	}
+	for id := range p.families {
+		if !store.ValidID(id) {
+			return errors.New("备份包包含无效的家庭ID")
+		}
+	}
+	if p.families != nil {
+		if _, ok := p.families[store.DefaultFamilyID]; !ok {
+			return errors.New("备份包缺少默认家庭")
+		}
+		// 账簿必须属于包里存在的家庭，否则还原后这些账簿对任何家庭都不可见，
+		// 等于静默丢数据；这种情况只可能来自被改动或损坏的备份包。
+		for _, event := range p.events {
+			owner, _ := event["familyId"].(string)
+			if owner == "" {
+				continue
+			}
+			if _, exists := p.families[owner]; !exists {
+				name, _ := event["name"].(string)
+				return fmt.Errorf("备份包里的账簿「%s」属于不存在的家庭，无法还原", name)
+			}
 		}
 	}
 	for _, items := range p.gifts {
@@ -224,6 +307,9 @@ func (s *Server) parseBackup(reader *zip.Reader) (*parsedBackup, error) {
 	if out.manifest.Gifts > 0 && out.manifest.Gifts != actualGifts {
 		return nil, fmt.Errorf("备份包不完整：清单 %d 条礼金，实际 %d 条", out.manifest.Gifts, actualGifts)
 	}
+	if out.manifest.Families > 0 && out.manifest.Families != len(out.families) {
+		return nil, fmt.Errorf("备份包不完整：清单 %d 个家庭，实际 %d 个", out.manifest.Families, len(out.families))
+	}
 	if err := out.normalize(); err != nil {
 		return nil, err
 	}
@@ -231,13 +317,24 @@ func (s *Server) parseBackup(reader *zip.Reader) (*parsedBackup, error) {
 		if err := s.auth.ValidateState(out.authState); err != nil {
 			return nil, err
 		}
+		// 多个家庭却没有管理员密码，还原后任何人都能抢先把密码设成自己的，
+		// 这种状态只可能来自被改过的备份包，直接拒绝。
+		if len(out.families) > 1 {
+			var state struct {
+				Enabled bool `json:"enabled"`
+			}
+			if json.Unmarshal(out.authState, &state) == nil && !state.Enabled {
+				return nil, errors.New("备份包含多个家庭但没有管理员密码，无法还原")
+			}
+		}
 	}
 	return out, nil
 }
 
 // applyBackup 用校验过的数据整体替换现有账簿，并恢复访问保护状态。
+// 账簿、礼金与家庭清单走同一次切换，避免只成功一半导致账簿归属到不存在的家庭。
 func (s *Server) applyBackup(p *parsedBackup) (map[string]any, error) {
-	if err := s.store.ReplaceAll(p.events, p.gifts); err != nil {
+	if err := s.store.ReplaceAllWithFamilies(p.events, p.gifts, p.families); err != nil {
 		return nil, errors.New("导入失败：" + err.Error())
 	}
 	if len(p.authState) > 0 {
@@ -248,21 +345,47 @@ func (s *Server) applyBackup(p *parsedBackup) (map[string]any, error) {
 	return map[string]any{
 		"events":    len(p.events),
 		"gifts":     countGifts(p.gifts),
+		"families":  len(p.families),
 		"createdAt": p.manifest.CreatedAt,
 		"hasAuth":   len(p.authState) > 0,
 	}, nil
 }
 
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
+	parsed, filename, ok := s.readBackupUpload(w, r)
+	if !ok {
+		return
+	}
+	if parsed.manifest.Scope == "family" {
+		fail(w, http.StatusBadRequest, "这是家庭备份，请在对应家庭的「家庭备份」里还原")
+		return
+	}
+	result, err := s.applyBackup(parsed)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	result["sourceName"] = filename
+	s.audit(r, "整站还原", "", filename)
+	// 整站还原会影响所有家庭，必须通知全部在线页面刷新。
+	s.notifyAllChange(r, "restore", "restored")
+	writeJSON(w, http.StatusOK, response{Success: true, Data: result})
+}
+
+// readBackupUpload 读取上传的备份包并完成校验，失败时已写好响应。
+func (s *Server) readBackupUpload(w http.ResponseWriter, r *http.Request) (*parsedBackup, string, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupSize)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		fail(w, http.StatusRequestEntityTooLarge, "备份包过大或格式不正确")
-		return
+		return nil, "", false
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		fail(w, http.StatusBadRequest, "请选择要导入的备份包")
-		return
+		return nil, "", false
 	}
 	defer file.Close()
 
@@ -270,7 +393,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	tmp, err := os.CreateTemp("", "giftbook-restore-*.zip")
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "无法处理备份包")
-		return
+		return nil, "", false
 	}
 	defer os.Remove(tmp.Name())
 	size, err := io.Copy(tmp, io.LimitReader(file, maxBackupSize+1))
@@ -279,31 +402,24 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		fail(w, http.StatusBadRequest, "读取备份包失败")
-		return
+		return nil, "", false
 	}
 	if size > maxBackupSize {
 		fail(w, http.StatusRequestEntityTooLarge, "备份包过大")
-		return
+		return nil, "", false
 	}
 	parsedFile, err := os.Open(tmp.Name())
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "无法读取备份包")
-		return
+		return nil, "", false
 	}
 	defer parsedFile.Close()
 	parsed, err := s.parseBackupFile(parsedFile, size)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, "", false
 	}
-	result, err := s.applyBackup(parsed)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	result["sourceName"] = header.Filename
-	s.notifyChange(r, "restore", "restored", "", "")
-	writeJSON(w, http.StatusOK, response{Success: true, Data: result})
+	return parsed, header.Filename, true
 }
 
 func countGifts(gifts map[string]map[string]store.Record) int {
@@ -317,6 +433,9 @@ func countGifts(gifts map[string]map[string]store.Record) int {
 // ---- GET /api/backup/info 备份概况 ----
 
 func (s *Server) handleBackupInfo(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	events, gifts, err := s.store.BackupAll()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "无法读取账簿数据")
@@ -353,13 +472,17 @@ func (s *Server) restoreBackupFile(path string) (map[string]any, error) {
 // handleExportEvent 导出单本账簿：账簿信息 + 该账簿的礼金密文。
 // 与整站备份同一套 zip 结构，只含这一本，方便单独带走或归档。
 func (s *Server) handleExportEvent(w http.ResponseWriter, r *http.Request, eventID string) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	events, err := s.store.ReadEvents()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "账簿读取失败")
 		return
 	}
-	event, ok := events[eventID]
-	if !ok {
+	event, exists := events[eventID]
+	if !exists || !eventBelongsTo(event, family.ID) {
 		fail(w, http.StatusNotFound, "事件不存在")
 		return
 	}

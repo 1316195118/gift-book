@@ -52,7 +52,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.14"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.15"}
 	if len(extra) > 0 {
 		opts.StrictOrigin = extra[0].StrictOrigin
 	}
@@ -77,6 +77,8 @@ func (e *testEnv) do(t *testing.T, method, path string, body any, headers map[st
 	if err != nil {
 		t.Fatal(err)
 	}
+	// 测试请求视作本机：家庭管理接口在未开启站点访问保护时只允许回环地址。
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -289,10 +291,14 @@ func TestAccessProtectionFlow(t *testing.T) {
 		t.Fatalf("enable auth: %d %v", res.StatusCode, payload)
 	}
 
-	// 未登录访问接口
+	// 访问保护现在是管理员入口：普通家庭接口仍可用，管理员接口必须登录。
 	res, _ = env.do(t, "GET", "/api/events", nil, nil)
-	if res.StatusCode != 401 {
-		t.Fatalf("should require login, got %d", res.StatusCode)
+	if res.StatusCode != 200 {
+		t.Fatalf("家庭接口不应被管理员密码拦截，got %d", res.StatusCode)
+	}
+	res, _ = env.do(t, "GET", "/api/families", nil, nil)
+	if res.StatusCode != 403 {
+		t.Fatalf("管理员接口未登录应返回 403，got %d", res.StatusCode)
 	}
 
 	// 错误密码
@@ -316,8 +322,8 @@ func TestAccessProtectionFlow(t *testing.T) {
 		t.Fatal("login cookie missing")
 	}
 
-	// 带 Cookie 访问
-	req, _ := http.NewRequest("GET", env.server.URL+"/api/events", nil)
+	// 带 Cookie 访问管理员接口
+	req, _ := http.NewRequest("GET", env.server.URL+"/api/families", nil)
 	req.AddCookie(cookie)
 	resAuthed, err := http.DefaultClient.Do(req)
 	if err != nil {

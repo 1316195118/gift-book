@@ -1,6 +1,5 @@
 // 弹窗控制器：动作可以是函数，也可以是 { text, style, keepOpen, handler }。
 import { reactive } from 'vue'
-import { h } from 'vue'
 import { escapeHtml } from './crypto.js'
 
 // 提示 / 确认弹窗统一按纯文本转义后再渲染；只把换行转成 <br>。

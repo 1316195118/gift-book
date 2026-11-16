@@ -88,7 +88,7 @@ export async function showAccessModal() {
   if (!mod) return
   const { AccessPanel } = mod
   // 面板自带保存/取消按钮，弹窗底栏留空
-  openModal('访问保护', { type: 'component', component: AccessPanel, props: { enabled: st.authEnabled } }, [])
+  openModal('管理员密码', { type: 'component', component: AccessPanel, props: { enabled: st.authEnabled } }, [])
 }
 
 export async function showAutoBackupModal() {
@@ -101,6 +101,13 @@ export async function showAutoBackupModal() {
 export async function logout() {
   try {
     await api.logout()
+  } catch {
+    /* 忽略 */
+  }
+  // 退出管理员后连家庭会话一起清掉，回到「选择家庭」，
+  // 否则刷新后会自动回到原家庭，看不出已经退出管理。
+  try {
+    await api.familyLogout()
   } catch {
     /* 忽略 */
   }

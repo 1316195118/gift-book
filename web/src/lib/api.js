@@ -2,10 +2,15 @@
 import { clientId } from './client-id.js'
 
 let authGateHandler = () => {}
+let familyGateHandler = () => {}
 let ledgerKeyForRequest = () => ''
 
 export function setAuthGateHandler(fn) {
   authGateHandler = fn
+}
+
+export function setFamilyGateHandler(fn) {
+  familyGateHandler = fn
 }
 
 export function setLedgerKeyResolver(fn) {
@@ -13,11 +18,13 @@ export function setLedgerKeyResolver(fn) {
 }
 
 export class ApiError extends Error {
-  constructor(message, { code = 'REJECT', status = 0 } = {}) {
+  constructor(message, { code = 'REJECT', status = 0, data = null } = {}) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
+    // 少数错误要靠 data 继续走流程（例如重码登录要列出候选家庭）。
+    this.data = data
   }
 }
 
@@ -44,7 +51,7 @@ async function fetchWithTimeout(url, init) {
 
 export async function apiRequest(url, method = 'GET', data = null, options = {}) {
   try {
-    const headers = { 'Content-Type': 'application/json', 'X-Client-Id': clientId() }
+    const headers = { 'Content-Type': 'application/json', 'X-Client-Id': clientId(), ...(options.headers || {}) }
     const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
     if (ledgerKey) headers['X-Ledger-Key'] = ledgerKey
 
@@ -69,19 +76,27 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
       }
     }
 
-    if (response.status === 401 && !options.skipAuthRedirect) {
-      authGateHandler()
-      throw new ApiError('未登录或登录已过期', { code: 'UNAUTHORIZED', status: 401 })
-    }
-
     let result = null
     try {
       result = await response.json()
     } catch {
+      if (response.status === 401 && !options.skipAuthRedirect) {
+        authGateHandler()
+        throw new ApiError('未登录或登录已过期', { code: 'UNAUTHORIZED', status: 401 })
+      }
       throw new ApiError(
         response.ok ? '响应格式异常' : `服务暂时不可用（${response.status}）`,
         { code: 'NETWORK', status: response.status },
       )
+    }
+
+    if (response.status === 401 && !options.skipAuthRedirect) {
+      if (result?.code === 'family_required') {
+        familyGateHandler()
+        throw new ApiError(result.message || '请选择家庭并输入访问码', { code: 'FAMILY_REQUIRED', status: 401 })
+      }
+      authGateHandler()
+      throw new ApiError('未登录或登录已过期', { code: 'UNAUTHORIZED', status: 401 })
     }
 
     if (!result.success) {
@@ -90,7 +105,12 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
       if (result.code === 'ledger_key') code = 'LEDGER_KEY'
       if (result.code === 'ledger_locked') code = 'LEDGER_LOCKED'
       if (result.code === 'archived') code = 'ARCHIVED'
-      throw new ApiError(result.message || '请求失败', { code: code || 'REJECT', status: response.status })
+      if (result.code === 'admin_password_required') code = 'ADMIN_PASSWORD_REQUIRED'
+      if (result.code === 'family_code') code = 'FAMILY_CODE'
+      if (result.code === 'family_ambiguous') code = 'FAMILY_AMBIGUOUS'
+      if (result.code === 'family_code_taken') code = 'FAMILY_CODE_TAKEN'
+      if (result.code === 'admin_required') code = 'ADMIN_REQUIRED'
+      throw new ApiError(result.message || '请求失败', { code: code || 'REJECT', status: response.status, data: result.data ?? null })
     }
     return result
   } catch (error) {
@@ -160,7 +180,45 @@ export const api = {
 
   autobackupDelete: (name) => apiRequest(`/api/autobackup/file/${encodeURIComponent(name)}`, 'DELETE'),
 
+  familyMe: () => apiRequest('/api/family/me'),
+
+  familySelfUpdate: (payload) => apiRequest('/api/family/self', 'PUT', payload),
+
+  familyAutoBackups: () => apiRequest('/api/family/auto-backups'),
+
+  // 家庭还原要重新验证一次访问码：服务端读 X-Family-Code，管理员登录时可留空。
+  familyAutoBackupRestore: (name, accessCode = '') =>
+    apiRequest(`/api/family/auto-backups/restore/${encodeURIComponent(name)}`, 'POST', {},
+      accessCode ? { headers: { 'X-Family-Code': accessCode } } : {}),
+
+  familyOverview: () => apiRequest('/api/families'),
+
+  listFamilyArchives: () => apiRequest('/api/family/archives'),
+
+  restoreFamilyArchive: (name) => apiRequest(`/api/family/archives/restore/${encodeURIComponent(name)}`, 'POST', {}),
+
+  logoutAllDevices: (id) => apiRequest(`/api/families/${encodeURIComponent(id)}/logout-all`, 'POST', {}),
+
+  auditLog: () => apiRequest('/api/audit'),
+
+  familyLogin: (payload) => apiRequest('/api/family/login', 'POST', payload, { skipAuthRedirect: true }),
+
+  familyLogout: () => apiRequest('/api/family/logout', 'POST', {}),
+
+  listFamilies: () => apiRequest('/api/families'),
+
+  createFamily: (payload) => apiRequest('/api/families', 'POST', payload),
+
+  updateFamily: (id, payload) => apiRequest(`/api/families/${encodeURIComponent(id)}`, 'PUT', payload),
+
+  openFamilies: () => apiRequest('/api/families/open'),
+
+  // 删除家庭用管理员密码二次验证：401 是密码错误，不是登录过期，别弹管理员登录。
+  deleteFamily: (id, payload) => apiRequest(`/api/families/${encodeURIComponent(id)}`, 'DELETE', payload, { skipAuthRedirect: true }),
+
   listTrash: () => apiRequest('/api/trash'),
+
+  listSnapshots: () => apiRequest('/api/trash/snapshots'),
 
   restoreTrash: (name) => apiRequest(`/api/trash/restore/${encodeURIComponent(name)}`, 'POST', {}),
 }

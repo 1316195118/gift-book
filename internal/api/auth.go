@@ -14,11 +14,14 @@ func (s *Server) handleAuthState(w http.ResponseWriter, r *http.Request) {
 	enabled := s.auth.Enabled()
 	authenticated := s.auth.Check(r)
 	setupRequired := s.auth.SetupTokenRequired()
+	// 多家庭部署必须设置管理员密码；前端据此锁定开关并提示首次设置。
+	multiFamily := s.familyCount() > 1
 	writeJSON(w, http.StatusOK, response{
 		Success:       true,
 		Enabled:       &enabled,
 		Authenticated: &authenticated,
 		SetupRequired: &setupRequired,
+		MultiFamily:   &multiFamily,
 	})
 }
 
@@ -50,15 +53,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if left < 1 {
 			left = 1
 		}
-		fail(w, http.StatusUnauthorized, "访问密码不正确，还可尝试 "+itoa(left)+" 次")
+		fail(w, http.StatusUnauthorized, "管理员密码不正确，还可尝试 "+itoa(left)+" 次")
 		return
 	}
 	s.auth.SetCookie(w, r)
+	s.audit(r, "管理员登录", "", "")
 	enabled, authenticated := true, true
 	writeJSON(w, http.StatusOK, response{Success: true, Enabled: &enabled, Authenticated: &authenticated})
 }
 
-// ---- PUT /api/auth 修改访问保护 ----
+// ---- PUT /api/auth 设置 / 修改管理员密码 ----
 
 func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -72,7 +76,7 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.auth.Unreadable() {
-		fail(w, http.StatusServiceUnavailable, "访问保护状态文件无法读取，请先检查配置目录权限")
+		fail(w, http.StatusServiceUnavailable, "管理员密码状态文件无法读取，请先检查配置目录权限")
 		return
 	}
 	// 已开启时，关闭或修改密码都要先验证当前密码，并计入防爆破。
@@ -88,7 +92,7 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 			if left < 1 {
 				left = 1
 			}
-			fail(w, http.StatusUnauthorized, "当前访问密码不正确，还可尝试 "+itoa(left)+" 次")
+			fail(w, http.StatusUnauthorized, "当前管理员密码不正确，还可尝试 "+itoa(left)+" 次")
 			return
 		}
 	}
@@ -101,23 +105,30 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 	if !*body.Enabled && s.auth.Enabled() {
 		ok, _, _ := s.auth.VerifyOrFail(r, body.CurrentPassword)
 		if !ok {
-			fail(w, http.StatusUnauthorized, "当前访问密码不正确")
+			fail(w, http.StatusUnauthorized, "当前管理员密码不正确")
 			return
 		}
+	}
+	// 多家庭模式下管理员密码是必需的：否则家庭之间没有统一的管理入口，
+	// 也没人能为整站备份、家庭管理负责。
+	if !*body.Enabled && s.familyCount() > 1 {
+		failCode(w, http.StatusForbidden, "admin_password_required", "多家庭模式下不能关闭管理员密码")
+		return
 	}
 	if err := s.auth.Update(r, updating); err != nil {
 		switch {
 		case errors.Is(err, auth.ErrTooWeak):
-			fail(w, http.StatusBadRequest, "访问密码至少 8 位")
+			fail(w, http.StatusBadRequest, "管理员密码至少 8 位")
 		case errors.Is(err, auth.ErrWrongPassword):
-			fail(w, http.StatusUnauthorized, "当前访问密码不正确")
+			fail(w, http.StatusUnauthorized, "当前管理员密码不正确")
 		case errors.Is(err, auth.ErrSetupToken):
-			fail(w, http.StatusUnauthorized, "设置口令不正确，无法开启访问保护")
+			fail(w, http.StatusUnauthorized, "设置口令不正确，无法设置管理员密码")
 		default:
 			fail(w, http.StatusBadRequest, err.Error())
 		}
 		return
 	}
+	s.audit(r, "管理员密码更新", "", map[bool]string{true: "开启或修改密码", false: "关闭密码"}[*body.Enabled])
 	if *body.Enabled {
 		s.auth.SetCookie(w, r)
 	} else {

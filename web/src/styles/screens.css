@@ -112,12 +112,9 @@
   justify-content: flex-end;
 }
 
-/* 状态组与设置组之间的分隔 */
+/* 顶栏已经只剩「设置 + 家庭」，不再需要分组竖线。 */
 .home-top-actions .home-help-btn:first-of-type {
-  margin-left: var(--sp-3);
-  border-left: 1px solid var(--line);
-  padding-left: var(--sp-3);
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-left: 0;
 }
 
 .home-help-btn {

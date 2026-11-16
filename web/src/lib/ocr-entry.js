@@ -1,7 +1,7 @@
 // 扫描礼簿：复用原厂的 OCR 界面（ocr.js），把导入回调接到新版记账流程。
 import { state as st } from '../store.js'
 import { alert as showAlert } from './modal.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { isSolemnEvent } from './content.js'
 import { encryptData, loadGiftsForCurrentEvent } from '../bootstrap.js'
 import { touchSession } from '../store.js'
 import { newRequestId } from './crypto.js'

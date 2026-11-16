@@ -8,16 +8,10 @@
           <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'white' }" role="tab" :aria-selected="st.homeCategory === 'white'" data-cat="white" @click="onSwitchCategory('white')">白事</button>
         </div>
         <div class="home-top-actions">
-          <button type="button" class="net-chip" :class="'is-' + net.health.level" :title="netTitle" @click="showNetworkDetails">
-            <span class="net-dot" aria-hidden="true"></span><span class="net-text">{{ net.health.text }}</span><span class="net-label" aria-hidden="true">存储</span>
+          <button type="button" class="home-help-btn" id="home-settings-btn" @click="showHomeSettings">设置</button>
+          <button v-if="st.family" type="button" class="home-help-btn family-chip" id="family-btn" :title="`当前家庭：${st.family.name}，点击切换`" @click="switchFamily">
+            <span class="family-chip-name">{{ st.family.name }}</span><span class="family-chip-sub">切换</span>
           </button>
-          <button type="button" class="version-chip" title="查看更新说明" @click="showChangelog">v{{ version }}</button>
-          <button type="button" class="home-help-btn large-text-toggle" :aria-pressed="st.largeText" @click="toggleLargeText">{{ st.largeText ? '标准字号' : '大字' }}</button>
-          <button type="button" class="home-help-btn sound-toggle" :aria-pressed="soundOn" :title="soundOn ? '关闭提示音' : '开启提示音'" @click="toggleSound">{{ soundOn ? '音效开' : '静音' }}</button>
-          <button type="button" class="home-help-btn" id="autobackup-btn" @click="showAutoBackupModal">备份</button>
-          <button type="button" class="home-help-btn" id="trash-btn" @click="showTrashModal">回收站</button>
-          <button type="button" class="home-help-btn" id="access-btn" @click="showAccessModal">{{ st.authEnabled ? '访问保护 · 开' : '访问保护' }}</button>
-          <button v-if="st.authEnabled" type="button" class="home-help-btn" id="logout-btn" @click="logout">退出</button>
         </div>
       </header>
 
@@ -142,38 +136,25 @@
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { state as st } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
-import { showTemplates, showSetup, showHelpDialog, openEvent, versionLabel, showChangelog, showLicense } from '../lib/actions.js'
-import { showAccessModal, showAutoBackupModal, logout, showNetworkDetails, switchCategory, toggleLargeText } from '../lib/actions.js'
-import { showTrashModal } from '../lib/trash.js'
-import { netState as net } from '../lib/network.js'
+import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from '../lib/actions.js'
+import { switchCategory } from '../lib/actions.js'
+import { api } from '../lib/api.js'
+import { showHomeSettings } from '../lib/home-settings.js'
 import { queueFor } from '../lib/offline.js'
-import { soundEnabled, setSoundEnabled } from '../lib/prefs.js'
-import { playTheme, playTap } from '../lib/sound.js'
+import { playTheme } from '../lib/sound.js'
 
 const recentEl = ref(null)
-const soundOn = ref(soundEnabled())
-function toggleSound() {
-  const next = !soundOn.value
-  setSoundEnabled(next)
-  soundOn.value = soundEnabled()
-  if (next) playTap()
-}
 function onSwitchCategory(cat) {
   if (cat === st.homeCategory) return
   playTheme(cat === 'white')
   switchCategory(cat)
 }
-const version = computed(() => versionLabel())
 // 默认展示金额与人数；点眼睛才遮起来，隐私由用户自己控制
 const masked = reactive(new Set())
 
 const catText = computed(() => CATEGORY_TEXT[st.homeCategory])
 const copy = computed(() => copyOf(null, st.homeCategory))
 const isSolemn = computed(() => st.homeCategory === 'white')
-
-const netTitle = computed(() =>
-  net.health.level === 'bad' ? '网络异常，点击查看详情' : `网络正常 · ${net.health.text}，点击查看详情`,
-)
 
 const homeCount = computed(() => {
   const wantSolemn = st.homeCategory === 'white'
@@ -233,6 +214,16 @@ const scrollRecent = (direction) => {
 }
 
 const createNew = () => showSetup()
+
+// 切换家庭：清掉当前家庭会话并回到家庭门，避免把上一家的账簿带过去。
+const switchFamily = async () => {
+  try {
+    await api.familyLogout()
+  } catch {
+    /* 即使退出接口失败也刷新，家庭门会重新校验 */
+  }
+  location.reload()
+}
 
 onMounted(() => {
   const el = recentEl.value

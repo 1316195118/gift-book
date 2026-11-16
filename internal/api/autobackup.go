@@ -5,17 +5,21 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"giftbook/internal/backup"
+	"giftbook/internal/store"
 )
 
 // 自动备份设置，保存在配置目录 autobackup.json。
 type autoBackupConfig struct {
-	Enabled   bool `json:"enabled"`
-	IntervalH int  `json:"intervalHours"` // 1 / 6 / 12 / 24 / 168
-	Keep      int  `json:"keep"`          // 保留最近 N 份
+	Enabled       bool `json:"enabled"`
+	IntervalH     int  `json:"intervalHours"` // 1 / 6 / 12 / 24 / 168
+	Keep          int  `json:"keep"`          // 整站备份保留最近 N 份
+	FamilyEnabled bool `json:"familyEnabled"` // 同时为每个家庭单独备份
+	FamilyKeep    int  `json:"familyKeep"`    // 每个家庭保留最近 N 份
 }
 
 func (s *Server) autoBackupPath() string {
@@ -42,8 +46,13 @@ func (s *Server) backupsDir() string {
 	return filepath.Join(s.backupsRoot(), "backups")
 }
 
+// familyBackupsDir 是家庭级自动备份的根目录：family-backups/<familyID>/auto-*.zip。
+func (s *Server) familyBackupsDir() string {
+	return filepath.Join(s.backupsRoot(), "family-backups")
+}
+
 func (s *Server) loadAutoBackup() autoBackupConfig {
-	cfg := autoBackupConfig{Enabled: false, IntervalH: 24, Keep: 14}
+	cfg := autoBackupConfig{Enabled: false, IntervalH: 24, Keep: 14, FamilyEnabled: true, FamilyKeep: 7}
 	raw, err := os.ReadFile(s.autoBackupPath())
 	if err != nil {
 		return cfg
@@ -57,6 +66,12 @@ func (s *Server) loadAutoBackup() autoBackupConfig {
 	}
 	if cfg.Keep > 200 {
 		cfg.Keep = 200
+	}
+	if cfg.FamilyKeep <= 0 {
+		cfg.FamilyKeep = 7
+	}
+	if cfg.FamilyKeep > 200 {
+		cfg.FamilyKeep = 200
 	}
 	return cfg
 }
@@ -113,9 +128,17 @@ func (s *Server) runAutoBackup() error {
 	}
 	cfg := s.loadAutoBackup()
 	_, _ = backup.Prune(s.backupsRoot(), cfg.Keep)
+	var familyErr error
+	if cfg.FamilyEnabled {
+		familyErr = s.runFamilyAutoBackups(cfg.FamilyKeep)
+	}
 	s.lastBackupMu.Lock()
 	s.lastBackupAt = time.Now()
-	s.lastBackupErr = ""
+	if familyErr != nil {
+		s.lastBackupErr = "整站备份完成，但家庭备份失败：" + familyErr.Error()
+	} else {
+		s.lastBackupErr = ""
+	}
 	s.lastBackupMu.Unlock()
 	return nil
 }
@@ -151,14 +174,20 @@ func (s *Server) StartAutoBackup() {
 				continue
 			}
 			wait := interval - time.Since(last)
-			if wait < time.Minute {
+			if wait <= 0 {
+				if err := s.runAutoBackup(); err != nil {
+					s.setLastBackupErr(err.Error())
+				}
+				// 失败时 lastBackupAt 不会更新，这里必须留出间隔，避免空转重试。
+				wait = time.Minute
+			}
+			// 每次最多睡一分钟：管理员把 7 天改成 1 小时、或者直接关掉定时备份时，
+			// 下一分钟就会生效，不用等完原来那段等待。
+			if wait > time.Minute {
 				wait = time.Minute
 			}
 			if !s.sleepOrStop(wait) {
 				return
-			}
-			if err := s.runAutoBackup(); err != nil {
-				s.setLastBackupErr(err.Error())
 			}
 		}
 	}()
@@ -206,6 +235,9 @@ func (s *Server) lastBackupTime() time.Time {
 // ---- 接口 ----
 
 func (s *Server) handleAutoBackupGet(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	cfg := s.loadAutoBackup()
 	items, _ := backup.List(s.backupsRoot())
 	s.lastBackupMu.Lock()
@@ -234,23 +266,32 @@ func (s *Server) handleAutoBackupGet(w http.ResponseWriter, r *http.Request) {
 		"enabled":       cfg.Enabled,
 		"intervalHours": cfg.IntervalH,
 		"keep":          cfg.Keep,
+		"familyEnabled": cfg.FamilyEnabled,
+		"familyKeep":    cfg.FamilyKeep,
 		"lastBackupAt":  lastText,
 		"lastError":     lastErr,
 		"dir":           s.backupsDir(),
+		"familyDir":     s.familyBackupsDir(),
 		"files":         list,
 	}})
 }
 
 func (s *Server) handleAutoBackupSave(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	var body struct {
 		Enabled       *bool `json:"enabled"`
 		IntervalHours int   `json:"intervalHours"`
 		Keep          int   `json:"keep"`
+		FamilyEnabled *bool `json:"familyEnabled"`
+		FamilyKeep    int   `json:"familyKeep"`
 	}
 	if err := decodeJSON(w, r, &body); err != nil || body.Enabled == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
+	current := s.loadAutoBackup()
 	allowed := map[int]bool{1: true, 6: true, 12: true, 24: true, 168: true}
 	interval := body.IntervalHours
 	if !allowed[interval] {
@@ -263,17 +304,35 @@ func (s *Server) handleAutoBackupSave(w http.ResponseWriter, r *http.Request) {
 	if keep > 200 {
 		keep = 200
 	}
-	cfg := autoBackupConfig{Enabled: *body.Enabled, IntervalH: interval, Keep: keep}
+	familyEnabled := current.FamilyEnabled
+	if body.FamilyEnabled != nil {
+		familyEnabled = *body.FamilyEnabled
+	}
+	familyKeep := body.FamilyKeep
+	if familyKeep < 1 {
+		familyKeep = current.FamilyKeep
+	}
+	if familyKeep > 200 {
+		familyKeep = 200
+	}
+	cfg := autoBackupConfig{
+		Enabled: *body.Enabled, IntervalH: interval, Keep: keep,
+		FamilyEnabled: familyEnabled, FamilyKeep: familyKeep,
+	}
 	if err := s.saveAutoBackup(cfg); err != nil {
 		fail(w, http.StatusInternalServerError, "保存设置失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
 		"enabled": cfg.Enabled, "intervalHours": cfg.IntervalH, "keep": cfg.Keep,
+		"familyEnabled": cfg.FamilyEnabled, "familyKeep": cfg.FamilyKeep,
 	}})
 }
 
 func (s *Server) handleAutoBackupRun(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	if err := s.runAutoBackup(); err != nil {
 		fail(w, http.StatusInternalServerError, "备份失败："+err.Error())
 		return
@@ -282,6 +341,9 @@ func (s *Server) handleAutoBackupRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAutoBackupDownload(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	name := r.PathValue("name")
 	if !safeBackupName(name) {
 		fail(w, http.StatusBadRequest, "无效的备份文件")
@@ -312,6 +374,9 @@ func (s *Server) handleAutoBackupDownload(w http.ResponseWriter, r *http.Request
 
 // handleAutoBackupRestore 从配置目录里的备份文件还原整站数据。
 func (s *Server) handleAutoBackupRestore(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	name := r.PathValue("name")
 	if !safeBackupName(name) {
 		fail(w, http.StatusBadRequest, "无效的备份文件")
@@ -327,12 +392,17 @@ func (s *Server) handleAutoBackupRestore(w http.ResponseWriter, r *http.Request)
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.notifyChange(r, "restore", "restored", "", "")
+	s.audit(r, "整站还原", "", "从自动备份 "+filepath.Base(name))
+	// 自动备份是整站的：会替换全部家庭，必须通知所有在线页面刷新。
+	s.notifyAllChange(r, "restore", "restored")
 	writeJSON(w, http.StatusOK, response{Success: true, Data: counts})
 }
 
 // handleAutoBackupDelete 删除一份备份文件。
 func (s *Server) handleAutoBackupDelete(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
 	name := r.PathValue("name")
 	if !safeBackupName(name) {
 		fail(w, http.StatusBadRequest, "无效的备份文件")
@@ -353,4 +423,110 @@ func safeBackupName(name string) bool {
 		return false
 	}
 	return !strings.Contains(name, "..") && !strings.ContainsAny(name, `/\`)
+}
+
+// ---- 家庭级自动备份 ----
+
+// runFamilyAutoBackups 为每个家庭单独打一份包，并按 familyKeep 清理旧文件。
+func (s *Server) runFamilyAutoBackups(keep int) error {
+	families, err := s.store.ReadFamilies()
+	if err != nil {
+		return err
+	}
+	now := time.Now().Format("2006-01-02 15:04:05")
+	updated := make([]string, 0, len(families))
+	var firstErr error
+	for id, rec := range families {
+		family := familyFromRecord(id, rec)
+		if family.Archived {
+			continue
+		}
+		if err := s.writeFamilyAutoBackup(family, keep); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		updated = append(updated, id)
+	}
+	if len(updated) > 0 {
+		_ = s.store.WithFamilies(func(current map[string]store.Record) (bool, error) {
+			changed := false
+			for _, id := range updated {
+				rec, exists := current[id]
+				if !exists {
+					continue
+				}
+				rec["lastAutoBackupAt"] = now
+				current[id] = rec
+				changed = true
+			}
+			return changed, nil
+		})
+	}
+	return firstErr
+}
+
+func (s *Server) writeFamilyAutoBackup(family familyInfo, keep int) error {
+	dir := filepath.Join(s.familyBackupsDir(), family.ID)
+	if err := os.MkdirAll(dir, 0o775); err != nil {
+		return err
+	}
+	name := "auto-" + time.Now().Format("20060102-150405") + ".zip"
+	final := filepath.Join(dir, name)
+	tmp := final + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	_, err = backup.WriteFamily(f, s.store, family.ID, family.Name, s.buildLabel())
+	if err == nil {
+		err = f.Sync()
+	}
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, final); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	s.pruneFamilyBackups(dir, keep)
+	return nil
+}
+
+// pruneFamilyBackups 只保留目录里最近 keep 个 auto-*.zip。
+func (s *Server) pruneFamilyBackups(dir string, keep int) {
+	if keep <= 0 {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	type item struct {
+		name string
+		mod  time.Time
+	}
+	files := make([]item, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "auto-") || !strings.HasSuffix(entry.Name(), ".zip") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, item{entry.Name(), info.ModTime()})
+	}
+	if len(files) <= keep {
+		return
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].mod.After(files[j].mod) })
+	for _, old := range files[keep:] {
+		_ = os.Remove(filepath.Join(dir, old.name))
+	}
 }

@@ -4,8 +4,8 @@ import {
   storeSession, readSession, decryptSessionPassword, clearSession, updateSessionEvent,
   NO_PASSWORD_KEY, NO_PASSWORD_HASH, LedgerCrypto,
 } from './store.js'
-import { api, setAuthGateHandler, setLedgerKeyResolver, ApiError } from './lib/api.js'
-import { cacheEventList, readCache, queueFor, cacheLedgerGifts, cacheLedgerVerifier } from './lib/offline.js'
+import { api, setAuthGateHandler, setFamilyGateHandler, setLedgerKeyResolver, ApiError } from './lib/api.js'
+import { cacheEventList, readCache, queueFor, cacheLedgerGifts, cacheLedgerVerifier, setCacheFamily } from './lib/offline.js'
 import { categoryForEvent, eventTheme, isSolemnEvent } from './lib/content.js'
 import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeText } from './lib/prefs.js'
 import { ledgerKeyForEvent } from './store.js'
@@ -17,6 +17,9 @@ import { resetExportScope } from './lib/export-scope.js'
 
 setAuthGateHandler(() => {
   st.authGate = true
+})
+setFamilyGateHandler(() => {
+  st.familyGate = true
 })
 // 账簿钥匙按「请求里出现的账簿」解析：REST 路径、查询串、请求体三种来源都要认。
 // POST /api/gifts 只在请求体里带 eventId，漏掉它就会写成 403。
@@ -45,13 +48,27 @@ export async function bootstrap({ skipAuth = false } = {}) {
     const auth = await api.authState()
     st.authEnabled = Boolean(auth.enabled)
     st.authSetupRequired = Boolean(auth.setupRequired)
+    st.multiFamily = Boolean(auth.multiFamily)
     st.authChecked = true
-    if (auth.enabled && !auth.authenticated) {
-      st.authGate = true
-      return
-    }
+    // 管理员密码只作为管理员入口，不再作为全站门禁；
+    // 普通家庭成员直接走家庭门，只有点「管理员登录」时才打开 AuthGate。
   }
   st.authGate = false
+  // 家庭门：没有合法家庭会话时停在这里，输入访问码后再继续加载账簿。
+  try {
+    const me = await api.familyMe()
+    st.family = me.data || null
+    st.familyGate = false
+    // 离线缓存与待补传队列按家庭分键，避免换家庭后读到上一家的数据。
+    setCacheFamily(st.family?.id)
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'FAMILY_REQUIRED') {
+      st.familyGate = true
+      setCacheFamily('')
+      return
+    }
+    // 网络异常不阻塞单家庭部署；后续请求会再次触发家庭门。
+  }
   if (!restoreSession()) {
     await loadEvents()
     showHome()
@@ -59,23 +76,28 @@ export async function bootstrap({ skipAuth = false } = {}) {
 }
 
 export async function refreshBuildInfo() {
+  // 版本与能力是两件事：build.json 命中只说明拿到了构建号，
+  // 不能因此跳过 /api/capabilities，否则 OCR 这类按能力隐藏的入口会一直按默认值显示。
+  let gotBuild = false
   try {
     const res = await fetch('build.json', { cache: 'no-store' }).catch(() => null)
     if (res && res.ok) {
       const info = await res.json()
       st.build = info.build || ''
       st.version = info.version || ''
-      return
+      gotBuild = Boolean(st.build || st.version)
     }
   } catch {
-    /* 忽略 */
+    /* 忽略：退回服务端接口 */
   }
-  try {
-    const info = await api.build()
-    st.build = info.data?.build || ''
-    st.version = info.data?.version || ''
-  } catch {
-    /* 忽略 */
+  if (!gotBuild) {
+    try {
+      const info = await api.build()
+      st.build = info.data?.build || ''
+      st.version = info.data?.version || ''
+    } catch {
+      /* 忽略 */
+    }
   }
   try {
     const caps = await api.capabilities()
@@ -159,8 +181,13 @@ export function isBeforeStart(ev) {
 function restoreSession() {
   const saved = readSession()
   if (!saved) return false
-  const { event, encryptedPassword, savedAt } = saved
+  const { event, encryptedPassword, familyId, savedAt } = saved
   if (!event || !encryptedPassword) {
+    clearSession()
+    return false
+  }
+  // 会话必须属于当前家庭：换家庭后旧账簿不能在这里被恢复出来。
+  if (!familyId || familyId !== st.family?.id) {
     clearSession()
     return false
   }

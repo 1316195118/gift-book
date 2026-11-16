@@ -23,31 +23,58 @@ var extraFields = []string{
 
 // ---- GET /api/events ----
 
+// familyEvents 只挑出当前家庭的账簿，避免跨家庭泄露。
+func familyEvents(events map[string]store.Record, familyID string) map[string]store.Record {
+	mine := make(map[string]store.Record, len(events))
+	for id, event := range events {
+		if eventBelongsTo(event, familyID) {
+			mine[id] = event
+		}
+	}
+	return mine
+}
+
 func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	events, err := s.store.ReadEvents()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "账簿读取失败")
 		return
 	}
+	mine := familyEvents(events, family.ID)
 	// 补齐历史账簿缺失的编号（只补缺失的，按创建时间排序）。
-	if changed := s.backfillDisplayIDs(events); changed {
+	// 补号要写回 events.json，必须在写锁内基于最新数据重算：
+	// 用读锁外拿到的快照写回，会覆盖同一时间别人改的名称或总额。
+	if needsDisplayIDBackfill(mine) {
 		if err := s.store.WithEvents(func(current map[string]store.Record) (bool, error) {
-			for id, updated := range events {
-				current[id] = updated
-			}
-			return true, nil
+			mine = familyEvents(current, family.ID)
+			return s.backfillDisplayIDs(mine), nil
 		}); err != nil {
 			fail(w, http.StatusInternalServerError, "账簿升级保存失败")
 			return
 		}
 	}
-	out := make(map[string]map[string]any, len(events))
-	for id, event := range events {
+	out := make(map[string]map[string]any, len(mine))
+	for id, event := range mine {
 		public := ledger.Public(event)
 		public["giftCount"] = s.store.CountGifts(id)
 		out[id] = public
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: out})
+}
+
+// needsDisplayIDBackfill 只读判断是否有账簿缺编号，避免每次列表都去抢写锁。
+func needsDisplayIDBackfill(events map[string]store.Record) bool {
+	for _, event := range events {
+		display, _ := event["displayId"].(string)
+		if len(display) != 3 || !isDigits(display) {
+			return true
+		}
+	}
+	return false
 }
 
 // backfillDisplayIDs 给缺少合法编号的账簿补号，返回是否有改动。
@@ -112,13 +139,17 @@ func pad3(n int) string {
 // ---- GET /api/events/{id} ----
 
 func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, id string) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	events, err := s.store.ReadEvents()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "账簿读取失败")
 		return
 	}
-	event, ok := events[id]
-	if !ok {
+	event, exists := events[id]
+	if !exists || !eventBelongsTo(event, family.ID) {
 		fail(w, http.StatusNotFound, "事件不存在")
 		return
 	}
@@ -128,6 +159,10 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, id strin
 // ---- POST /api/events ----
 
 func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	var body map[string]any
 	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -154,6 +189,9 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	err := s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
 		maxID := 0
 		for _, existing := range events {
+			if !eventBelongsTo(existing, family.ID) {
+				continue
+			}
 			display, _ := existing["displayId"].(string)
 			if len(display) == 3 && isDigits(display) {
 				if n, _ := strconv.Atoi(display); n > maxID {
@@ -171,6 +209,7 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 			"id":        store.NewID(),
 			"name":      name,
 			"displayId": pad3(next),
+			"familyId":  family.ID,
 			"createdAt": stamp,
 			"updatedAt": stamp,
 		}
@@ -200,6 +239,10 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 // ---- PUT /api/events/{id} ----
 
 func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id string) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	var body map[string]any
 	if err := decodeJSON(w, r, &body); err != nil || body == nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -209,8 +252,8 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 	var status int
 	var message string
 	err := s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
-		event, ok := events[id]
-		if !ok {
+		event, exists := events[id]
+		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, errors.New(message)
 		}
@@ -219,6 +262,7 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 			return false, errors.New("ledger key rejected")
 		}
 		delete(body, "passwordHash")
+		delete(body, "familyId")
 		if _, hasKDF := event["kdf"]; hasKDF {
 			delete(body, "kdf")
 		}
@@ -252,10 +296,14 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 // ---- DELETE /api/events/{id} ----
 
 func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id string) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	var trashDir string
 	err := s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
-		event, ok := events[id]
-		if !ok {
+		event, exists := events[id]
+		if !exists || !eventBelongsTo(event, family.ID) {
 			return false, inputError{http.StatusNotFound, "事件不存在"}
 		}
 		if !s.requireLedgerKey(w, r, event) {
@@ -292,13 +340,17 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 // ---- POST /api/events/{id}/verify ----
 
 func (s *Server) handleVerifyEvent(w http.ResponseWriter, r *http.Request, id string) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
 	events, err := s.store.ReadEvents()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "账簿读取失败")
 		return
 	}
-	event, ok := events[id]
-	if !ok {
+	event, exists := events[id]
+	if !exists || !eventBelongsTo(event, family.ID) {
 		fail(w, http.StatusNotFound, "事件不存在")
 		return
 	}

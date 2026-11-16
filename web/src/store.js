@@ -33,7 +33,13 @@ export const state = reactive({
   authEnabled: false,
   authSetupRequired: false,
   authChecked: false,
+  // 多家庭部署：管理员密码为必需项，界面据此锁定开关。
+  multiFamily: false,
   authGate: false,
+  // 管理员门有两种用途：login（已设密码时登录）与 setup（首次设置管理员密码）。
+  authGateMode: 'login',
+  family: null,
+  familyGate: false,
 
   // 弹窗
   modal: { open: false, title: '', size: 'default', theme: '', content: null, actions: [] },
@@ -109,7 +115,7 @@ export function storeSession(event, password) {
     const encryptedPassword = LedgerCrypto.encrypt(password, sessionKey())
     sessionStorage.setItem(
       'activeEventSession',
-      JSON.stringify({ event, encryptedPassword, savedAt: Date.now() }),
+      JSON.stringify({ event, encryptedPassword, familyId: state.family?.id || '', savedAt: Date.now() }),
     )
   } catch (err) {
     console.error('会话存储失败', err)
