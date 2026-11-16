@@ -230,6 +230,69 @@ button:disabled {
   line-height: 1.7;
 }
 
+/* 「?」提示：小圆点只占一行高度，说明文字点开才出现，表单因此可以更紧凑。 */
+.gb-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  margin-left: 6px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 1px;
+  cursor: help;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 视觉上 17px，实际可点区域约 39px，手机上不用瞄。 */
+.gb-hint::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.gb-hint:hover,
+.gb-hint:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+/* 放在 flex 标签里时交给 gap 排版，别再多一层外边距。 */
+.field-label .gb-hint,
+.voice-toggle-main .gb-hint,
+.settings-title .gb-hint,
+.modal-title .gb-hint {
+  margin-left: 0;
+  align-self: center;
+  flex: none;
+}
+
+#gb-hint-bubble {
+  position: fixed;
+  z-index: 4000;
+  animation: gb-hint-in 140ms ease-out;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  line-height: 1.65;
+  text-align: left;
+  box-shadow: var(--shadow-md, 0 10px 24px rgba(0, 0, 0, .16));
+  pointer-events: none;
+}
+
 .field-counter {
   margin-left: auto;
   color: var(--faint);
@@ -2084,4 +2147,32 @@ body.theme-solemn #modal-container {
 /* 只有三行内容的确认窗，不该撑成大窗 */
 #modal:has(.confirm-slip) {
   max-width: 400px;
+}
+
+/* 浮层从图标方向轻轻落下：只做 4px 位移，不喧宾夺主。 */
+@keyframes gb-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gb-settings-alert {
+  margin-top: 6px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  background: var(--warn-soft, #fdf1ee);
+  color: #b03024;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gb-hint-bubble {
+    animation: none;
+  }
 }

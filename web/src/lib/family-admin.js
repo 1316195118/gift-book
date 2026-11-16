@@ -56,7 +56,7 @@ function showAdmin() {
   const authReady = Boolean(st.authEnabled)
   const html = `
     <div id="gb-family-admin" class="gb-picker">
-      <p class="gb-picker-intro">家庭之间互相看不到账簿。访问码只用于进入家庭，不替代账簿自己的管理密码。</p>
+      <p class="gb-picker-intro">家庭之间互相看不到账簿。<span class="gb-hint" data-hint="访问码只用于进入家庭，不替代账簿自己的管理密码。" role="note" aria-label="访问码只用于进入家庭，不替代账簿自己的管理密码。" tabindex="0">?</span></p>
       <p class="gb-family-summary" id="gb-family-summary"></p>
       <div id="gb-family-list" class="gb-family-list"></div>
       <div class="gb-family-create">
@@ -64,9 +64,8 @@ function showAdmin() {
         ${authReady ? '' : '<p class="gb-picker-hint is-warning">多家庭需要管理员密码：请先关闭本窗口，在「设置 → 管理员密码」里设置后再创建。</p>'}
         <div class="gb-form-grid">
           <div class="field"><label for="gb-family-name">家庭名称</label><input id="gb-family-name" type="text" maxlength="40" placeholder="如：王家" /></div>
-          <div class="field"><label for="gb-family-code">访问码（选填）</label><input id="gb-family-code" type="text" maxlength="128" placeholder="留空 = 开放家庭" autocomplete="off" ${authReady ? '' : 'disabled'} /><p class="gb-picker-hint" id="gb-family-code-hint"></p></div>
+          <div class="field"><label for="gb-family-code">访问码（选填）<span class="gb-hint" data-hint="留空表示任何能打开本站的人都能进入这个家庭，建议只在已设置管理员密码时使用。" role="note" aria-label="留空表示任何能打开本站的人都能进入这个家庭，建议只在已设置管理员密码时使用。" tabindex="0">?</span></label><input id="gb-family-code" type="text" maxlength="128" placeholder="留空 = 开放家庭" autocomplete="off" ${authReady ? '' : 'disabled'} /><p class="gb-picker-hint" id="gb-family-code-hint"></p></div>
         </div>
-        <p class="gb-picker-hint">留空表示任何能打开本站的人都能进入这个家庭，建议只在已设置管理员密码时使用。</p>
         <button type="button" id="gb-family-create-btn" class="modal-btn-primary" ${authReady ? '' : 'disabled'}>创建家庭</button>
       </div>
       <div id="gb-family-error" class="gb-inline-error" role="alert"></div>
@@ -212,9 +211,8 @@ function forceLogout(item) {
 function openReset(item) {
   const html = `
     <div id="gb-family-reset">
-      <p class="gb-picker-intro">为「${escapeHtml(item.name)}」设置新的访问码。旧码立即失效，已经登录的设备会在 Cookie 过期后重新验证。</p>
-      <div class="field"><label for="gb-family-new-code">新访问码（至少 8 位）</label><input id="gb-family-new-code" type="text" autocomplete="off" /><p class="gb-picker-hint" id="gb-family-new-code-hint"></p></div>
-      <p class="gb-picker-hint">留空并保存 = 改为开放家庭，不需要访问码。</p>
+      <p class="gb-picker-intro">为「${escapeHtml(item.name)}」设置新的访问码。<span class="gb-hint" data-hint="旧码立即失效，其他设备需要重新输入新码才能进入。" role="note" aria-label="旧码立即失效，其他设备需要重新输入新码才能进入。" tabindex="0">?</span></p>
+      <div class="field"><label for="gb-family-new-code">新访问码（至少 8 位）<span class="gb-hint" data-hint="留空并保存 = 改为开放家庭，不需要访问码。" role="note" aria-label="留空并保存 = 改为开放家庭，不需要访问码。" tabindex="0">?</span></label><input id="gb-family-new-code" type="text" autocomplete="off" /><p class="gb-picker-hint" id="gb-family-new-code-hint"></p></div>
       <div id="gb-family-reset-error" class="gb-inline-error" role="alert"></div>
     </div>`
   openModal('重置访问码', { type: 'html', html }, [

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -92,20 +93,32 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	// limit 默认 100，最多取到日志保留上限；action 做包含匹配，方便只看「还原」「删除」这类高危操作。
+	limit := 100
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= auditKeepLines {
+			limit = n
+		}
+	}
+	action := strings.TrimSpace(r.URL.Query().Get("action"))
 	entries := make([]AuditEntry, 0)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		var entry AuditEntry
-		if json.Unmarshal(scanner.Bytes(), &entry) == nil {
-			entries = append(entries, entry)
+		if json.Unmarshal(scanner.Bytes(), &entry) != nil {
+			continue
 		}
+		if action != "" && !strings.Contains(entry.Action, action) {
+			continue
+		}
+		entries = append(entries, entry)
 	}
-	// 最新的在前，最多 100 条。
+	// 最新的在前。
 	for left, right := 0, len(entries)-1; left < right; left, right = left+1, right-1 {
 		entries[left], entries[right] = entries[right], entries[left]
 	}
-	if len(entries) > 100 {
-		entries = entries[:100]
+	if len(entries) > limit {
+		entries = entries[:limit]
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: entries})
 }

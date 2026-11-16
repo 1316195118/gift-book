@@ -16,11 +16,14 @@ import './styles/features.css'
 import { createApp } from 'vue'
 import App from './App.vue'
 import { initFeedback } from './lib/feedback.js'
+import { initHints } from './lib/hint.js'
 import { initVersionWatch } from './lib/version-check.js'
 import { notify } from './lib/notify.js'
 
 // 动效档位与点击反馈要在页面渲染前挂好。
 initFeedback()
+// 「?」提示的浮层与事件委托：模板里写 data-hint 即可。
+initHints()
 
 // 全局错误兜底：渲染异常或未捕获异常时给出可操作提示，避免「白屏没反应」。
 let errorNotifiedAt = 0

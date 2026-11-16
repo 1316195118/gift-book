@@ -11,7 +11,8 @@ import { getVoiceOptions, saveVoiceOptions, qrStorageKey } from './prefs.js'
 import { soundEnabled, setSoundEnabled, playTap } from './sound.js'
 import { motionPreference, setMotionPreference } from './feedback.js'
 import { showQrDialog } from './qr-dialog.js'
-import { label, hint, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
+import { label, hintIcon, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
+import { openGuestPanel } from './guest-entry.js'
 import { notify } from './notify.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
@@ -78,7 +79,7 @@ export function openSettings({ section = 'general' } = {}) {
       <section class="settings-section">
         <h4 class="settings-title">语音播报</h4>
         <div class="voice-toggle-row">
-          <div><div class="voice-toggle-main">录入成功后朗读「姓名 + 金额」</div><div class="field-hint">关闭后不再播报，记录照常保存</div></div>
+          <div><div class="voice-toggle-main">录入成功后朗读「姓名 + 金额」${hintIcon('关闭后不再播报，记录照常保存。')}</div></div>
           <label class="switch"><input type="checkbox" id="edit-voice-enabled" ${ev.voiceEnabled !== false ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
         </div>
         <div class="field">
@@ -89,9 +90,8 @@ export function openSettings({ section = 'general' } = {}) {
           </div>
         </div>
         <div class="field">
-          ${label('edit-min-speech-amount', '起报金额')}
+          ${label('edit-min-speech-amount', '起报金额', '', copy.speechHint)}
           ${shell({ icon: ICON_MONEY, suffix: '元', input: `<input type="number" id="edit-min-speech-amount" min="0" step="1" inputmode="numeric" value="${Number(ev.minSpeechAmount) || 0}" />` })}
-          ${hint(copy.speechHint)}
         </div>
         <div class="field">
           ${label('edit-voice-rate', '语速与音量')}
@@ -111,49 +111,44 @@ export function openSettings({ section = 'general' } = {}) {
       <section class="settings-section">
         <h4 class="settings-title">封面与收款</h4>
         <div class="field">
-          ${label('edit-cover-image-upload', copy.bookTitle + '封面图')}
+          ${label('edit-cover-image-upload', copy.bookTitle + '封面图', '', '尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。')}
           <img id="edit-cover-preview" src="${escapeHtml(ev.coverImage || '')}" alt="封面预览" class="cover-edit-preview ${ev.coverImage ? '' : 'hidden'}" />
           <input type="file" id="edit-cover-image-upload" accept="image/*" />
-          ${hint('尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。')}
         </div>
         <button type="button" id="edit-qr-btn" class="themed-button-secondary field-action">设置 / 更换收款码</button>
       </section>
 
       <section class="settings-section">
-        <h4 class="settings-title">交互反馈</h4>
+        <h4 class="settings-title">交互反馈${hintIcon('设备级偏好：切换后立即生效并保存在本机，不随账簿保存，也不影响账簿数据。')}</h4>
         <div class="voice-toggle-row">
           <div>
-            <div class="voice-toggle-main">点击、落印与建簿提示音</div>
-            <div class="field-hint">Web Audio 合成的轻音效，无外部音频文件；系统开启「减弱动态效果」时自动静音</div>
+            <div class="voice-toggle-main">点击、落印与建簿提示音${hintIcon('Web Audio 合成的轻音效，无外部音频文件；系统开启「减弱动态效果」时自动静音。')}</div>
           </div>
           <label class="switch"><input type="checkbox" id="edit-sound-enabled" ${soundEnabled() ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
         </div>
         <div class="voice-toggle-row">
           <div>
-            <div class="voice-toggle-main">始终播放完整动效</div>
-            <div class="field-hint">忽略系统「减弱动态效果」，落印、建簿动效与点击涟漪照常播放；白事不出现任何喜庆元素</div>
+            <div class="voice-toggle-main">始终播放完整动效${hintIcon('忽略系统「减弱动态效果」，落印、建簿动效与点击涟漪照常播放；白事不出现任何喜庆元素。')}</div>
           </div>
           <label class="switch"><input type="checkbox" id="edit-motion-full" ${motionPreference() === 'full' ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
         </div>
-        ${hint('设备级偏好：切换后立即生效并保存在本机，不随账簿保存，也不影响账簿数据。')}
       </section>
 
       <section class="settings-section">
-        <h4 class="settings-title">结簿归档</h4>
+        <h4 class="settings-title">结簿归档${hintIcon('结簿只影响这本账簿，不删除任何记录；其他设备刷新后会同步为只读。')}</h4>
         <div class="voice-toggle-row">
           <div>
-            <div class="voice-toggle-main">${ev.archived ? '已结簿 · 只读' : '未结簿 · 可录入'}</div>
-            <div class="field-hint">结簿后禁止录入、纠错、登记回礼、批量导入与扫描录入；查看、统计、打印与导出照常。</div>
+            <div class="voice-toggle-main">${ev.archived ? '已结簿 · 只读' : '未结簿 · 可录入'}${hintIcon('结簿后禁止录入、纠错、登记回礼、批量导入与扫描录入；查看、统计、打印与导出照常。')}</div>
           </div>
         </div>
         <button type="button" id="edit-archive-btn" class="themed-button-secondary field-action">${ev.archived ? '解除结簿，恢复录入' : '结簿归档（设为只读）'}</button>
-        ${hint('结簿只影响这本账簿，不删除任何记录；其他设备刷新后会同步为只读。')}
       </section>
 
       <section class="settings-section">
-        <h4 class="settings-title">数据</h4>
+        <h4 class="settings-title">数据${hintIcon('导出的是当前账簿的密文数据，可在首页「备份」里还原；要备份全部账簿请用首页的备份。')}</h4>
+        <button type="button" id="edit-guest-btn" class="themed-button-secondary field-action">宾客扫码登记…</button>
+        ${st.family?.admin ? '<button type="button" id="edit-move-family-btn" class="themed-button-secondary field-action">转移到其他家庭</button>' : ''}
         <button type="button" id="edit-backup-btn" class="themed-button-secondary field-action">导出这本账簿</button>
-        ${hint('导出的是当前账簿的密文数据，可在首页「备份」里还原。要备份全部账簿请用首页的备份。')}
         <button type="button" id="edit-delete-btn" class="field-danger">删除这本账簿</button>
       </section>
     </div>`
@@ -206,6 +201,14 @@ export function openSettings({ section = 'general' } = {}) {
     document.getElementById('edit-qr-btn')?.addEventListener('click', () => {
       closeModal()
       setTimeout(() => showQrDialog(), 150)
+    })
+    document.getElementById('edit-guest-btn')?.addEventListener('click', () => {
+      closeModal()
+      setTimeout(() => openGuestPanel(ev), 150)
+    })
+    document.getElementById('edit-move-family-btn')?.addEventListener('click', () => {
+      closeModal()
+      setTimeout(() => openMoveFamily(ev), 150)
     })
     document.getElementById('edit-backup-btn')?.addEventListener('click', () => {
       closeModal()
@@ -320,6 +323,50 @@ function readAsBase64(file) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+// 管理员把建错家庭的账簿移到别的家庭：礼金文件按账簿 id 存，转移只改归属。
+async function openMoveFamily(ev) {
+  let families = []
+  try {
+    const result = await api.listFamilies()
+    families = (result.data || []).filter((family) => family.id !== st.family?.id)
+  } catch (error) {
+    return showAlert('转移账簿', error.message || '读取家庭失败')
+  }
+  if (!families.length) return showAlert('转移账簿', '没有其他家庭可以接收这本账簿。')
+  const options = families
+    .map((family) => `<option value="${escapeHtml(family.id)}">${escapeHtml(family.name)}</option>`)
+    .join('')
+  const html = `
+    <div class="gb-move-family">
+      <p>把「${escapeHtml(ev.name)}」转移到：</p>
+      <select id="move-family-target">${options}</select>
+      <p class="field-hint is-warning">转移后这本账簿会立即从「${escapeHtml(st.family?.name || '当前家庭')}」消失，只有目标家庭的成员能看到；礼金、编号与管理密码都不变。</p>
+      <div id="move-family-error" class="gb-inline-error" role="alert"></div>
+    </div>`
+  openModal('转移账簿', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '确认转移',
+      class: 'modal-btn-danger',
+      keepOpen: true,
+      handler: async () => {
+        const target = document.getElementById('move-family-target')?.value
+        const errorBox = document.getElementById('move-family-error')
+        if (!target) return
+        try {
+          const result = await api.moveEvent(ev.id, target)
+          closeModal()
+          notify.success('账簿已转移', `「${ev.name}」现在属于「${result.data?.familyName || '目标家庭'}」。`)
+          clearSession()
+          showHome()
+        } catch (error) {
+          if (errorBox) errorBox.textContent = error.message || '转移失败'
+        }
+      },
+    },
+  ], { dismissable: true })
 }
 
 export async function deleteEventFlow() {

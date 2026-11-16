@@ -1,8 +1,17 @@
 // 弹窗/表单共用的字段结构片段。所有面板用同一套 class，样式集中在 fields.css。
-export const label = (forId, text, extra = '') =>
-  `<label for="${forId}" class="field-label">${text}${extra}</label>`
+import { escapeHtml } from './crypto.js'
+
+export const label = (forId, text, extra = '', helpText = '') =>
+  `<label for="${forId}" class="field-label">${text}${extra}${helpText ? hintIcon(helpText) : ''}</label>`
 
 export const hint = (text) => `<p class="field-hint">${text}</p>`
+
+// 字段说明收进「?」，点开才显示：表单不再被一行行解释文字撑高。
+// 安全提示（会覆盖数据、明文风险）仍用 hint() 直接写在页面上，不藏起来。
+export const hintIcon = (text) => {
+  const value = escapeHtml(text)
+  return `<span class="gb-hint" data-hint="${value}" role="note" aria-label="${value}" tabindex="0">?</span>`
+}
 
 // 带单位或图标的输入外壳
 export const shell = ({ icon = '', suffix = '', input = '' } = {}) =>

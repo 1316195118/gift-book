@@ -217,6 +217,44 @@ func (s *Server) StopAutoBackup() {
 	s.autoBackupWG.Wait()
 }
 
+// backupAlert 给管理员的一句话提醒；空字符串表示自动备份看起来正常。
+func (s *Server) backupAlert() string {
+	s.lastBackupMu.Lock()
+	lastErr := s.lastBackupErr
+	s.lastBackupMu.Unlock()
+	if lastErr != "" {
+		return "自动备份失败：" + lastErr
+	}
+	cfg := s.loadAutoBackup()
+	if !cfg.Enabled {
+		return ""
+	}
+	interval := time.Duration(cfg.IntervalH) * time.Hour
+	if interval <= 0 {
+		return ""
+	}
+	last := s.lastBackupTime()
+	if last.IsZero() || time.Since(last) <= interval*2 {
+		return ""
+	}
+	return "自动备份已超过预计时间没有运行，请检查服务器状态"
+}
+
+// dirSize 递归统计目录占用；读不到的文件直接跳过。
+func dirSize(path string) int64 {
+	var total int64
+	_ = filepath.WalkDir(path, func(_ string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		if info, infoErr := entry.Info(); infoErr == nil {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total
+}
+
 func (s *Server) lastBackupTime() time.Time {
 	s.lastBackupMu.Lock()
 	at := s.lastBackupAt
@@ -262,6 +300,12 @@ func (s *Server) handleAutoBackupGet(w http.ResponseWriter, r *http.Request) {
 	if !lastAt.IsZero() {
 		lastText = lastAt.Format("2006-01-02 15:04")
 	}
+	totalBytes := int64(0)
+	for _, item := range items {
+		totalBytes += item.Size
+	}
+	familyBytes := dirSize(s.familyBackupsDir())
+	diskFree, _ := diskFreeBytes(s.store.Dir())
 	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
 		"enabled":       cfg.Enabled,
 		"intervalHours": cfg.IntervalH,
@@ -270,6 +314,10 @@ func (s *Server) handleAutoBackupGet(w http.ResponseWriter, r *http.Request) {
 		"familyKeep":    cfg.FamilyKeep,
 		"lastBackupAt":  lastText,
 		"lastError":     lastErr,
+		"alert":         s.backupAlert(),
+		"totalBytes":    totalBytes,
+		"familyBytes":   familyBytes,
+		"diskFree":      diskFree,
 		"dir":           s.backupsDir(),
 		"familyDir":     s.familyBackupsDir(),
 		"files":         list,

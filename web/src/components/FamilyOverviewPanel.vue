@@ -8,6 +8,18 @@
         <div><b>{{ totalEvents }}</b><span>本账簿</span></div>
         <div><b>{{ backedUp }}</b><span>个家庭已备份</span></div>
       </div>
+      <div v-if="recent.length" class="gb-overview-recent">
+        <h4>最近账簿</h4>
+        <div v-for="item in recent" :key="item.id" class="gb-overview-row">
+          <div class="gb-overview-main">
+            <b>{{ item.name || '未命名账簿' }}</b>
+            <span>{{ item.familyName || '我的家庭' }} · {{ item.createdAt ? item.createdAt.slice(0, 10) : '—' }}</span>
+          </div>
+          <div class="gb-overview-meta">
+            <span>{{ item.giftCount || 0 }} 条记录</span>
+          </div>
+        </div>
+      </div>
       <div class="gb-overview-list">
         <div v-for="item in items" :key="item.id" class="gb-overview-row">
           <div class="gb-overview-main">
@@ -34,6 +46,7 @@ import { api } from '../lib/api.js'
 import { closeModal } from '../lib/modal.js'
 
 const items = ref([])
+const recent = ref([])
 const loading = ref(true)
 const error = ref('')
 
@@ -43,8 +56,9 @@ const backedUp = computed(() => items.value.filter((item) => lastBackupOf(item))
 
 onMounted(async () => {
   try {
-    const result = await api.familyOverview()
-    items.value = Array.isArray(result.data) ? result.data : []
+    const [overview, activity] = await Promise.all([api.familyOverview(), api.familyActivity()])
+    items.value = Array.isArray(overview.data) ? overview.data : []
+    recent.value = Array.isArray(activity.data) ? activity.data : []
   } catch (err) {
     error.value = err.message || '读取家庭总览失败'
   } finally {

@@ -152,6 +152,8 @@ export const api = {
 
   deleteEvent: (id) => apiRequest(`/api/events/${encodeURIComponent(id)}`, 'DELETE'),
 
+  moveEvent: (id, familyId) => apiRequest(`/api/events/${encodeURIComponent(id)}/move`, 'POST', { familyId }),
+
   verifyEvent: (id, ledgerKey) =>
     apiRequest(`/api/events/${encodeURIComponent(id)}/verify`, 'POST', { action: 'verify' }, { ledgerKey }),
 
@@ -193,13 +195,21 @@ export const api = {
 
   familyOverview: () => apiRequest('/api/families'),
 
+  familyActivity: () => apiRequest('/api/families/activity'),
+
+  guestToggle: (id, enabled) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest`, 'POST', { enabled }),
+  guestPending: (id) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest/pending`),
+  guestDismiss: (id, entry) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest/pending/${encodeURIComponent(entry)}`, 'DELETE'),
+  guestInfo: (token) => apiRequest(`/api/guest/${encodeURIComponent(token)}`),
+  guestSubmit: (token, body) => apiRequest(`/api/guest/${encodeURIComponent(token)}/gifts`, 'POST', body),
+
   listFamilyArchives: () => apiRequest('/api/family/archives'),
 
   restoreFamilyArchive: (name) => apiRequest(`/api/family/archives/restore/${encodeURIComponent(name)}`, 'POST', {}),
 
   logoutAllDevices: (id) => apiRequest(`/api/families/${encodeURIComponent(id)}/logout-all`, 'POST', {}),
 
-  auditLog: () => apiRequest('/api/audit'),
+  auditLog: (limit = 400) => apiRequest(`/api/audit?limit=${encodeURIComponent(limit)}`),
 
   familyLogin: (payload) => apiRequest('/api/family/login', 'POST', payload, { skipAuthRedirect: true }),
 
@@ -219,6 +229,8 @@ export const api = {
   listTrash: () => apiRequest('/api/trash'),
 
   listSnapshots: () => apiRequest('/api/trash/snapshots'),
+
+  deleteSnapshot: (name) => apiRequest(`/api/trash/snapshots/${encodeURIComponent(name)}`, 'DELETE'),
 
   restoreTrash: (name) => apiRequest(`/api/trash/restore/${encodeURIComponent(name)}`, 'POST', {}),
 }

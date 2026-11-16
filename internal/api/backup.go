@@ -57,6 +57,11 @@ func contentDisposition(filename string) string {
 // 客户端只会拿到一个截断的 zip，还会以为备份成功。
 // 返回 true 表示整包已生成并开始回传。
 func (s *Server) writeZipToResponse(w http.ResponseWriter, r *http.Request, filename string, build func(out io.Writer) error) bool {
+	return s.writeExportToResponse(w, r, filename, "application/zip", build)
+}
+
+// writeExportToResponse 先把完整导出写到临时文件，成功后再回传。
+func (s *Server) writeExportToResponse(w http.ResponseWriter, r *http.Request, filename, contentType string, build func(out io.Writer) error) bool {
 	// 优先放在数据目录：容器里的 /tmp 往往是内存盘，大备份会把它撑爆。
 	tmp, err := os.CreateTemp(s.store.Dir(), ".export-*.zip.tmp")
 	if err != nil {
@@ -89,7 +94,7 @@ func (s *Server) writeZipToResponse(w http.ResponseWriter, r *http.Request, file
 		fail(w, http.StatusInternalServerError, "生成备份失败，请稍后重试")
 		return false
 	}
-	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", contentDisposition(filename))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -375,6 +380,65 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response{Success: true, Data: result})
 }
 
+// backupSummary 把解析结果压成一份人类可读的清单，供「检查备份包」展示。
+func (s *Server) backupSummary(parsed *parsedBackup, filename string) map[string]any {
+	manifest := parsed.manifest
+	createdAt := manifest.CreatedAt
+	if parsedAt, err := time.Parse(time.RFC3339, manifest.CreatedAt); err == nil {
+		createdAt = parsedAt.Local().Format("2006-01-02 15:04")
+	}
+	scope := manifest.Scope
+	if scope == "" {
+		scope = "site"
+	}
+	return map[string]any{
+		"scope":       scope,
+		"familyId":    manifest.FamilyID,
+		"familyName":  manifest.FamilyName,
+		"createdAt":   createdAt,
+		"events":      len(parsed.events),
+		"gifts":       countGifts(parsed.gifts),
+		"families":    len(parsed.families),
+		"hasAuth":     manifest.HasAuth,
+		"app":         manifest.App,
+		"sourceName":  filename,
+		"checksummed": len(manifest.Checksums) > 0,
+	}
+}
+
+// ---- 检查备份包（只解析，不改数据） ----
+
+func (s *Server) handleVerifyBackup(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
+	parsed, filename, ok := s.readBackupUpload(w, r)
+	if !ok {
+		return
+	}
+	if parsed.manifest.Scope == "family" {
+		failCode(w, http.StatusBadRequest, "family_scope", "这是家庭备份，请到对应家庭的「家庭备份」里检查")
+		return
+	}
+	writeJSON(w, http.StatusOK, response{Success: true, Data: s.backupSummary(parsed, filename)})
+}
+
+func (s *Server) handleVerifyFamilyBackup(w http.ResponseWriter, r *http.Request) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
+	parsed, filename, ok := s.readBackupUpload(w, r)
+	if !ok {
+		return
+	}
+	summary := s.backupSummary(parsed, filename)
+	// 只做判断不回写：包属于别的家庭时仍然把清单返回，让界面说清「这不是本家庭的备份」。
+	summary["matches"] = parsed.manifest.Scope == "family" && parsed.manifest.FamilyID == family.ID
+	summary["expectedFamily"] = family.Name
+	writeJSON(w, http.StatusOK, response{Success: true, Data: summary})
+}
+
 // readBackupUpload 读取上传的备份包并完成校验，失败时已写好响应。
 func (s *Server) readBackupUpload(w http.ResponseWriter, r *http.Request) (*parsedBackup, string, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupSize)
@@ -395,7 +459,8 @@ func (s *Server) readBackupUpload(w http.ResponseWriter, r *http.Request) (*pars
 		fail(w, http.StatusInternalServerError, "无法处理备份包")
 		return nil, "", false
 	}
-	defer os.Remove(tmp.Name())
+	zipPath := tmp.Name()
+	defer os.Remove(zipPath)
 	size, err := io.Copy(tmp, io.LimitReader(file, maxBackupSize+1))
 	if closeErr := tmp.Close(); err == nil {
 		err = closeErr
@@ -408,13 +473,46 @@ func (s *Server) readBackupUpload(w http.ResponseWriter, r *http.Request) (*pars
 		fail(w, http.StatusRequestEntityTooLarge, "备份包过大")
 		return nil, "", false
 	}
-	parsedFile, err := os.Open(tmp.Name())
+	// .gbenc 容器：先用表单里的口令解回 zip，再走原有校验流程。
+	if looksEncrypted(zipPath) {
+		password := strings.TrimSpace(r.FormValue("password"))
+		if password == "" {
+			fail(w, http.StatusBadRequest, errBackupPassword.Error())
+			return nil, "", false
+		}
+		plain, createErr := os.CreateTemp("", "giftbook-decrypted-*.zip")
+		if createErr != nil {
+			fail(w, http.StatusInternalServerError, "无法处理加密备份包")
+			return nil, "", false
+		}
+		defer os.Remove(plain.Name())
+		src, openErr := os.Open(zipPath)
+		if openErr != nil {
+			plain.Close()
+			fail(w, http.StatusInternalServerError, "无法读取加密备份包")
+			return nil, "", false
+		}
+		decryptErr := decryptBackup(src, plain, password)
+		src.Close()
+		plain.Close()
+		if decryptErr != nil {
+			fail(w, http.StatusBadRequest, decryptErr.Error())
+			return nil, "", false
+		}
+		zipPath = plain.Name()
+	}
+	parsedFile, err := os.Open(zipPath)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "无法读取备份包")
 		return nil, "", false
 	}
 	defer parsedFile.Close()
-	parsed, err := s.parseBackupFile(parsedFile, size)
+	info, err := parsedFile.Stat()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "无法读取备份包")
+		return nil, "", false
+	}
+	parsed, err := s.parseBackupFile(parsedFile, info.Size())
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return nil, "", false
@@ -428,6 +526,82 @@ func countGifts(gifts map[string]map[string]store.Record) int {
 		total += len(items)
 	}
 	return total
+}
+
+// ---- POST /api/backup/encrypted 与 /api/family/backup/encrypted ----
+
+// readBackupPassword 读取并校验导出口令；口令只在本次请求里存在，不写配置、不落日志。
+func readBackupPassword(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var body struct {
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		fail(w, http.StatusBadRequest, "无效的请求数据")
+		return "", false
+	}
+	password := strings.TrimSpace(body.Password)
+	if len(password) < 8 {
+		fail(w, http.StatusBadRequest, "备份口令至少 8 位")
+		return "", false
+	}
+	return password, true
+}
+
+// zipToEncrypt先把 zip 落盘，再流进加密器，避免把整个备份包读进内存。
+func (s *Server) zipToEncrypt(dir string, buildZip func(io.Writer) error, out io.Writer, password string) error {
+	tmp, err := os.CreateTemp(dir, ".export-*.zip")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}()
+	if err := buildZip(tmp); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	return encryptBackup(tmp, out, password)
+}
+
+func (s *Server) handleEncryptedBackup(w http.ResponseWriter, r *http.Request) {
+	if !s.requireGlobalBackup(w, r) {
+		return
+	}
+	password, ok := readBackupPassword(w, r)
+	if !ok {
+		return
+	}
+	filename := fmt.Sprintf("giftbook-backup-%s.gbenc", time.Now().Format("20060102-150405"))
+	s.writeExportToResponse(w, r, filename, "application/octet-stream", func(out io.Writer) error {
+		return s.zipToEncrypt(s.store.Dir(), func(zipOut io.Writer) error {
+			_, err := backup.Write(zipOut, s.store, s.buildLabel(), s.auth.Enabled(), s.auth.ExportState())
+			return err
+		}, out, password)
+	})
+}
+
+func (s *Server) handleEncryptedFamilyBackup(w http.ResponseWriter, r *http.Request) {
+	family, ok := s.requireFamily(w, r)
+	if !ok {
+		return
+	}
+	password, ok := readBackupPassword(w, r)
+	if !ok {
+		return
+	}
+	filename := sanitizeFilename(family.Name) + "-backup-" + time.Now().Format("20060102-150405") + ".gbenc"
+	s.writeExportToResponse(w, r, filename, "application/octet-stream", func(out io.Writer) error {
+		return s.zipToEncrypt(s.store.Dir(), func(zipOut io.Writer) error {
+			_, err := backup.WriteFamily(zipOut, s.store, family.ID, family.Name, s.buildLabel())
+			return err
+		}, out, password)
+	})
 }
 
 // ---- GET /api/backup/info 备份概况 ----

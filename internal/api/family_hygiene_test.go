@@ -1,6 +1,9 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -176,6 +179,266 @@ func TestGlobalRestoreBringsBackFamily(t *testing.T) {
 	}
 }
 
+// 跨家庭最近账簿：管理员能一次看到两家，普通成员看不到。
+func TestFamilyActivityListsAcrossFamilies(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	for _, spec := range []struct{ name, code string }{{"甲家", "jiajia2026"}, {"乙家", "yijia2026"}} {
+		res, payload := env.do(t, "POST", "/api/families", map[string]any{"name": spec.name, "accessCode": spec.code}, map[string]string{"Cookie": admin})
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("创建%s失败: %d %v", spec.name, res.StatusCode, payload)
+		}
+		cookie := env.loginFamily(t, spec.code, "")
+		res, payload = env.do(t, "POST", "/api/events", map[string]any{"name": spec.name + "账簿", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("%s建账失败: %d %v", spec.name, res.StatusCode, payload)
+		}
+	}
+	res, payload := env.do(t, "GET", "/api/families/activity", nil, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("读取最近账簿失败: %d %v", res.StatusCode, payload)
+	}
+	list := payload["data"].([]any)
+	if len(list) != 2 {
+		t.Fatalf("应返回两个家庭的账簿: %v", list)
+	}
+	names := map[string]bool{}
+	for _, raw := range list {
+		names[raw.(map[string]any)["familyName"].(string)] = true
+	}
+	if !names["甲家"] || !names["乙家"] {
+		t.Fatalf("家庭名没有带出来: %v", names)
+	}
+	res, payload = env.do(t, "GET", "/api/families/activity", nil, map[string]string{"Cookie": env.loginFamily(t, "", store.DefaultFamilyID)})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("普通成员不应看到跨家庭账簿: %d %v", res.StatusCode, payload)
+	}
+}
+
+// 账簿建错家庭时由管理员转移到目标家庭：原家庭看不到，目标家庭能继续用。
+func TestMoveEventBetweenFamilies(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	res, payload := env.do(t, "POST", "/api/families", map[string]any{
+		"name": "甲家", "accessCode": "jiajia2026",
+	}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("创建甲家失败: %d %v", res.StatusCode, payload)
+	}
+	res, payload = env.do(t, "POST", "/api/families", map[string]any{
+		"name": "乙家", "accessCode": "yijia2026",
+	}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("创建乙家失败: %d %v", res.StatusCode, payload)
+	}
+	yiID := payload["data"].(map[string]any)["id"].(string)
+
+	jiaCookie := env.loginFamily(t, "jiajia2026", "")
+	res, payload = env.do(t, "POST", "/api/events", map[string]any{
+		"name": "建错的账簿", "passwordHash": noPassKey,
+	}, map[string]string{"Cookie": jiaCookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	eventID := payload["data"].(map[string]any)["id"].(string)
+
+	// 普通成员不能转移。
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/move", map[string]any{"familyId": yiID}, map[string]string{"Cookie": jiaCookie})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("家庭成员不应能转移账簿: %d %v", res.StatusCode, payload)
+	}
+	// 管理员转移成功。
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/move", map[string]any{"familyId": yiID}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("转移失败: %d %v", res.StatusCode, payload)
+	}
+	events, err := env.store.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner, _ := events[eventID]["familyId"].(string); owner != yiID {
+		t.Fatalf("转移后归属不对: %v", owner)
+	}
+	// 甲家看不到，乙家看得到。
+	res, payload = env.do(t, "GET", "/api/events", nil, map[string]string{"Cookie": jiaCookie})
+	if len(payload["data"].(map[string]any)) != 0 {
+		t.Fatalf("原家庭不应再看到这本账簿: %v", payload["data"])
+	}
+	yiCookie := env.loginFamily(t, "yijia2026", "")
+	res, payload = env.do(t, "GET", "/api/events", nil, map[string]string{"Cookie": yiCookie})
+	if _, ok := payload["data"].(map[string]any)[eventID]; !ok {
+		t.Fatalf("目标家庭应能看到账簿: %v", payload["data"])
+	}
+	// 转到同一个家庭要被拒绝。
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/move", map[string]any{"familyId": yiID}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("重复转移应被拒绝: %d %v", res.StatusCode, payload)
+	}
+}
+
+// 加密备份：口令正确可校验，缺口令或口令错误都要拒绝；明文 zip 仍照常可用。
+func TestEncryptedBackupRoundTrip(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	res, siteZip := env.getBytes(t, "/api/backup", admin)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("整站备份失败: %d", res.StatusCode)
+	}
+	var encrypted bytes.Buffer
+	if err := encryptBackup(bytes.NewReader(siteZip), &encrypted, "correct-horse-2026"); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(encrypted.Bytes(), []byte(encMagic)) {
+		t.Fatal("缺少加密头")
+	}
+	postEncrypted := func(path, cookie, password string) (*http.Response, map[string]any) {
+		t.Helper()
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		part, _ := mw.CreateFormFile("file", "site.gbenc")
+		part.Write(encrypted.Bytes())
+		if password != "" {
+			mw.WriteField("password", password)
+		}
+		mw.Close()
+		req, _ := http.NewRequest("POST", env.server.URL+path, &buf)
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+		req.RemoteAddr = "127.0.0.1:12345"
+		if cookie != "" {
+			req.Header.Set("Cookie", cookie)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var payload map[string]any
+		json.NewDecoder(res.Body).Decode(&payload)
+		return res, payload
+	}
+	if res, payload := postEncrypted("/api/backup/verify", admin, ""); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("缺口令应拒绝: %d %v", res.StatusCode, payload)
+	}
+	if res, payload := postEncrypted("/api/backup/verify", admin, "wrong-password"); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("错口令应拒绝: %d %v", res.StatusCode, payload)
+	}
+	res, payload := postEncrypted("/api/backup/verify", admin, "correct-horse-2026")
+	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["scope"] != "site" {
+		t.Fatalf("正确口令应先解密再校验: %d %v", res.StatusCode, payload)
+	}
+	// 截断的加密包不能通过结束标记校验。
+	var dec bytes.Buffer
+	if err := decryptBackup(bytes.NewReader(encrypted.Bytes()[:encrypted.Len()-8]), &dec, "correct-horse-2026"); err == nil {
+		t.Fatal("截断的加密包应被拒绝")
+	}
+}
+
+// 宾客扫码登记：公开提交进待确认区，主家确认前不进账簿；关闭后入口立即失效。
+func TestGuestRegistrationFlow(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{"name": "婚宴", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	eventID := payload["data"].(map[string]any)["id"].(string)
+
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/guest", map[string]any{"enabled": true}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("开启扫码登记失败: %d %v", res.StatusCode, payload)
+	}
+	token := payload["data"].(map[string]any)["token"].(string)
+
+	res, info := env.do(t, "GET", "/api/guest/"+token, nil, nil)
+	if res.StatusCode != http.StatusOK || info["data"].(map[string]any)["name"] != "婚宴" {
+		t.Fatalf("宾客页信息不对: %d %v", res.StatusCode, info)
+	}
+	for i := 0; i < 2; i++ {
+		res, payload = env.do(t, "POST", "/api/guest/"+token+"/gifts", map[string]any{
+			"name": "张三", "amount": 200, "relation": "同事",
+		}, nil)
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("宾客提交失败: %d %v", res.StatusCode, payload)
+		}
+	}
+	res, payload = env.do(t, "GET", "/api/events/"+eventID+"/guest/pending", nil, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("读取待确认失败: %d %v", res.StatusCode, payload)
+	}
+	list := payload["data"].([]any)
+	if len(list) != 1 {
+		t.Fatalf("5 分钟内同名同金额应只留一条: %v", list)
+	}
+	entryID := list[0].(map[string]any)["id"].(string)
+	res, _ = env.do(t, "DELETE", "/api/events/"+eventID+"/guest/pending/"+entryID, nil, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("忽略登记失败: %d", res.StatusCode)
+	}
+
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/guest", map[string]any{"enabled": false}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("关闭扫码登记失败: %d %v", res.StatusCode, payload)
+	}
+	res, payload = env.do(t, "GET", "/api/guest/"+token, nil, nil)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("关闭后入口应失效: %d %v", res.StatusCode, payload)
+	}
+}
+
+// 检查备份包只解析、不改数据：管理员能看整站包，家庭成员只能看到自己家的包是否匹配。
+func TestVerifyBackupDoesNotChangeData(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	res, payload := env.do(t, "POST", "/api/families", map[string]any{
+		"name": "张家", "accessCode": "zhangjia2026",
+	}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("创建家庭失败: %d %v", res.StatusCode, payload)
+	}
+	familyID := payload["data"].(map[string]any)["id"].(string)
+	zhangCookie := env.loginFamily(t, "zhangjia2026", "")
+	if res, payload = env.do(t, "POST", "/api/events", map[string]any{
+		"name": "张家婚宴", "passwordHash": noPassKey,
+	}, map[string]string{"Cookie": zhangCookie}); res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	res, familyZip := env.getBytes(t, "/api/family/backup", zhangCookie)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("家庭备份失败: %d", res.StatusCode)
+	}
+
+	// 家庭成员检查自己的包：匹配，且返回账簿数。
+	res, payload = env.postFile(t, "/api/family/backup/verify", zhangCookie, "z.zip", familyZip)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("检查家庭备份失败: %d %v", res.StatusCode, payload)
+	}
+	data := payload["data"].(map[string]any)
+	if data["matches"] != true || data["events"].(float64) != 1 || data["familyId"] != familyID {
+		t.Fatalf("家庭备份检查结果不对: %v", data)
+	}
+	// 检查不改动数据。
+	events, _ := env.store.ReadEvents()
+	if len(events) != 1 {
+		t.Fatalf("检查不应改动账簿: %d", len(events))
+	}
+
+	// 家庭备份拿去整站检查：明确告诉用户去对应家庭处理。
+	res, payload = env.postFile(t, "/api/backup/verify", admin, "z.zip", familyZip)
+	if res.StatusCode != http.StatusBadRequest || payload["code"] != "family_scope" {
+		t.Fatalf("整站检查应拒绝家庭备份: %d %v", res.StatusCode, payload)
+	}
+
+	// 整站包：管理员可检查，来源是整站。
+	res, siteZip := env.getBytes(t, "/api/backup", admin)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("整站备份失败: %d", res.StatusCode)
+	}
+	res, payload = env.postFile(t, "/api/backup/verify", admin, "site.zip", siteZip)
+	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["scope"] != "site" {
+		t.Fatalf("整站备份检查失败: %d %v", res.StatusCode, payload)
+	}
+}
+
 // 访问码强度：同一字符、连续序列、重复两段与常见弱口令都拒绝，正常码放行。
 func TestFamilyCodeProblem(t *testing.T) {
 	rejected := []string{"12345678", "abcdefgh", "87654321", "aaaaaaaa", "abcdabcd", "password", "admin123"}
@@ -247,6 +510,48 @@ func TestTrashSnapshotsVisibleAndDownloadable(t *testing.T) {
 	res, payload = env.do(t, "GET", "/api/trash/snapshots", nil, map[string]string{"Cookie": env.loginFamily(t, "", store.DefaultFamilyID)})
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("家庭成员不应看到服务器快照: %d %v", res.StatusCode, payload)
+	}
+}
+
+// 服务器快照可删除，但只限管理员、且不能误删家庭归档。
+func TestDeleteSnapshotScope(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	trash := filepath.Join(env.dir, ".trash")
+	snapshot := filepath.Join(trash, "import-20260102-030405")
+	if err := os.MkdirAll(snapshot, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(snapshot, "events.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	memberCookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "DELETE", "/api/trash/snapshots/import-20260102-030405", nil, map[string]string{"Cookie": memberCookie})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("家庭成员不应删除服务器快照: %d %v", res.StatusCode, payload)
+	}
+
+	archive := filepath.Join(trash, "family-restore-20260102-030405")
+	if err := os.MkdirAll(archive, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(archive, "family.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, payload = env.do(t, "DELETE", "/api/trash/snapshots/family-restore-20260102-030405", nil, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("家庭归档不应通过快照接口删除: %d %v", res.StatusCode, payload)
+	}
+	if _, err := os.Stat(archive); err != nil {
+		t.Fatal("家庭归档不应被删除")
+	}
+
+	res, payload = env.do(t, "DELETE", "/api/trash/snapshots/import-20260102-030405", nil, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("管理员删除快照失败: %d %v", res.StatusCode, payload)
+	}
+	if _, err := os.Stat(snapshot); !os.IsNotExist(err) {
+		t.Fatalf("快照目录应已删除: %v", err)
 	}
 }
 

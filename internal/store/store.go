@@ -255,6 +255,16 @@ func (s *Store) SnapshotDir(name string) (string, error) {
 	return dir, nil
 }
 
+// DeleteRawSnapshot 删除一份服务器快照。名称校验与下载共用 SnapshotDir，
+// 带 family.json 的家庭归档、以及不在白名单里的目录一律拒绝。
+func (s *Store) DeleteRawSnapshot(name string) error {
+	dir, err := s.SnapshotDir(name)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(dir)
+}
+
 // snapshotTime 从目录名里取出 20060102-150405 片段，取不到就用目录修改时间。
 var snapshotStampPattern = regexp.MustCompile(`(\d{8}-\d{6})`)
 

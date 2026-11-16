@@ -1,7 +1,7 @@
 <template>
   <div class="autobackup-body">
     <label class="access-switch-row" for="auto-toggle">
-      <span><b>定时自动备份</b><small>按设定间隔把所有账簿打包，存到服务器配置目录的 config/backups/ 下。备份内容与账簿导出相同，只有密文。</small></span>
+      <span><b>定时自动备份<span class="gb-hint" data-hint="按设定间隔把所有账簿打包，存到服务器配置目录的 config/backups/；内容与账簿导出一致，礼金只有密文。" role="note" aria-label="按设定间隔把所有账簿打包，存到服务器配置目录的 config/backups/；内容与账簿导出一致，礼金只有密文。" tabindex="0">?</span></b></span>
       <input type="checkbox" id="auto-toggle" v-model="enabled" />
     </label>
 
@@ -25,7 +25,7 @@
     </div>
 
     <label class="access-switch-row" for="family-auto-toggle">
-      <span><b>同时为每个家庭单独备份</b><small>每个家庭生成独立 zip，存放在 config/family-backups/；家庭成员可在「家庭备份」里下载或还原自己的那份。</small></span>
+      <span><b>同时为每个家庭单独备份<span class="gb-hint" data-hint="每个家庭生成独立 zip，存放在 config/family-backups/；家庭成员可在「家庭备份」里下载或还原自己的那份。" role="note" aria-label="每个家庭生成独立 zip，存放在 config/family-backups/；家庭成员可在「家庭备份」里下载或还原自己的那份。" tabindex="0">?</span></b></span>
       <input type="checkbox" id="family-auto-toggle" v-model="familyEnabled" />
     </label>
     <p v-if="familyEnabled && !enabled" class="field-hint is-warning">「定时自动备份」关闭时，家庭备份也不会运行；打开上面的开关才会按频率生成。</p>
@@ -38,14 +38,18 @@
       <button type="button" class="themed-button-secondary" :disabled="busy" @click="runNow">
         {{ busy ? '备份中…' : '立即备份全部账簿' }}
       </button>
-      <button type="button" class="themed-button-secondary" @click="pickFile">上传备份文件</button>
+      <button type="button" class="themed-button-secondary" @click="pickFile('restore')">上传备份文件</button>
+      <button type="button" class="themed-button-secondary" @click="pickFile('verify')">检查备份包</button>
+      <button type="button" class="themed-button-secondary" :disabled="busy" @click="encryptedDownload">加密备份…</button>
       <input ref="fileInput" type="file" accept=".zip,application/zip" class="ocr-file-input" @change="onFilePicked" />
     </div>
-    <p class="field-hint">备份只包含加密后的礼金内容。设了管理密码的账簿，别人拿到文件也打不开，需要对应密码；没设密码的账簿备份不设防，请自行妥善保管。</p>
-    <p class="field-hint is-warning">整站备份包含全部家庭、账簿名称与管理员密码状态，只应保存在管理员可控的位置；普通家庭成员请使用「家庭备份」。</p>
+    <p class="field-hint is-warning">整站备份含全部家庭、账簿名称与管理员密码状态，且账簿名与日期是明文（只有礼金加密）；请只保存在管理员可控的位置。</p>
 
+    <p v-if="alert" class="field-hint is-warning">{{ alert }}</p>
     <div class="autobackup-status">
       <div><span>上次备份</span><b>{{ lastBackupAt ? lastBackupAt : '从未备份' }}</b></div>
+      <div><span>备份占用</span><b>{{ sizeText(totalBytes) }}<template v-if="familyBytes"> · 家庭 {{ sizeText(familyBytes) }}</template></b></div>
+      <div v-if="diskFree"><span>磁盘剩余</span><b :class="{ 'is-warn': diskFree < diskWarn }">{{ sizeText(diskFree) }}</b></div>
       <div><span>存放位置</span><code>{{ dir }}</code></div>
     </div>
 
@@ -83,6 +87,8 @@ import { api } from '../lib/api.js'
 import { openModal, closeModal, alert as showAlert } from '../lib/modal.js'
 import { notify } from '../lib/notify.js'
 import { state as st } from '../store.js'
+import { showBackupCheck } from '../lib/backup-check.js'
+import { askBackupPassword, askBackupUnlock, downloadEncryptedBackup, isEncryptedName } from '../lib/backup-crypto.js'
 import { verifyLedgerPassword } from '../lib/actions.js'
 import { escapeHtml } from '../lib/crypto.js'
 
@@ -100,6 +106,11 @@ const keep = ref(14)
 const familyEnabled = ref(true)
 const familyKeep = ref(7)
 const lastBackupAt = ref('')
+const totalBytes = ref(0)
+const familyBytes = ref(0)
+const diskFree = ref(0)
+const alert = ref('')
+const diskWarn = 1024 * 1024 * 1024
 const dir = ref('')
 const files = ref([])
 const error = ref('')
@@ -108,7 +119,12 @@ const busy = ref(false)
 const saving = ref(false)
 const fileInput = ref(null)
 
-const sizeText = (bytes) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
+const sizeText = (bytes) => {
+  const value = Number(bytes) || 0
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`
+  return `${value} B`
+}
 const timeText = (value) => (value ? new Date(value).toLocaleString('zh-CN') : '')
 
 async function load() {
@@ -121,6 +137,10 @@ async function load() {
     familyEnabled.value = data.familyEnabled !== false
     familyKeep.value = Number(data.familyKeep) || 7
     lastBackupAt.value = data.lastBackupAt || ''
+    totalBytes.value = Number(data.totalBytes) || 0
+    familyBytes.value = Number(data.familyBytes) || 0
+    diskFree.value = Number(data.diskFree) || 0
+    alert.value = data.alert || ''
     dir.value = data.dir || ''
     files.value = Array.isArray(data.files) ? data.files : []
     error.value = data.lastError || ''
@@ -160,7 +180,9 @@ async function runNow() {
   }
 }
 
-function pickFile() {
+let pickMode = 'restore'
+function pickFile(mode = 'restore') {
+  pickMode = mode
   const input = fileInput.value
   if (!input) return
   try {
@@ -175,6 +197,18 @@ async function onFilePicked(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
   if (!file) return
+  if (pickMode === 'verify') {
+    busy.value = true
+    error.value = ''
+    try {
+      await showBackupCheck('/api/backup/verify', file)
+    } catch (err) {
+      error.value = err.message || '检查失败，请重试'
+    } finally {
+      busy.value = false
+    }
+    return
+  }
   await restoreFromFile(file)
 }
 
@@ -247,13 +281,36 @@ async function askRestore(file) {
   }
 }
 
+// 加密备份：口令只在弹窗里出现一次，服务端读完即弃。
+async function encryptedDownload() {
+  const password = await askBackupPassword()
+  if (!password) return
+  busy.value = true
+  error.value = ''
+  try {
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    await downloadEncryptedBackup('/api/backup/encrypted', password, `giftbook-backup-${stamp}`)
+    notify.success('加密备份已生成', '口令不会保存在本机，请自己记好。')
+  } catch (err) {
+    error.value = err.message || '生成加密备份失败'
+  } finally {
+    busy.value = false
+  }
+}
+
 async function restoreFromFile(file) {
   if (!(await confirmRestore(file.name))) return
+  let password = ''
+  if (isEncryptedName(file.name)) {
+    password = await askBackupUnlock()
+    if (!password) return
+  }
   busy.value = true
   error.value = ''
   try {
     const form = new FormData()
     form.append('file', file)
+    if (password) form.append('password', password)
     const res = await fetch('/api/backup/restore', { method: 'POST', body: form, credentials: 'same-origin' })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.success) throw new Error(data.message || '还原失败')

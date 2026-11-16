@@ -59,7 +59,10 @@ export async function showTrashModal() {
           <b>${escapeHtml(item.title || '服务器快照')}</b>
           <span>${escapeHtml(displayTime(item.createdAt))} · ${item.files} 个文件 · ${sizeText(item.bytes)}</span>
         </div>
-        <a class="gb-link-btn" href="/api/trash/snapshots/${encodeURIComponent(item.name)}" download>下载</a>
+        <span class="gb-trash-actions">
+          <a class="gb-link-btn" href="/api/trash/snapshots/${encodeURIComponent(item.name)}" download>下载</a>
+          <button type="button" class="gb-link-btn is-danger" data-snapshot-delete="${escapeHtml(item.name)}">删除</button>
+        </span>
       </div>`)
     .join('')
   const snapshotSection = snapshotList
@@ -83,6 +86,26 @@ export async function showTrashModal() {
   afterModalRender(() => {
     const root = document.getElementById('gb-trash-list')
     root?.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('[data-snapshot-delete]')
+      if (removeButton) {
+        const name = removeButton.dataset.snapshotDelete
+        const snapshot = snapshots.find((entry) => entry.name === name)
+        confirm(
+          '删除服务器快照',
+          `将永久删除服务器上的「${snapshot?.title || name}」快照，无法恢复。确认已不再需要它了吗？`,
+          async () => {
+            try {
+              await api.deleteSnapshot(name)
+              notify.success('快照已删除', '服务器上的原始目录已移除。')
+              closeModal()
+              showTrashModal()
+            } catch (error) {
+              showAlert('删除失败', error.message || '请稍后重试。')
+            }
+          },
+        )
+        return
+      }
       const button = event.target.closest('[data-trash-restore]')
       if (!button) return
       const name = button.dataset.trashRestore

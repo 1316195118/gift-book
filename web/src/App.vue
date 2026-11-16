@@ -1,5 +1,7 @@
 <template>
   <div id="app-shell">
+    <GuestScreen v-if="st.guestToken" />
+    <template v-else>
     <FamilyGate v-if="st.familyGate" />
     <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
     <HomeScreen v-if="st.route === 'home'" />
@@ -10,6 +12,7 @@
     <OfflineToast />
     <QrFloat />
     <ToastStack />
+    </template>
   </div>
 </template>
 
@@ -19,6 +22,7 @@ import { state as st, setBodyTheme } from './store.js'
 import { eventTheme } from './lib/content.js'
 import AuthGate from './components/AuthGate.vue'
 import FamilyGate from './components/FamilyGate.vue'
+import GuestScreen from './views/GuestScreen.vue'
 import HomeScreen from './views/HomeScreen.vue'
 import TemplateScreen from './views/TemplateScreen.vue'
 import SetupScreen from './views/SetupScreen.vue'
@@ -40,6 +44,12 @@ watch(
 )
 
 onMounted(() => {
+  // 宾客扫码链接是公开页：不带家庭会话、不加载账簿列表，只看这一本的名字。
+  const giftToken = new URLSearchParams(window.location.search).get('gift')
+  if (giftToken) {
+    st.guestToken = giftToken
+    return
+  }
   bootstrap()
   window.__giftbookOnAuthSuccess = () => bootstrap({ skipAuth: true })
 })

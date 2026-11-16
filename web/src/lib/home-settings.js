@@ -97,6 +97,7 @@ export function showHomeSettings() {
           <span>${codeText}</span><i aria-hidden="true">·</i>
           <span class="${backup.warn ? 'is-warn' : ''}">${backup.text}</span>
         </div>
+        ${family.backupAlert ? `<div class="gb-settings-alert" role="alert">${escapeHtml(family.backupAlert)}</div>` : ''}
       </div>
       ${groups.map((group) => `
         <section class="gb-settings-group">

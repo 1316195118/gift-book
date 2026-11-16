@@ -65,7 +65,7 @@
           <div class="form-section-title"><span>02</span>访问与安全</div>
           <div class="setup-grid2">
             <div class="setup-field">
-              <label class="setup-label" for="admin-password">管理密码 <span class="opt">建议设置</span></label>
+              <label class="setup-label" for="admin-password">管理密码 <span class="opt">建议设置</span><span class="gb-hint" :data-hint="pwdHelp" role="note" :aria-label="pwdHelp" tabindex="0">?</span></label>
               <div class="field-shell">
                 <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2" /><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7M12 14.4v2.6" /></svg>
                 <input v-model="form.password" type="password" id="admin-password" placeholder="留空则不设密码" class="setup-input" autocomplete="new-password" />
@@ -79,8 +79,6 @@
               </div>
             </div>
           </div>
-          <p class="setup-hint" id="setup-pwd-hint">{{ copy.pwdHint }}</p>
-          <p class="setup-hint" id="setup-sync-hint">创建后可在同一网络下多人同时登记，改动会自动同步到各设备。</p>
 
           <details class="setup-more" ref="moreDetails">
             <summary class="setup-more-summary">
@@ -89,7 +87,7 @@
             </summary>
             <div class="setup-more-body">
               <div class="setup-field">
-                <label class="setup-label">封面样式</label>
+                <label class="setup-label">封面样式<span class="gb-hint" data-hint="点选一套封面，右侧实时预览；导出与打印使用同一套封面。" role="note" aria-label="点选一套封面，右侧实时预览；导出与打印使用同一套封面。" tabindex="0">?</span></label>
                 <div id="cover-style-grid" class="cover-style-grid">
                   <button
                     v-for="style in coverStyles"
@@ -105,13 +103,11 @@
                     <span class="cover-style-name">{{ style.name }}</span>
                   </button>
                 </div>
-                <p class="setup-hint">点选一套封面，右侧实时预览；导出与打印使用同一套封面。</p>
               </div>
               <div class="setup-field">
-                <label for="cover-image-upload" class="setup-label">上传封面图（可选）</label>
+                <label for="cover-image-upload" class="setup-label">上传封面图（可选）<span class="gb-hint" data-hint="不上传也行，导出时会自动生成封面。建议 595 × 842px、小于 2MB。" role="note" aria-label="不上传也行，导出时会自动生成封面。建议 595 × 842px、小于 2MB。" tabindex="0">?</span></label>
                 <input type="file" id="cover-image-upload" accept="image/*" class="setup-file" @change="onCoverFile" />
                 <img v-if="coverPreview" :src="coverPreview" alt="封面预览" class="cover-edit-preview" />
-                <p class="setup-hint">不上传也行，导出时会自动生成封面。建议 595 × 842px、小于 2MB。</p>
               </div>
               <div class="setup-field">
                 <label for="event-voice" class="setup-label">语音播报音色</label>
@@ -158,6 +154,8 @@ import { celebrate, solemnAck } from '../lib/feedback.js'
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
 
 const copy = computed(() => copyOf(null, st.homeCategory))
+// 管理密码的说明收进「?」：既保留首次使用的解释，又不让表单多两行文字。
+const pwdHelp = computed(() => `${copy.value.pwdHint} 创建后可在同一网络下多人同时登记，改动会自动同步到各设备。`)
 const isSolemn = computed(() => st.homeCategory === 'white')
 const templates = computed(() => templatesFor(st.homeCategory))
 

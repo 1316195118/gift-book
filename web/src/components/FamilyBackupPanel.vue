@@ -1,26 +1,43 @@
 <template>
   <div class="gb-family-backup">
     <p class="gb-picker-intro">
-      家庭备份只含「{{ familyName }}」的账簿与礼金密文，不包含其他家庭，也不包含管理员密码。
-      换机或误删时，可以把它还原回本家庭。
+      家庭备份只含「{{ familyName }}」的账簿与礼金密文。
+      <span
+        class="gb-hint"
+        data-hint="不含其他家庭，也不含管理员密码；换机或误删时可以还原回本家庭。还原会用备份覆盖本家庭的账簿，其他家庭不受影响，操作前会再确认一次。"
+        role="note"
+        aria-label="不含其他家庭，也不含管理员密码；换机或误删时可以还原回本家庭。还原会用备份覆盖本家庭的账簿，其他家庭不受影响，操作前会再确认一次。"
+        tabindex="0"
+      >?</span>
     </p>
     <div class="gb-backup-actions">
       <button type="button" id="family-backup-download" class="modal-btn-primary" :disabled="busy" @click="download">
         下载家庭备份
       </button>
-      <button type="button" id="family-backup-pick" class="modal-btn-ghost" :disabled="busy || !canRestore" @click="pickFile">
+      <button type="button" id="family-backup-pick" class="modal-btn-ghost" :disabled="busy || !canRestore" @click="pickFile('restore')">
         还原家庭备份
       </button>
+      <button type="button" class="gb-link-btn" :disabled="busy" @click="pickFile('verify')">检查备份包</button>
+      <button type="button" class="gb-link-btn" :disabled="busy" @click="encryptedDownload">加密下载…</button>
     </div>
     <input ref="fileInput" type="file" accept=".zip,application/zip" hidden @change="onFilePicked" />
-    <p class="gb-picker-hint">还原会用备份覆盖本家庭的账簿，其他家庭不受影响；操作前会再确认一次。</p>
     <p v-if="!canRestore" class="gb-picker-hint is-warning">开放家庭没有访问码可以二次验证，还原需要管理员登录。</p>
     <p class="gb-picker-hint is-warning">备份文件里账簿名称、日期等是明文，只有礼金内容是密文；请存放在安全的位置。</p>
     <p class="gb-picker-hint">上次备份：{{ lastBackupText }}</p>
 
     <section class="gb-family-auto">
-      <h4>服务器自动备份</h4>
-      <p class="gb-picker-hint">{{ autoEnabled ? `按管理员的备份频率自动生成，保留最近 ${autoKeep} 份。` : autoOffText }}</p>
+      <h4>
+        服务器自动备份
+        <span
+          v-if="autoEnabled"
+          class="gb-hint"
+          :data-hint="`按管理员的备份频率自动生成，保留最近 ${autoKeep} 份。`"
+          role="note"
+          :aria-label="`按管理员的备份频率自动生成，保留最近 ${autoKeep} 份。`"
+          tabindex="0"
+        >?</span>
+      </h4>
+      <p v-if="!autoEnabled" class="gb-picker-hint">{{ autoOffText }}</p>
       <div v-if="autoFiles.length" class="gb-family-auto-list">
         <div v-for="file in autoFiles" :key="file.name" class="gb-family-auto-row">
           <div>
@@ -43,6 +60,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { state as st } from '../store.js'
 import { api } from '../lib/api.js'
+import { showBackupCheck } from '../lib/backup-check.js'
+import { askBackupPassword, askBackupUnlock, downloadEncryptedBackup, isEncryptedName } from '../lib/backup-crypto.js'
 import { openModal, closeModal, alert as showAlert } from '../lib/modal.js'
 import { notify } from '../lib/notify.js'
 import { escapeHtml, safeFileName } from '../lib/crypto.js'
@@ -109,8 +128,10 @@ function restoreAuto(file) {
   confirmRestore(file, { server: true })
 }
 
-function pickFile() {
+let pickMode = 'restore'
+function pickFile(mode = 'restore') {
   if (busy.value) return
+  pickMode = mode
   error.value = ''
   fileInput.value?.click()
 }
@@ -151,15 +172,49 @@ async function download() {
   }
 }
 
-function onFilePicked(event) {
+async function onFilePicked(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
   if (!file) return
+  if (pickMode === 'verify') {
+    busy.value = true
+    error.value = ''
+    try {
+      await showBackupCheck('/api/family/backup/verify', file)
+    } catch (err) {
+      error.value = err.message || '检查失败，请重试'
+    } finally {
+      busy.value = false
+    }
+    return
+  }
   confirmRestore(file)
 }
 
-function confirmRestore(file, options = {}) {
+// 加密下载：服务端生成 .gbenc，口令不会离开这次请求。
+async function encryptedDownload() {
+  const password = await askBackupPassword()
+  if (!password) return
+  busy.value = true
+  error.value = ''
+  try {
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    await downloadEncryptedBackup('/api/family/backup/encrypted', password, `${familyName.value}-家庭备份-${stamp}`)
+    notify.success('加密家庭备份已生成', '请自行记好口令，忘记后无法恢复。')
+  } catch (err) {
+    error.value = err.message || '生成加密备份失败'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function confirmRestore(file, options = {}) {
   const server = Boolean(options.server)
+  let password = ''
+  if (!server && isEncryptedName(file.name)) {
+    password = await askBackupUnlock()
+    if (!password) return
+  }
   const hasCode = Boolean(st.family?.hasCode)
   const isAdmin = Boolean(st.family?.admin)
   // 开放家庭没有访问码可以二次验证，服务端也会拒绝；提前说清楚，别让用户白选文件。
@@ -206,6 +261,7 @@ function confirmRestore(file, options = {}) {
           } else {
             const form = new FormData()
             form.append('file', file, file.name)
+            if (password) form.append('password', password)
             const res = await fetch('/api/family/backup/restore', {
               method: 'POST',
               body: form,

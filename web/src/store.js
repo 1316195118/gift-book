@@ -42,6 +42,7 @@ export const state = reactive({
   familyGate: false,
 
   // 弹窗
+  guestToken: '',
   modal: { open: false, title: '', size: 'default', theme: '', content: null, actions: [] },
 })
 

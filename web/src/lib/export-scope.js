@@ -58,6 +58,7 @@ export function openScopePicker(onDone) {
       </div>
       <div class="gb-picker-tools">
         <span id="gb-scope-count" class="gb-picker-count"></span>
+        <span class="gb-hint" data-hint="勾选后点「确定」，Excel / PDF / Word 与回礼明细都只导出这些记录，合计也按所选范围计算；切换账簿会自动恢复为整本。" role="note" aria-label="勾选后点「确定」，Excel / PDF / Word 与回礼明细都只导出这些记录，合计也按所选范围计算；切换账簿会自动恢复为整本。" tabindex="0">?</span>
         <span class="gb-picker-actions">
           <button type="button" class="gb-link-btn" data-scope-act="all">全选当前结果</button>
           <button type="button" class="gb-link-btn" data-scope-act="none">清空</button>
@@ -65,7 +66,6 @@ export function openScopePicker(onDone) {
       </div>
       <div id="gb-scope-list" class="gb-picker-list"></div>
       <div id="gb-scope-error" class="gb-inline-error" role="alert"></div>
-      <p class="gb-picker-hint">勾选后点「确定」，Excel / PDF / Word 与回礼明细都只导出这些记录，合计也按所选范围计算；切换账簿会自动恢复为整本。</p>
     </div>`
 
   const setError = (text) => {

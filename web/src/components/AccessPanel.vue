@@ -2,9 +2,7 @@
   <div class="access-body">
     <label class="access-switch-row" for="access-toggle">
       <span>
-        <b>启用管理员密码</b>
-        <small v-if="st.multiFamily">多家庭模式下为必需项，不能关闭；可以在这里修改密码。</small>
-        <small v-else>开启后，管理员用它进入所有家庭、管理家庭与整站备份；普通家庭成员仍用各自的家庭访问码，不受影响。</small>
+        <b>启用管理员密码<span class="gb-hint" :data-hint="helpText" role="note" :aria-label="helpText" tabindex="0">?</span></b>
       </span>
       <input type="checkbox" id="access-toggle" v-model="enableAdmin" :disabled="st.multiFamily" />
     </label>
@@ -27,7 +25,6 @@
       </div>
     </div>
     <div v-if="error" class="access-error" role="alert">{{ error }}</div>
-    <p class="access-tip">管理员密码用于跨家庭管理与整站备份，与家庭访问码、单本账簿的管理密码相互独立。开启后请把密码记在安全的地方。</p>
     <div class="dialog-actions">
       <button type="button" class="modal-btn-ghost" @click="cancel">取消</button>
       <button type="button" class="modal-btn-primary" :disabled="busy" @click="save">保存</button>
@@ -36,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { state as st } from '../store.js'
 import { api } from '../lib/api.js'
 import { closeModal, alert as showAlert } from '../lib/modal.js'
@@ -44,6 +41,10 @@ import { closeModal, alert as showAlert } from '../lib/modal.js'
 const props = defineProps({ enabled: { type: Boolean, default: false } })
 
 const initialEnabled = props.enabled
+// 角色说明收进「?」：开关下方不再压两行解释。
+const helpText = computed(() => (st.multiFamily
+  ? '多家庭模式下为必需项，不能关闭；可以在这里修改密码。管理员密码用于跨家庭管理与整站备份，与家庭访问码、单本账簿的管理密码相互独立。'
+  : '开启后，管理员用它进入所有家庭、管理家庭与整站备份；普通家庭成员仍用各自的家庭访问码，不受影响。管理员密码与家庭访问码、单本账簿的管理密码相互独立，请记在安全的地方。'))
 // 未设置时打开这个面板的唯一目的就是设置密码，默认直接勾选启用；
 // 已设置时保持当前状态，管理员可以主动关闭（多家庭下禁止关闭）。
 const enableAdmin = ref(true)

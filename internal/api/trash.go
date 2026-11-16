@@ -128,6 +128,24 @@ func (s *Server) handleDownloadSnapshot(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (s *Server) handleDeleteSnapshot(w http.ResponseWriter, r *http.Request) {
+	if !s.isSiteAdmin(r) {
+		fail(w, http.StatusForbidden, "只有站点管理员可以删除服务器快照")
+		return
+	}
+	name := r.PathValue("name")
+	if err := s.store.DeleteRawSnapshot(name); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			fail(w, http.StatusNotFound, "这份快照不在回收站里")
+			return
+		}
+		fail(w, http.StatusInternalServerError, "删除失败："+err.Error())
+		return
+	}
+	s.audit(r, "删除服务器快照", "", name)
+	writeJSON(w, http.StatusOK, response{Success: true})
+}
+
 // zipDir 把目录下的文件（不递归子目录）打包，供取回快照使用。
 // 单个文件读失败就跳过，不因为一个坏文件让整包下载失败。
 func zipDir(w io.Writer, dir string) error {

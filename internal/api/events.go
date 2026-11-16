@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"giftbook/internal/ledger"
@@ -291,6 +292,80 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 	}
 	s.notifyChange(r, "event", "updated", id, "")
 	writeJSON(w, http.StatusOK, response{Success: true, Data: updated})
+}
+
+// ---- POST /api/events/{id}/move（站点管理员：把账簿转到其他家庭） ----
+
+// 账簿建立后无法通过普通修改改归属（客户端传的 familyId 一律忽略），
+// 建错家庭时只能在删除与重建之间选；这个接口让管理员把它移到正确的家庭。
+func (s *Server) handleMoveEvent(w http.ResponseWriter, r *http.Request, id string) {
+	if !s.isSiteAdmin(r) {
+		fail(w, http.StatusForbidden, "只有站点管理员可以转移账簿")
+		return
+	}
+	var body struct {
+		FamilyID string `json:"familyId"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		fail(w, http.StatusBadRequest, "无效的请求数据")
+		return
+	}
+	target := strings.TrimSpace(body.FamilyID)
+	families, err := s.store.ReadFamilies()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "家庭数据读取失败")
+		return
+	}
+	targetRec, exists := families[target]
+	if !exists {
+		fail(w, http.StatusBadRequest, "目标家庭不存在")
+		return
+	}
+	targetFamily := familyFromRecord(target, targetRec)
+	if targetFamily.Archived {
+		fail(w, http.StatusBadRequest, "目标家庭已归档")
+		return
+	}
+
+	var eventName, fromName string
+	err = s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
+		event, ok := events[id]
+		if !ok {
+			return false, store.ErrNotFound
+		}
+		current := familyIDOf(event)
+		if current == "" {
+			current = store.DefaultFamilyID
+		}
+		if current == target {
+			return false, errors.New("账簿已经在这个家庭里")
+		}
+		if rec, ok := families[current]; ok {
+			fromName, _ = rec["name"].(string)
+		}
+		eventName, _ = event["name"].(string)
+		event["familyId"] = target
+		event["updatedAt"] = nowStamp()
+		return true, nil
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			fail(w, http.StatusNotFound, "账簿不存在")
+			return
+		}
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	from := fromName
+	if from == "" {
+		from = "我的家庭"
+	}
+	s.audit(r, "转移账簿", targetFamily.Name, eventName+" ← "+from)
+	// 两个家庭里的页面都要刷新：原家庭少一本，目标家庭多一本。
+	s.notifyAllChange(r, "event", "moved")
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]string{
+		"id": id, "name": eventName, "familyId": target, "familyName": targetFamily.Name,
+	}})
 }
 
 // ---- DELETE /api/events/{id} ----

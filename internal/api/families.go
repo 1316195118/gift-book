@@ -53,6 +53,8 @@ type familyPublic struct {
 	LastBackupAt     string `json:"lastBackupAt,omitempty"`
 	LastAutoBackupAt string `json:"lastAutoBackupAt,omitempty"`
 	LastActiveAt     string `json:"lastActiveAt,omitempty"`
+	// BackupAlert 只给管理员：自动备份失败或长时间没跑时，首页设置卡直接提示。
+	BackupAlert string `json:"backupAlert,omitempty"`
 }
 
 func familyEpoch(rec store.Record) int {
@@ -504,6 +506,9 @@ func (s *Server) handleFamilyMe(w http.ResponseWriter, r *http.Request) {
 	}
 	// 只有站点管理员能看到「家庭管理」入口。
 	data.Admin = s.isSiteAdmin(r)
+	if data.Admin {
+		data.BackupAlert = s.backupAlert()
+	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: data})
 }
 
@@ -640,6 +645,67 @@ func (s *Server) handleListFamilies(w http.ResponseWriter, r *http.Request) {
 		return list[i].ID < list[j].ID
 	})
 	writeJSON(w, http.StatusOK, response{Success: true, Data: list})
+}
+
+// ---- GET /api/families/activity（站点管理员） ----
+
+// 跨家庭的最近账簿：一次看清各家庭最近在记什么，不用来回切换。
+func (s *Server) handleFamilyActivity(w http.ResponseWriter, r *http.Request) {
+	if !s.isSiteAdmin(r) {
+		fail(w, http.StatusForbidden, "只有站点管理员可以查看全部家庭的账簿")
+		return
+	}
+	events, err := s.store.ReadEvents()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "账簿读取失败")
+		return
+	}
+	families, err := s.store.ReadFamilies()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "家庭清单读取失败")
+		return
+	}
+	names := make(map[string]string, len(families))
+	for id, rec := range families {
+		name, _ := rec["name"].(string)
+		names[id] = name
+	}
+	type activity struct {
+		ID          string  `json:"id"`
+		Name        string  `json:"name"`
+		FamilyID    string  `json:"familyId"`
+		FamilyName  string  `json:"familyName"`
+		CreatedAt   string  `json:"createdAt"`
+		TotalAmount float64 `json:"totalAmount"`
+		GiftCount   int     `json:"giftCount"`
+	}
+	items := make([]activity, 0, len(events))
+	for id, event := range events {
+		owner := familyIDOf(event)
+		if owner == "" {
+			owner = store.DefaultFamilyID
+		}
+		name, _ := event["name"].(string)
+		created, _ := event["createdAt"].(string)
+		total, _ := event["totalAmount"].(float64)
+		items = append(items, activity{
+			ID: id, Name: name, FamilyID: owner, FamilyName: names[owner],
+			CreatedAt: created, TotalAmount: total,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt != items[j].CreatedAt {
+			return items[i].CreatedAt > items[j].CreatedAt
+		}
+		return items[i].ID > items[j].ID
+	})
+	if len(items) > 12 {
+		items = items[:12]
+	}
+	for i := range items {
+		items[i].GiftCount = s.store.CountGifts(items[i].ID)
+	}
+	writeJSON(w, http.StatusOK, response{Success: true, Data: items})
 }
 
 // ---- POST /api/families（站点管理员） ----

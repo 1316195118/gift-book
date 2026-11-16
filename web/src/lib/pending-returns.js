@@ -41,10 +41,9 @@ export function openPendingReturns() {
     <div id="gb-pending-picker" class="gb-picker">
       <p class="gb-picker-intro">共 <b>${all.length}</b> 位${escapeHtml(copy.peopleNoun)}尚未回礼，原礼金合计 ${formatCurrency(totalGift)}。勾选后可一次登记回礼，也可以只导名单。</p>
       <div class="gb-form-grid">
-        <div class="field"><label for="gb-pending-common">统一回礼金额（元）</label><input type="number" id="gb-pending-common" min="0.01" max="1000000" step="0.01" inputmode="decimal" placeholder="留空则逐行填写" /></div>
+        <div class="field"><label for="gb-pending-common">统一回礼金额（元）<span class="gb-hint" data-hint="每行也可以单独填金额，优先于统一金额；留空则使用统一金额。「导出名单」优先导出勾选的人，没勾选则导出当前筛选结果。每次登记都会写入修改痕迹，可随时在详情里撤销。" role="note" aria-label="每行也可以单独填金额，优先于统一金额；留空则使用统一金额。「导出名单」优先导出勾选的人，没勾选则导出当前筛选结果。每次登记都会写入修改痕迹，可随时在详情里撤销。" tabindex="0">?</span></label><input type="number" id="gb-pending-common" min="0.01" max="1000000" step="0.01" inputmode="decimal" placeholder="留空则逐行填写" /></div>
         <div class="field"><label for="gb-pending-note">回礼备注（选填）</label><input type="text" id="gb-pending-note" maxlength="200" placeholder="如：回赠茶叶" /></div>
       </div>
-      <p class="gb-picker-hint">每行也可以单独填金额，优先于上面的统一金额；留空则使用统一金额。「导出名单」优先导出勾选的人，没勾选则导出当前筛选结果。每次登记都会写入修改痕迹，可随时在详情里撤销。</p>
       <div class="gb-picker-filters"><input type="search" id="gb-pending-keyword" placeholder="按姓名 / 备注查找" autocomplete="off" /></div>
       <div class="gb-picker-tools">
         <span id="gb-pending-count" class="gb-picker-count"></span>
