@@ -2,7 +2,7 @@
 import { state as st } from '../store.js'
 import { copyOf } from './content.js'
 import { renderCoverMarkup } from './cover.js'
-import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
+import { amountToChinese, formatCurrency, formatDate, formatDateTime, escapeHtml } from './crypto.js'
 import { getPrintOptions, applyPrintOptionsToView, savePrintOptions, printOptionsCss } from './prefs.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { openSignInSheet } from './sign-in.js'
@@ -116,7 +116,7 @@ export function buildPrintPages(giftList = null) {
   printView = document.createElement('div')
   printView.id = 'print-view'
   applyPrintOptionsToView(printView)
-  const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
+  const dateStr = formatDate(ev.startDateTime)
 
   const coverPage = document.createElement('div')
   coverPage.className = 'print-page print-cover-page'
@@ -144,7 +144,7 @@ export function buildPrintPages(giftList = null) {
     pageGifts.forEach((gift) => {
       if (!gift.data || !Array.isArray(gift.data.history)) return
       gift.data.history.forEach((entry) => {
-        historyRows.push({ name: gift.data.name || '', text: entry.changeLog || '修改记录', when: entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN') : '' })
+        historyRows.push({ name: gift.data.name || '', text: entry.changeLog || '修改记录', when: formatDateTime(entry.timestamp) })
       })
     })
     if (historyRows.length) {
@@ -163,7 +163,7 @@ export function buildPrintPages(giftList = null) {
     const isLast = i === totalGiftPages - 1
     pageContainer.innerHTML += `
       <div class="print-footer">
-        <p>日期: ${dateStr}</p>
+        <p>日期: ${dateStr || '未设置'}</p>
         <p class="print-page-number">第 ${i + 1} / ${totalGiftPages} 页</p>
         <div class="print-footer-totals">
           <p>本页小计: ${formatCurrency(pageSubtotal)}</p>
@@ -192,7 +192,7 @@ function appendAppendix(printView, dateStr, gifts) {
       <table class="print-appendix-table"><thead><tr><th>姓名</th><th>记录索引</th><th>备注信息</th></tr></thead><tbody>
         ${items.map((item) => `<tr><td>${escapeHtml(item.data.name)}</td><td>第${Math.floor(item.originalIndex / ITEMS_PER_PAGE) + 1}页第${(item.originalIndex % ITEMS_PER_PAGE) + 1}位</td><td>${escapeHtml(item.data.remark || item.data.remarks)}</td></tr>`).join('')}
       </tbody></table>
-      <div class="print-footer"><p>日期: ${dateStr}</p><p class="print-page-number">附录 第 ${j + 1} / ${total} 页</p><div class="print-footer-totals" style="opacity: 0"></div></div>`
+      <div class="print-footer"><p>日期: ${dateStr || '未设置'}</p><p class="print-page-number">附录 第 ${j + 1} / ${total} 页</p><div class="print-footer-totals" style="opacity: 0"></div></div>`
     printView.appendChild(page)
   }
 }
@@ -201,7 +201,7 @@ export function prepareForPrint() {
   const ev = st.currentEvent
   const printView = buildPrintPages()
   if (!printView) return showAlert('无法打印', `当前账簿没有任何${copyOf(ev, st.homeCategory).recordNoun}记录，无需打印。`)
-  const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
+  const dateStr = formatDate(ev.startDateTime)
   document.title = `${ev.name}${copyOf(ev, st.homeCategory).detailTitle}-${dateStr}`
   document.body.appendChild(printView)
   document.body.classList.add('printing')

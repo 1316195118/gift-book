@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escapeHtml, amountToChinese, formatCurrency, formatDateTime, formatDate } from '../crypto.js'
+import { escapeHtml, amountToChinese, formatCurrency, formatDateTime, formatDate, safeFileName } from '../crypto.js'
 
 describe('escapeHtml', () => {
   it('转义 HTML 危险字符', () => {
@@ -13,6 +13,30 @@ describe('escapeHtml', () => {
   })
   it('中文与普通文本原样保留', () => {
     expect(escapeHtml('礼金 100 元')).toBe('礼金 100 元')
+  })
+})
+
+describe('formatDate / formatDateTime', () => {
+  it('空值与非法日期返回空串，不出现 Invalid Date', () => {
+    expect(formatDate('')).toBe('')
+    expect(formatDate('不是日期')).toBe('')
+    expect(formatDateTime(undefined)).toBe('')
+    expect(formatDateTime('2026-13-45')).toBe('')
+  })
+  it('正常日期仍按中文格式输出', () => {
+    expect(formatDate('2026-11-16T10:00:00')).toContain('2026')
+    expect(formatDateTime('2026-11-16T10:00:00')).toContain('2026')
+  })
+})
+
+describe('safeFileName', () => {
+  it('清理 Windows 非法字符并保留中文', () => {
+    expect(safeFileName('婚宴/答谢:2026?')).toBe('婚宴_答谢_2026')
+  })
+  it('去掉首尾空格与点，空名回退默认值', () => {
+    expect(safeFileName('  喜宴. ')).toBe('喜宴')
+    expect(safeFileName('')).toBe('礼簿')
+    expect(safeFileName(null)).toBe('礼簿')
   })
 })
 

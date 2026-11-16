@@ -2,12 +2,25 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.13'
+export const APP_VERSION = '2.4.14'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
   // 条目说明按日期倒序；新增条目先写好说明，日期与 7 处版本号在「推送」时统一补齐。
+  {
+    version: '2.4.14',
+    date: '2026-11-16',
+    notes: [
+      { t: 'fix', text: '修复回收站恢复同名账簿时会覆盖现有礼金的问题：恢复被拒绝不再改动原有数据' },
+      { t: 'sec', text: '恢复有管理密码的账簿时，也需要输入密码，和账簿删除、录入保持一致' },
+      { t: 'fix', text: '批量登记回礼遇到其他设备同时修改时立即停止并说明原因，不再静默跳过' },
+      { t: 'opt', text: '导出范围与未回礼名单里勾选记录时不再重建列表，输入焦点和滚动位置保持不动' },
+      { t: 'opt', text: '导出文件名自动清理不能用于文件名的字符，特殊账簿名也能正常下载；CI 增加 lint 卡口' },
+      { t: 'fix', text: '修复账簿没有设置日期时，导出的 PDF / 打印页脚显示「Invalid Date」的问题，改为显示「未设置」' },
+      { t: 'fix', text: '白事账簿的导出说明改为「按姓名、关系」筛选和「三种导出」，不再提不存在的回礼状态' },
+    ],
+  },
   {
     version: '2.4.13',
     date: '2026-11-15',

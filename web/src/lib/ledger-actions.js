@@ -410,6 +410,14 @@ function showInlineEdit(index, field) {
   })
 }
 
+// silent 模式下失败时抛给批量调用方，让它停止并说明原因；普通调用仍走弹窗返回 false。
+export class GiftUpdateError extends Error {
+  constructor(message, conflict = false) {
+    super(message)
+    this.conflict = conflict
+  }
+}
+
 // options.silent：批量登记回礼时逐条调用，不弹窗、不重开详情，由调用方统一收尾。
 export async function updateWithHistory(index, fields, changeLog, options = {}) {
   const silent = options.silent === true
@@ -451,9 +459,14 @@ export async function updateWithHistory(index, fields, changeLog, options = {}) 
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       if (!silent) showAlert('未保存', error.message || '这笔记录已在其他设备上修改，请刷新后再改。')
-      loadGiftsForCurrentEvent()
-    } else if (!silent) {
+      await loadGiftsForCurrentEvent()
+      if (silent) throw new GiftUpdateError(error.message || '这笔记录已在其他设备上修改，请刷新后重试。', true)
+      return false
+    }
+    if (!silent) {
       showAlert('系统错误', '保存修改记录时失败。')
+    } else {
+      throw new GiftUpdateError(error?.message || '保存失败，请检查网络后重试。')
     }
     return false
   }

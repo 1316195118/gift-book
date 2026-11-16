@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +114,39 @@ func TestTrashListAndRestore(t *testing.T) {
 	res, _ = env.do(t, "POST", "/api/trash/restore/"+name, nil, nil)
 	if res.StatusCode == http.StatusOK {
 		t.Fatal("重复恢复应被拒绝，避免覆盖已存在的账簿")
+	}
+}
+
+// 有密码账簿删除后，从回收站恢复也必须校验管理密码，与删除时一致。
+func TestRestoreTrashRequiresLedgerKey(t *testing.T) {
+	env := newEnv(t)
+	key := strings.Repeat("a", 64)
+	id := env.createEvent(t, "有密码账簿", key)
+	res, payload := env.do(t, "DELETE", "/api/events/"+id, nil, map[string]string{"X-Ledger-Key": key})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("删除失败: %d %v", res.StatusCode, payload)
+	}
+	res, payload = env.do(t, "GET", "/api/trash", nil, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("读取回收站失败: %d %v", res.StatusCode, payload)
+	}
+	var name string
+	for _, raw := range payload["data"].([]any) {
+		item, _ := raw.(map[string]any)
+		if item["kind"] == "event" && item["eventId"] == id {
+			name, _ = item["name"].(string)
+		}
+	}
+	if name == "" {
+		t.Fatalf("快照未列出: %v", payload["data"])
+	}
+	res, payload = env.do(t, "POST", "/api/trash/restore/"+name, nil, nil)
+	if res.StatusCode != http.StatusForbidden || payload["code"] != "ledger_key" {
+		t.Fatalf("无密码恢复应被拒绝: %d %v", res.StatusCode, payload)
+	}
+	res, payload = env.do(t, "POST", "/api/trash/restore/"+name, nil, map[string]string{"X-Ledger-Key": key})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("带正确密码恢复失败: %d %v", res.StatusCode, payload)
 	}
 }
 

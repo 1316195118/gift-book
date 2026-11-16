@@ -50,7 +50,7 @@
         <span class="export-text"><b>批量导入 CSV</b><small>从名单批量录入</small></span>
       </button>
     </div>
-    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。点「选择记录」可先按姓名、关系或回礼状态筛出要导出的记录，四种导出都按这个范围计算合计。<template v-if="!content.solemn">「回礼明细」只列已登记回礼的人；「未回礼名单」可一次给多人登记回礼。</template></p>
+    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。点「选择记录」可先{{ content.solemn ? '按姓名、关系' : '按姓名、关系或回礼状态' }}筛出要导出的记录，{{ content.solemn ? '三种' : '四种' }}导出都按这个范围计算合计。<template v-if="!content.solemn">「回礼明细」只列已登记回礼的人；「未回礼名单」可一次给多人登记回礼。</template></p>
   </div>
 
   <div v-else-if="content.type === 'html'" v-html="content.html"></div>

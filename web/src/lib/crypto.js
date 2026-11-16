@@ -68,5 +68,28 @@ export const formatCurrency = (amount) => {
 export const escapeHtml = (s) =>
   String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
-export const formatDateTime = (value) => (value ? new Date(value).toLocaleString('zh-CN') : '')
-export const formatDate = (value) => (value ? new Date(value).toLocaleDateString('zh-CN') : '')
+// 账簿名可能含 Windows 文件名非法字符或首尾空格/点，下载前统一清理。
+export const safeFileName = (name, fallback = '礼簿') => {
+  const cleaned = String(name == null ? '' : name)
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+    .replace(/[ ._]+$/g, '')
+    .trim()
+  return cleaned || fallback
+}
+
+// 日期可能来自旧账簿的空值或格式不规范，解析失败时返回空串，避免界面出现「Invalid Date」。
+const toDate = (value) => {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+export const formatDateTime = (value) => {
+  const date = toDate(value)
+  return date ? date.toLocaleString('zh-CN') : ''
+}
+
+export const formatDate = (value) => {
+  const date = toDate(value)
+  return date ? date.toLocaleDateString('zh-CN') : ''
+}

@@ -2,11 +2,11 @@
 // 白事账簿不提供回礼，入口与函数都做了兜底。
 import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender, alert as showAlert } from './modal.js'
-import { escapeHtml, formatCurrency, XlsxLite } from './crypto.js'
+import { escapeHtml, formatCurrency, formatDate, formatDateTime, XlsxLite, safeFileName } from './crypto.js'
 import { copyOf, isSolemnEvent } from './content.js'
 import { appendReturn, hasReturned } from './return-gift.js'
 import { isArchived } from './archive.js'
-import { updateWithHistory } from './ledger-actions.js'
+import { updateWithHistory, GiftUpdateError } from './ledger-actions.js'
 import { syncEventTotal, loadGiftsForCurrentEvent } from '../bootstrap.js'
 import { notify } from './notify.js'
 
@@ -71,6 +71,12 @@ export function openPendingReturns() {
     })
   }
 
+  // 勾选时只更新计数，不重建列表：否则正在输入的金额框会失焦、长列表会跳回顶部。
+  const updateCounter = () => {
+    const counter = document.getElementById('gb-pending-count')
+    if (counter) counter.textContent = `已选 ${selected.size} 位 / 共 ${all.length} 位待回礼`
+  }
+
   const render = () => {
     const list = document.getElementById('gb-pending-list')
     if (!list) return
@@ -80,7 +86,7 @@ export function openPendingReturns() {
       .map((gift) => {
         const data = gift.data || {}
         const id = escapeHtml(String(gift.id))
-        const when = data.timestamp ? new Date(data.timestamp).toLocaleDateString('zh-CN') : ''
+        const when = formatDate(data.timestamp)
         return `<div class="gb-pick-row" data-row-id="${id}">
           <input type="checkbox" data-pending-id="${id}" ${selected.has(String(gift.id)) ? 'checked' : ''} aria-label="选择 ${escapeHtml(data.name || '')}" />
           <div class="gb-pick-main"><span class="gb-pick-name">${escapeHtml(data.name || '（无名）')}</span><span class="gb-pick-meta">${escapeHtml(data.relation || '未分类')} · 原礼金 ${formatCurrency(Number(data.amount) || 0)} · ${escapeHtml(when)}</span></div>
@@ -92,8 +98,7 @@ export function openPendingReturns() {
       ? `<button type="button" class="gb-more-btn" data-pending-act="more">显示更多（还有 ${matched.length - shown} 条）</button>`
       : ''
     list.innerHTML = matched.length ? rows + more : '<div class="gb-empty">没有符合条件的记录。</div>'
-    const counter = document.getElementById('gb-pending-count')
-    if (counter) counter.textContent = `已选 ${selected.size} 位 / 共 ${all.length} 位待回礼`
+    updateCounter()
   }
 
   const checkedRows = () => {
@@ -137,6 +142,7 @@ export function openPendingReturns() {
     setError('正在登记回礼，请勿关闭页面…')
     let success = 0
     let failed = 0
+    let conflictMessage = ''
     try {
       for (const row of rows) {
         const index = st.gifts.findIndex((gift) => String(gift.id) === row.id)
@@ -146,18 +152,35 @@ export function openPendingReturns() {
         }
         const patch = appendReturn(st.gifts[index].data, row.amount, row.note)
         const log = `批量登记第 ${patch.returnRecords.length} 次回礼 ${formatCurrency(row.amount)}${row.note ? `（${row.note}）` : ''}`
-        const done = await updateWithHistory(index, patch, log, { silent: true })
-        if (done) success += 1
-        else failed += 1
+        try {
+          const done = await updateWithHistory(index, patch, log, { silent: true })
+          if (done) success += 1
+          else failed += 1
+        } catch (error) {
+          if (error instanceof GiftUpdateError && error.conflict) {
+            // 冲突说明其他设备改了同一笔，继续写只会连错；立即停止并同步最新数据。
+            conflictMessage = error.message
+            break
+          }
+          failed += 1
+        }
       }
       closeModal()
       syncEventTotal()
-      if (failed) await loadGiftsForCurrentEvent()
-      notify.success(
-        `已登记 ${success} 位回礼`,
-        failed ? `另有 ${failed} 位未成功，已重新同步账簿，请核对后再试。` : '每笔都写入了修改痕迹，可在礼金详情里查看或撤销。',
-        { duration: 5000 },
-      )
+      if (failed || conflictMessage) await loadGiftsForCurrentEvent()
+      if (conflictMessage) {
+        notify.warn(
+          '批量登记已停止',
+          `${conflictMessage}已同步最新账簿；成功的 ${success} 位不会丢失，请核对后重试剩余记录。`,
+          { duration: 6000 },
+        )
+      } else {
+        notify.success(
+          `已登记 ${success} 位回礼`,
+          failed ? `另有 ${failed} 位未成功，已重新同步账簿，请核对后再试。` : '每笔都写入了修改痕迹，可在礼金详情里查看或撤销。',
+          { duration: 5000 },
+        )
+      }
     } finally {
       busy = false
     }
@@ -201,7 +224,7 @@ export function openPendingReturns() {
       if (box.checked) selected.add(box.dataset.pendingId)
       else selected.delete(box.dataset.pendingId)
       setError('')
-      render()
+      updateCounter()
     })
     root.addEventListener('click', (event) => {
       const act = event.target.closest('[data-pending-act]')?.dataset.pendingAct
@@ -243,7 +266,7 @@ export function exportPendingExcel(list) {
       { v: data.name || '', s: 4 },
       { v: data.relation || '未分类', s: 4 },
       { v: Number(data.amount) || 0, s: 6 },
-      { v: data.timestamp ? new Date(data.timestamp).toLocaleString('zh-CN', { hour12: false }) : '', s: 4 },
+      { v: formatDateTime(data.timestamp), s: 4 },
       { v: data.remarks || '', s: 5 },
     ])
   })
@@ -266,6 +289,6 @@ export function exportPendingExcel(list) {
         autoFilter: `A4:F${last}`,
       },
     ],
-    `${ev.name}_未回礼名单.xlsx`,
+    `${safeFileName(ev.name)}_未回礼名单.xlsx`,
   )
 }

@@ -3,7 +3,7 @@ import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender } from './modal.js'
 import { openCrossSummary } from './cross-summary.js'
 import { copyOf, isSolemnEvent } from './content.js'
-import { formatCurrency, escapeHtml } from './crypto.js'
+import { formatCurrency, formatDateTime, escapeHtml } from './crypto.js'
 import { computeStats } from './stats-core.js'
 export { computeStats }
 
@@ -50,7 +50,7 @@ export function openStats() {
     },
   ], { size: 'large' })
   // 弹窗内容由 Vue 在下一帧挂载，等它进入 DOM 后再填充图表与表格。
-  const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', new Date(g.data.timestamp).toLocaleString('zh-CN')])
+  const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', formatDateTime(g.data.timestamp)])
   afterModalRender(() => {
     const table = renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
     renderCharts(stats, table)

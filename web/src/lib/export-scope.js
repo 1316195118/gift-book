@@ -3,7 +3,7 @@
 import { reactive } from 'vue'
 import { state as st } from '../store.js'
 import { openModal, afterModalRender } from './modal.js'
-import { escapeHtml, formatCurrency } from './crypto.js'
+import { escapeHtml, formatCurrency, formatDate } from './crypto.js'
 import { isSolemnEvent, RELATION_OPTIONS } from './content.js'
 import { hasReturned } from './return-gift.js'
 
@@ -85,6 +85,12 @@ export function openScopePicker(onDone) {
     })
   }
 
+  // 勾选时只更新计数，不重建整张列表，避免输入框失焦、长列表滚动位置丢失。
+  const updateCounter = (matchedCount) => {
+    const counter = document.getElementById('gb-scope-count')
+    if (counter) counter.textContent = `已选 ${selected.size} 条 · 筛选 ${matchedCount} 条 · 全本 ${all.length} 条`
+  }
+
   const render = () => {
     const list = document.getElementById('gb-scope-list')
     if (!list) return
@@ -94,7 +100,7 @@ export function openScopePicker(onDone) {
       .map((gift) => {
         const data = gift.data || {}
         const id = escapeHtml(String(gift.id))
-        const when = data.timestamp ? new Date(data.timestamp).toLocaleDateString('zh-CN') : ''
+        const when = formatDate(data.timestamp)
         return `<div class="gb-pick-row" data-row-id="${id}">
           <input type="checkbox" data-scope-id="${id}" ${selected.has(String(gift.id)) ? 'checked' : ''} aria-label="选择 ${escapeHtml(data.name || '')}" />
           <div class="gb-pick-main"><span class="gb-pick-name">${escapeHtml(data.name || '（无名）')}</span><span class="gb-pick-meta">${escapeHtml(data.relation || '未分类')} · ${escapeHtml(data.type || '')} · ${escapeHtml(when)}${hasReturned(data) && !solemn ? ' · 已回礼' : ''}</span></div>
@@ -106,8 +112,7 @@ export function openScopePicker(onDone) {
       ? `<button type="button" class="gb-more-btn" data-scope-act="more">显示更多（还有 ${matched.length - shown} 条）</button>`
       : ''
     list.innerHTML = matched.length ? rows + more : '<div class="gb-empty">没有符合条件的记录，试试换个筛选条件。</div>'
-    const counter = document.getElementById('gb-scope-count')
-    if (counter) counter.textContent = `已选 ${selected.size} 条 · 筛选 ${matched.length} 条 · 全本 ${all.length} 条`
+    updateCounter(matched.length)
   }
 
   const back = () => {
@@ -162,7 +167,7 @@ export function openScopePicker(onDone) {
         if (box.checked) selected.add(id)
         else selected.delete(id)
         setError('')
-        render()
+        updateCounter(visible().length)
         return
       }
       if (event.target.id === 'gb-scope-relation' || event.target.id === 'gb-scope-returned') {

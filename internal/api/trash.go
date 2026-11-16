@@ -23,7 +23,24 @@ func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
 // 只恢复「删除的单本账簿」快照；整站导入快照需从首页备份自行判断，避免一键覆盖现有账簿。
 
 func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
-	id, eventName, err := s.store.RestoreTrash(r.PathValue("name"))
+	name := r.PathValue("name")
+	// 恢复有密码账簿必须与删除时一样校验管理密码；快照里的 verifier 与删除前一致。
+	event, err := s.store.ReadTrashedEvent(name)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			fail(w, http.StatusNotFound, "这份备份不在回收站里，或不是可恢复的单本账簿")
+		case errors.Is(err, store.ErrCorrupt):
+			fail(w, http.StatusBadRequest, "这份备份已损坏，无法恢复")
+		default:
+			fail(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+	if !s.requireLedgerKey(w, r, event) {
+		return
+	}
+	id, eventName, err := s.store.RestoreTrash(name)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):

@@ -1,7 +1,7 @@
 // 签到表 / 席位表：按姓氏排序生成 A4 纵向表格，用隐藏 iframe 打印（无弹窗拦截、不污染主文档）。
 import { state as st } from '../store.js'
 import { copyOf, isSolemnEvent } from './content.js'
-import { escapeHtml } from './crypto.js'
+import { escapeHtml, formatDate } from './crypto.js'
 import { alert as showAlert } from './modal.js'
 
 const PER_PAGE = 24
@@ -36,7 +36,7 @@ export function openSignInSheet() {
   const solemn = isSolemnEvent(ev, st.homeCategory)
   const primary = solemn ? '#374151' : '#a3261e'
   const bg = solemn ? '#eef0f3' : '#f7efee'
-  const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
+  const dateStr = formatDate(ev.startDateTime) || '未设置'
   const pages = buildSignInPages(list, { eventName: ev.name, dateStr, location: ev.location, total: list.length, theme: solemn ? 'solemn' : 'festive' })
   const css = `
     @page { size: A4 portrait; margin: 14mm; }

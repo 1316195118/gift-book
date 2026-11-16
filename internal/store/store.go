@@ -262,6 +262,22 @@ func (s *Store) ListTrash() ([]TrashItem, error) {
 	return items, nil
 }
 
+// ReadTrashedEvent 读取单本账簿快照里的账簿信息，供恢复接口在做任何改动前校验管理密码。
+func (s *Store) ReadTrashedEvent(name string) (Record, error) {
+	if !trashNamePattern.MatchString(name) || strings.HasPrefix(name, "import-") {
+		return nil, ErrNotFound
+	}
+	raw, err := os.ReadFile(filepath.Join(s.trashPath(name), "event.json"))
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	var event Record
+	if json.Unmarshal(raw, &event) != nil {
+		return nil, ErrCorrupt
+	}
+	return event, nil
+}
+
 // RestoreTrash 恢复一份被删除的单本账簿快照。
 // 快照原件保留不动（可再次恢复）；整站导入快照不提供一键恢复，避免覆盖现有全部账簿。
 func (s *Store) RestoreTrash(name string) (string, string, error) {
@@ -290,20 +306,22 @@ func (s *Store) RestoreTrash(name string) (string, string, error) {
 		return "", "", ErrCorrupt
 	}
 
-	// 目标位置若残留同名礼金文件，先留一份在快照目录里再覆盖。
-	if _, statErr := os.Stat(s.giftsPath(id)); statErr == nil {
-		if old, readErr := os.ReadFile(s.giftsPath(id)); readErr == nil {
-			_ = writeFileAtomic(filepath.Join(dir, "gifts-before-restore.json"), old)
-		}
-	}
-	if giftErr == nil {
-		if err := writeFileAtomic(s.giftsPath(id), giftRaw); err != nil {
-			return "", "", err
-		}
-	}
+	// 同名检查必须在写礼金之前，且与账簿登记共用同一把锁：
+	// 否则恢复被拒绝时礼金文件也已经被快照覆盖，现有账簿会静默丢数据。
 	err = s.WithEvents(func(events map[string]Record) (bool, error) {
 		if _, exists := events[id]; exists {
 			return false, errors.New("同名账簿已存在，无需恢复")
+		}
+		// 目标位置若残留同名礼金文件，先留一份在快照目录里再覆盖。
+		if _, statErr := os.Stat(s.giftsPath(id)); statErr == nil {
+			if old, readErr := os.ReadFile(s.giftsPath(id)); readErr == nil {
+				_ = writeFileAtomic(filepath.Join(dir, "gifts-before-restore.json"), old)
+			}
+		}
+		if giftErr == nil {
+			if writeErr := writeFileAtomic(s.giftsPath(id), giftRaw); writeErr != nil {
+				return false, writeErr
+			}
 		}
 		events[id] = event
 		return true, nil

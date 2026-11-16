@@ -2,7 +2,7 @@
 import { state as st } from '../store.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { copyOf, isSolemnEvent } from './content.js'
-import { amountToChinese, formatCurrency, escapeHtml, formatDateTime } from './crypto.js'
+import { amountToChinese, formatCurrency, escapeHtml, formatDate, formatDateTime, safeFileName } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
 import { XlsxLite } from './crypto.js'
 import { hasReturned, returnRecordsOf } from './return-gift.js'
@@ -92,7 +92,7 @@ export function exportToExcel() {
   const copy = copyOf(ev, st.homeCategory)
   if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
   const stats = computeLedgerStats(scopeGifts())
-  const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
+  const dateStr = formatDate(ev.startDateTime)
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
   const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
@@ -113,7 +113,7 @@ export function exportToExcel() {
       { v: d.type || '', s: style.center },
       { v: d.relation || '未分类', s: style.center },
       { v: d.remarks || '', s: style.text },
-      { v: d.timestamp ? new Date(d.timestamp).toLocaleString('zh-CN', { hour12: false }) : '', s: style.center },
+      { v: formatDateTime(d.timestamp), s: style.center },
     ])
   })
   const lastDataRow = rows.length
@@ -144,7 +144,7 @@ export function exportToExcel() {
         { v: i + 1, s: style.center },
         { v: d.name || '', s: style.center },
         { v: entry.changeLog || '修改记录', s: style.text },
-        { v: entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN', { hour12: false }) : '', s: style.center },
+        { v: formatDateTime(entry.timestamp), s: style.center },
       ])
     })
   })
@@ -169,7 +169,7 @@ export function exportToExcel() {
       autoFilter: `A4:D${historyRows.length}`,
     })
   }
-  XlsxLite.downloadWorkbook(sheets, `${ev.name}_${copy.fileSuffix}.xlsx`)
+  XlsxLite.downloadWorkbook(sheets, `${safeFileName(ev.name)}_${copy.fileSuffix}.xlsx`)
 }
 
 // ---- 回礼明细：Excel / PDF / Word 三种格式 ----
@@ -291,7 +291,7 @@ export function exportReturnsExcel() {
     coverRows.push([{ v: text, s: styleIdx }, ...Array(7).fill(null)])
     coverHeights[coverRows.length] = height
   }
-  const startText = ev.startDateTime ? new Date(ev.startDateTime).toLocaleString('zh-CN', { hour12: false }) : ''
+  const startText = formatDateTime(ev.startDateTime)
   pushCover('', 11, 24)
   pushCover('', 11, 30)
   pushCover(ev.name, 12, 56)
@@ -327,7 +327,7 @@ export function exportReturnsExcel() {
         autoFilter: `A4:I${lastDataRow}`,
       },
     ],
-    `${ev.name}_回礼明细.xlsx`,
+    `${safeFileName(ev.name)}_回礼明细.xlsx`,
   )
 }
 
@@ -369,7 +369,7 @@ export function exportReturnsWord() {
     <div class="totals">已回礼 ${list.length} 位 · 合计 <b>${formatCurrency(total)}</b></div>
     <div class="note">本文件只列已登记回礼的${copy.peopleNoun}，每人一行，回礼金额为多次回礼的累计；「类型」列统一标注为回礼。</div>
   </body></html>`
-  downloadBlob(new Blob([html], { type: 'application/msword' }), `${ev.name}_回礼明细.doc`)
+  downloadBlob(new Blob([html], { type: 'application/msword' }), `${safeFileName(ev.name)}_回礼明细.doc`)
 }
 
 // PDF：A4 横向，与礼簿同一套渲染链（逐页转图再写 PDF）。
@@ -417,7 +417,7 @@ export async function exportReturnsPdf() {
     }
     progress.update('正在写入 PDF…')
     const blob = buildPdfBlob(images, PDF_PAGE_W_PT, PDF_PAGE_H_PT)
-    downloadBlob(blob, `${ev.name}_回礼明细.pdf`)
+    downloadBlob(blob, `${safeFileName(ev.name)}_回礼明细.pdf`)
   } catch (error) {
     console.error('回礼 PDF 生成失败:', error)
     showAlert('导出失败', 'PDF 生成失败，请重试；也可改用 Excel 或 Word。')
@@ -434,7 +434,7 @@ export function exportToWord() {
   const solemn = isSolemnEvent(ev, st.homeCategory)
   const primary = solemn ? '#374151' : '#a3261e'
   const bg = solemn ? '#eef0f3' : '#fbeceb'
-  const dateStr = new Date(ev.startDateTime).toLocaleDateString('zh-CN')
+  const dateStr = formatDate(ev.startDateTime)
   const stats = computeLedgerStats(scopeGifts())
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
   const metaLine = [displayId, dateStr, ev.location, `共 ${stats.totalGivers} 位${copy.peopleNoun}`].filter(Boolean).join('　·　')
@@ -442,7 +442,7 @@ export function exportToWord() {
   const rows = scopeGifts()
     .map((g, i) => {
       const d = g.data || {}
-      const when = d.timestamp ? new Date(d.timestamp).toLocaleString('zh-CN', { hour12: false }) : ''
+      const when = formatDateTime(d.timestamp)
       const nameChars = Array.from(String(d.name || ''))
       const shownName = nameChars.slice(0, 12).join('') + (nameChars.length > 12 ? '…' : '')
       const nameClass = nameChars.length === 1 ? ' len1' : nameChars.length === 2 ? ' len2' : ''
@@ -455,7 +455,7 @@ export function exportToWord() {
   scopeGifts().forEach((g, i) => {
     const data = g.data || {}
     ;(Array.isArray(data.history) ? data.history : []).forEach((entry) => {
-      historyItems.push({ index: i + 1, name: data.name || '', log: entry.changeLog || '修改记录', when: entry.timestamp ? new Date(entry.timestamp).toLocaleString('zh-CN', { hour12: false }) : '' })
+      historyItems.push({ index: i + 1, name: data.name || '', log: entry.changeLog || '修改记录', when: formatDateTime(entry.timestamp) })
     })
   })
   const historySection = historyItems.length
@@ -466,7 +466,7 @@ export function exportToWord() {
   const blob = new Blob(['﻿', html], { type: 'application/msword' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `${ev.name}_${copy.fileSuffix}.doc`
+  a.download = `${safeFileName(ev.name)}_${copy.fileSuffix}.doc`
   document.body.appendChild(a)
   a.click()
   setTimeout(() => {
@@ -493,7 +493,7 @@ export async function exportLedgerPdf() {
     }
     progress.update('正在写入 PDF…')
     const blob = buildPdfBlob(images, PDF_PAGE_W_PT, PDF_PAGE_H_PT)
-    downloadBlob(blob, `${ev.name}_${copy.fileSuffix}.pdf`)
+    downloadBlob(blob, `${safeFileName(ev.name)}_${copy.fileSuffix}.pdf`)
   } catch (error) {
     console.error('PDF 生成失败:', error)
     showAlert('导出失败', 'PDF 生成失败，请重试；若仍失败可改用「打印 → 另存为 PDF」，或先导出 Excel / Word。')

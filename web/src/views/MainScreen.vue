@@ -193,7 +193,7 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { state as st } from '../store.js'
 import { copyOf } from '../lib/content.js'
-import { formatCurrency } from '../lib/crypto.js'
+import { formatCurrency, formatDate } from '../lib/crypto.js'
 import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
 import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verifyLedgerPassword } from '../lib/actions.js'
 import { writeLocked } from '../lib/prefs.js'
@@ -284,7 +284,7 @@ const hasAmount = computed(() => Number(entry.amount) > 0)
 const book = computed(() => bookMarkup())
 const eventSub = computed(() => {
   const ev = st.currentEvent || {}
-  const date = ev.startDateTime ? new Date(ev.startDateTime).toLocaleDateString('zh-CN') : ''
+  const date = formatDate(ev.startDateTime)
   return [ev.template, date, ev.location].filter(Boolean).join(' · ')
 })
 

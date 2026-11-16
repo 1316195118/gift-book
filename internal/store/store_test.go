@@ -141,6 +141,43 @@ func TestTrashEventKeepsCopy(t *testing.T) {
 	}
 }
 
+func TestRestoreTrashKeepsExistingGifts(t *testing.T) {
+	s := newStore(t)
+	event := Record{"id": "ev1", "name": "原账簿"}
+	_ = s.WithEvents(func(events map[string]Record) (bool, error) {
+		events["ev1"] = event
+		return true, nil
+	})
+	_ = s.WithGifts("ev1", func(gifts map[string]Record) (bool, error) {
+		gifts["g-old"] = Record{"id": "g-old", "name": "旧礼金"}
+		return true, nil
+	})
+	dir, err := s.TrashEvent("ev1", event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.WithEvents(func(events map[string]Record) (bool, error) {
+		delete(events, "ev1")
+		return true, nil
+	})
+	// 同名账簿重建并写入不同的礼金。
+	_ = s.WithEvents(func(events map[string]Record) (bool, error) {
+		events["ev1"] = Record{"id": "ev1", "name": "新建账簿"}
+		return true, nil
+	})
+	_ = s.WithGifts("ev1", func(gifts map[string]Record) (bool, error) {
+		gifts["g-new"] = Record{"id": "g-new", "name": "新礼金"}
+		return true, nil
+	})
+	if _, _, err := s.RestoreTrash(filepath.Base(dir)); err == nil {
+		t.Fatal("同名账簿已存在时应当拒绝恢复")
+	}
+	gifts, _ := s.ReadGifts("ev1")
+	if len(gifts) != 1 || gifts["g-new"] == nil {
+		t.Fatalf("恢复被拒绝后现有礼金被覆盖或丢失：%v", gifts)
+	}
+}
+
 func TestBackupAndReplaceAll(t *testing.T) {
 	s := newStore(t)
 	_ = s.WithEvents(func(events map[string]Record) (bool, error) {
