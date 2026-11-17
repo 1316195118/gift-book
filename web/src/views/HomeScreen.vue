@@ -98,9 +98,7 @@
               </div>
             </div>
             <div class="rd">
-              <span class="rd-date">{{ createdText(ev) }}</span>
-              <span v-if="ev.template" class="rd-dot">·</span>
-              <span v-if="ev.template">{{ ev.template }}</span>
+              <span class="rd-date" :title="ceremonyTitle(ev)">{{ cardDateText(ev) }}</span>
               <span v-if="ev.location" class="rd-dot">·</span>
               <span v-if="ev.location" class="rd-loc">{{ ev.location }}</span>
             </div>
@@ -174,6 +172,15 @@ const pendingFor = (eventId) => queueFor(eventId).length
 const displayIdOf = (ev) => String(ev.displayId || '').padStart(3, '0').slice(-3)
 
 const createdText = (ev) => (ev.createdAt ? String(ev.createdAt).slice(0, 10).replace(/-/g, '/') : '')
+
+// 卡片优先显示婚礼 / 殡期时间；没填正期时退回创建日期。
+const cardDateText = (ev) => ceremonyText(ev) || createdText(ev)
+const ceremonyTitle = (ev) => {
+  if (!ev.ceremonyAt) return ''
+  const at = new Date(ev.ceremonyAt)
+  if (Number.isNaN(at.getTime())) return ''
+  return `${ceremonyLabel(ev, st.homeCategory)}：${at.toLocaleString('zh-CN', { hour12: false })}`
+}
 
 // 卡片标签显示创建时选的模板类型（婚宴/寿宴/满月酒…），老账簿没有模板时退回红事/白事
 const templateLabel = (ev) => {

@@ -19,7 +19,16 @@ var eventIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 var extraFields = []string{
 	"theme", "voiceName", "voiceEnabled", "coverImage", "startDateTime", "endDateTime",
 	"minSpeechAmount", "qrcode", "template", "category", "location", "note",
-	"totalAmount", "coverStyle", "archived", "archivedAt",
+	"totalAmount", "coverStyle", "archived", "archivedAt", "perPage", "ceremonyAt",
+}
+
+// normalizePerPage 只接受 8 / 10 / 12，旧账簿没有这个字段时按 12 处理。
+func normalizePerPage(value any) int {
+	n, _ := value.(float64)
+	if n != 8 && n != 10 && n != 12 {
+		return 12
+	}
+	return int(n)
 }
 
 // ---- GET /api/events ----
@@ -219,6 +228,10 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, field := range append([]string{"kdf"}, extraFields...) {
 			if value, ok := body[field]; ok {
+				if field == "perPage" {
+					event[field] = normalizePerPage(value)
+					continue
+				}
 				event[field] = value
 			}
 		}
@@ -273,6 +286,10 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 		}
 		for _, field := range append([]string{"name", "kdf"}, extraFields...) {
 			if value, ok := body[field]; ok {
+				if field == "perPage" {
+					event[field] = normalizePerPage(value)
+					continue
+				}
 				event[field] = value
 			}
 		}

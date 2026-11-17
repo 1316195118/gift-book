@@ -12,6 +12,7 @@ import { ledgerKeyForEvent } from './store.js'
 import { refreshNetwork, startNetworkMonitor } from './lib/network.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './lib/modal.js'
 import { compareGiftsByRegistration } from './lib/gift-order.js'
+import { itemsPerPage } from './lib/page-size.js'
 import { clearRecentEntry } from './lib/recent-entry.js'
 import { resetExportScope } from './lib/export-scope.js'
 
@@ -298,7 +299,7 @@ export async function loadGiftsForCurrentEvent() {
     // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
     // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
     st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
-    st.currentPage = Math.ceil(st.gifts.length / 12) || 1
+    st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
     st.queueCount = pending.length
     const unreadable = encryptedGifts.length - decrypted.length
     if (unreadable > 0) {

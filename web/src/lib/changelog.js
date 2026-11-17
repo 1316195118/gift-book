@@ -2,11 +2,20 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.17'
+export const APP_VERSION = '2.4.18'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.18',
+    date: '2026-11-17',
+    notes: [
+      { t: 'feat', text: '账簿可设每页 8 / 10 / 12 行，默认 12；总页数、本页小计、打印分页与记录索引一起跟着变，统计口径不变' },
+      { t: 'feat', text: '后续插入占位：在记录详情里点「在此行前插入占位」，只在账簿有效时间内可用，后面的序号不乱' },
+      { t: 'feat', text: '账簿设置新增正期时间：红事叫婚礼 / 寿宴 / 满月酒时间，白事叫殡期或追思时间；首页账簿卡片直接显示这个时间与地点' },
+    ],
+  },
   {
     version: '2.4.17',
     date: '2026-11-17',

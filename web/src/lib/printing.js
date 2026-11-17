@@ -8,6 +8,8 @@ import { openModal, closeModal, alert as showAlert, afterModalRender } from './m
 import { openSignInSheet } from './sign-in.js'
 import { computeStats } from './stats-core.js'
 
+import { itemsPerPage } from './page-size.js'
+
 export const ITEMS_PER_PAGE = 12
 export const PDF_PAGE_W_PT = 841.89
 export const PDF_PAGE_H_PT = 595.28
@@ -85,7 +87,8 @@ export function showPrintModal() {
 function renderBookRows(items) {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const cells = { name: [], type: [], amount: [] }
-  for (let i = 0; i < ITEMS_PER_PAGE; i += 1) {
+  const perPage = itemsPerPage()
+  for (let i = 0; i < perPage; i += 1) {
     const gift = items[i]
     if (gift?.data) {
       const nameChars = Array.from(String(gift.data.name ?? ''))
@@ -123,12 +126,13 @@ export function buildPrintPages(giftList = null) {
   coverPage.innerHTML = renderCoverMarkup(ev, false, st.homeCategory)
   printView.appendChild(coverPage)
 
-  const totalGiftPages = Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1
+  const perPage = itemsPerPage()
+  const totalGiftPages = Math.ceil(gifts.length / perPage) || 1
   // 与页面/导出同一口径（分累加、人数去重）。
   const stats = computeStats(gifts)
 
   for (let i = 0; i < totalGiftPages; i += 1) {
-    const pageGifts = gifts.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE)
+    const pageGifts = gifts.slice(i * perPage, (i + 1) * perPage)
     const pageContainer = document.createElement('div')
     pageContainer.className = 'print-page'
     const content = document.createElement('div')
@@ -182,6 +186,7 @@ function appendAppendix(printView, dateStr, gifts) {
   const remarked = gifts.map((gift, index) => ({ ...gift, originalIndex: index })).filter((g) => g.data && g.data.remarks)
   if (!remarked.length) return
   const perPage = 10
+  const bookSize = itemsPerPage()
   const total = Math.ceil(remarked.length / perPage)
   for (let j = 0; j < total; j += 1) {
     const items = remarked.slice(j * perPage, (j + 1) * perPage)
@@ -190,7 +195,7 @@ function appendAppendix(printView, dateStr, gifts) {
     page.innerHTML = `
       <h1 class="print-header">${copy.appendixTitle}</h1>
       <table class="print-appendix-table"><thead><tr><th>姓名</th><th>记录索引</th><th>备注信息</th></tr></thead><tbody>
-        ${items.map((item) => `<tr><td>${escapeHtml(item.data.name)}</td><td>第${Math.floor(item.originalIndex / ITEMS_PER_PAGE) + 1}页第${(item.originalIndex % ITEMS_PER_PAGE) + 1}位</td><td>${escapeHtml(item.data.remark || item.data.remarks)}</td></tr>`).join('')}
+        ${items.map((item) => `<tr><td>${escapeHtml(item.data.name)}</td><td>第${Math.floor(item.originalIndex / bookSize) + 1}页第${(item.originalIndex % bookSize) + 1}位</td><td>${escapeHtml(item.data.remark || item.data.remarks)}</td></tr>`).join('')}
       </tbody></table>
       <div class="print-footer"><p>日期: ${dateStr || '未设置'}</p><p class="print-page-number">附录 第 ${j + 1} / ${total} 页</p><div class="print-footer-totals" style="opacity: 0"></div></div>`
     printView.appendChild(page)

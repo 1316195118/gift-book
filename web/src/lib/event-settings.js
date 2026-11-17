@@ -12,10 +12,12 @@ import { soundEnabled, setSoundEnabled, playTap } from './sound.js'
 import { motionPreference, setMotionPreference } from './feedback.js'
 import { showQrDialog } from './qr-dialog.js'
 import { label, hintIcon, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
+import { ceremonyLabel, ceremonyInputs } from './ceremony.js'
 import { openGuestPanel } from './guest-entry.js'
 import { notify } from './notify.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
+let selectedPerPage = 12
 
 // 设置弹窗由 Vue 异步挂载，关闭再打开时内容 DOM 会被替换。
 // 偏好开关用 document 级 change 委托，避免绑到已被换掉的旧节点上。
@@ -39,11 +41,15 @@ export function openSettings({ section = 'general' } = {}) {
   if (!ev) return
   if (section === 'delete') return deleteEventFlow()
   bindFeedbackPrefs()
+  selectedPerPage = Number(ev.perPage) === 8 || Number(ev.perPage) === 10 ? Number(ev.perPage) : 12
   const copy = copyOf(ev, st.homeCategory)
   const startDate = ev.startDateTime ? ev.startDateTime.slice(0, 10) : ''
   const startTime = ev.startDateTime ? ev.startDateTime.slice(11, 16) : ''
   const endDate = ev.endDateTime ? ev.endDateTime.slice(0, 10) : ''
   const endTime = ev.endDateTime ? ev.endDateTime.slice(11, 16) : ''
+  // 正期是「婚礼/殡期」本身的时间，和上面控制录入窗口的起止时间是两回事。
+  const ceremony = ceremonyInputs(ev.ceremonyAt)
+  const ceremonyName = ceremonyLabel(ev, st.homeCategory)
   const { groups } = buildVoiceGroups()
   const voice = getVoiceOptions()
   const groupHtml = groups
@@ -66,6 +72,16 @@ export function openSettings({ section = 'general' } = {}) {
         </div>
         <div class="event-settings-grid grid grid-cols-2 gap-3">
           <div class="field">
+            ${label('edit-ceremony-date', ceremonyName + '（选填）', '', '这是婚礼 / 殡期本身的时间，会显示在账簿卡片上；上面控制「什么时候可以录入」的起止时间不需要改。')}
+            <input type="date" id="edit-ceremony-date" value="${ceremony.date}" />
+          </div>
+          <div class="field">
+            ${label('edit-ceremony-time', '时间')}
+            <input type="time" id="edit-ceremony-time" value="${ceremony.time}" />
+          </div>
+        </div>
+        <div class="event-settings-grid grid grid-cols-2 gap-3">
+          <div class="field">
             ${label('edit-event-location', copy.locationLabel)}
             ${shell({ icon: ICON_PIN, input: `<input type="text" id="edit-event-location" value="${escapeHtml(ev.location || '')}" placeholder="选填" maxlength="200" />` })}
           </div>
@@ -73,6 +89,13 @@ export function openSettings({ section = 'general' } = {}) {
             ${label('edit-event-note', '账簿备注')}
             ${shell({ icon: ICON_NOTE, input: `<input type="text" id="edit-event-note" value="${escapeHtml(ev.note || '')}" placeholder="选填" maxlength="4000" />` })}
           </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h4 class="settings-title">每页行数${hintIcon('礼簿按页翻看，可选 8 / 10 / 12 行，默认 12 行。改完后总页数与本页小计会跟着重算，统计口径不变。')}</h4>
+        <div class="option-chips">
+          ${[8, 10, 12].map((n) => `<button type="button" class="option-chip${selectedPerPage === n ? ' active' : ''}" data-per-page="${n}">${n} 行</button>`).join('')}
         </div>
       </section>
 
@@ -172,7 +195,11 @@ export function openSettings({ section = 'general' } = {}) {
           minSpeechAmount: parseFloat(document.getElementById('edit-min-speech-amount').value) || 0,
           location: document.getElementById('edit-event-location').value.trim(),
           note: document.getElementById('edit-event-note').value.trim(),
+          perPage: selectedPerPage,
         }
+        const ceremonyDate = document.getElementById('edit-ceremony-date').value
+        const ceremonyTime = document.getElementById('edit-ceremony-time').value || '00:00'
+        payload.ceremonyAt = ceremonyDate ? `${ceremonyDate}T${ceremonyTime}` : ''
         if (start) payload.startDateTime = start
         if (end) payload.endDateTime = end
         const coverInput = document.getElementById('edit-cover-image-upload')
@@ -185,6 +212,10 @@ export function openSettings({ section = 'general' } = {}) {
           const result = await api.updateEvent(ev.id, payload)
           st.currentEvent = { ...st.currentEvent, ...payload, ...(result.data || {}) }
           updateSessionEvent(st.currentEvent)
+          // 列数变了：总页数马上重算，当前页不能超过新上限，避免本页小计与页码不一致。
+          const size = selectedPerPage
+          const pages = Math.ceil(st.gifts.length / size) || 1
+          st.currentPage = Math.min(st.currentPage, pages)
           closeModal()
           notify.success('账簿设置已保存', '', { duration: 3200 })
         } catch (error) {
@@ -195,6 +226,14 @@ export function openSettings({ section = 'general' } = {}) {
   ])
 
   afterModalRender(() => {
+    document.querySelectorAll('[data-per-page]').forEach((button) => {
+      button.addEventListener('click', () => {
+        selectedPerPage = Number(button.dataset.perPage)
+        document.querySelectorAll('[data-per-page]').forEach((item) => {
+          item.classList.toggle('active', Number(item.dataset.perPage) === selectedPerPage)
+        })
+      })
+    })
     document.getElementById('preview-edit-voice-btn')?.addEventListener('click', () => {
       previewVoice(document.getElementById('edit-event-voice').value, copy.voiceSample)
     })

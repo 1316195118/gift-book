@@ -1,17 +1,18 @@
 // 记账页主界面：录入、礼簿渲染、汇总、工具栏。
 import { reactive } from 'vue'
 import { state as st } from '../store.js'
+import { itemsPerPage, DEFAULT_PER_PAGE } from './page-size.js'
 import { copyOf } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { hasReturned } from './return-gift.js'
 import { recentEntry } from './recent-entry.js'
 import {
-  submitGift, submitBlank, fillBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, insertBlankBefore, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
   showQrDialog, batchNote,
 } from './ledger-actions.js'
 
-const ITEMS_PER_PAGE = 12
+const ITEMS_PER_PAGE = DEFAULT_PER_PAGE
 const PAYMENT_TYPES = ['现金', '支付宝', '微信', '其他']
 // 关系分组用于「哪类人送了多少」，空值统一按「未分类」处理，兼容旧记录。
 export { RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
@@ -31,11 +32,12 @@ export const PAYMENT_OPTIONS = PAYMENT_TYPES
 export { ITEMS_PER_PAGE }
 
 export function pageItems(gifts = st.gifts, page = st.currentPage) {
-  return gifts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  const size = itemsPerPage()
+  return gifts.slice((page - 1) * size, page * size)
 }
 
 export function totalPages(gifts = st.gifts) {
-  return Math.ceil(gifts.length / ITEMS_PER_PAGE) || 1
+  return Math.ceil(gifts.length / itemsPerPage()) || 1
 }
 
 // computeStats 统一由 stats-core.js 提供（主界面与统计弹窗共用同一口径）。
@@ -106,9 +108,10 @@ export function bookMarkup() {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const items = pageItems()
   const rows = { name: [], type: [], amount: [] }
-  for (let i = 0; i < ITEMS_PER_PAGE; i += 1) {
+  const size = itemsPerPage()
+  for (let i = 0; i < size; i += 1) {
     const gift = items[i]
-    const index = (st.currentPage - 1) * ITEMS_PER_PAGE + i
+    const index = (st.currentPage - 1) * size + i
     rows.name.push(nameCell(gift, index))
     rows.type.push(`<div class="book-cell type-cell">${escapeHtml(copy.bookType)}</div>`)
     rows.amount.push(amountCell(gift, index))
@@ -119,7 +122,7 @@ export function bookMarkup() {
 export { computeStats } from './stats-core.js'
 
 export {
-  submitGift, submitBlank, fillBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, insertBlankBefore, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
   showQrDialog, batchNote,
 }

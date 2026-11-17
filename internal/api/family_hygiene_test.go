@@ -333,6 +333,48 @@ func TestEncryptedBackupRoundTrip(t *testing.T) {
 	}
 }
 
+// 正期时间（婚礼 / 殡期）保存后随账簿一起返回。
+func TestEventCeremonyAt(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{"name": "婚宴", "template": "wedding", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	id := payload["data"].(map[string]any)["id"].(string)
+	res, payload = env.do(t, "PUT", "/api/events/"+id, map[string]any{"ceremonyAt": "2026-11-18T12:00"}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("保存正期失败: %d %v", res.StatusCode, payload)
+	}
+	if got := payload["data"].(map[string]any)["ceremonyAt"]; got != "2026-11-18T12:00" {
+		t.Fatalf("正期未保存: %v", got)
+	}
+}
+
+// 每页行数只接受 8 / 10 / 12，非法值回落 12，旧账簿默认 12。
+func TestEventPerPageSetting(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{"name": "测试账簿", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	id := payload["data"].(map[string]any)["id"].(string)
+	for _, spec := range []struct {
+		input float64
+		want  float64
+	}{{8, 8}, {10, 10}, {12, 12}, {99, 12}, {0, 12}} {
+		res, payload = env.do(t, "PUT", "/api/events/"+id, map[string]any{"perPage": spec.input}, map[string]string{"Cookie": cookie})
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("更新每页行数失败: %d %v", res.StatusCode, payload)
+		}
+		got := payload["data"].(map[string]any)["perPage"].(float64)
+		if got != spec.want {
+			t.Fatalf("perPage %v => %v, want %v", spec.input, got, spec.want)
+		}
+	}
+}
+
 // 宾客扫码登记：公开提交进待确认区，主家确认前不进账簿；关闭后入口立即失效。
 func TestGuestRegistrationFlow(t *testing.T) {
 	env := newEnv(t)
