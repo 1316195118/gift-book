@@ -11,6 +11,7 @@ import { encryptData, decryptData, loadGiftsForCurrentEvent, syncEventTotal, set
 import { newRequestId, NO_PASSWORD_HASH } from './crypto.js'
 import { enqueueGift, removeQueued, queueFor, readQueue, readCache } from './offline.js'
 import { toast } from './toast.js'
+import { notify } from './notify.js'
 import { probeAllLinks } from './network.js'
 import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
 import { getVoiceOptions, qrStorageKey } from './prefs.js'
@@ -23,7 +24,8 @@ import { isArchived, ensureWritable } from './archive.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
-export const MIN_GIFT_AMOUNT = 0.01
+export const MIN_GIFT_AMOUNT = 0
+export const MIN_RETURN_AMOUNT = 0.01
 
 // ---- 录入 ----
 
@@ -132,9 +134,18 @@ async function saveGift(giftData, resetForm) {
     if (queued) removeQueued(queued.qid)
     closeModal()
     resetForm?.()
-    // 记一笔，盖一个章：给操作一个看得见的回执
-    stampSeal(getCoverTemplate(st.currentEvent, st.homeCategory).glyph)
-    speakGift(giftData.name, giftData.amount)
+    // 确认弹窗关闭后焦点会离开输入框，Windows 输入法会退回英文。
+    // 下一帧把焦点还给姓名框，下一次录入可以直接接着用中文，不用手动切换。
+    nextTick(() => {
+      const nameInput = document.getElementById('guest-name')
+      if (nameInput && !nameInput.disabled) nameInput.focus({ preventScroll: true })
+    })
+    // 占位行不算一笔真实礼金：不盖章、不朗读、不出录入回执。
+    const isBlank = giftData.kind === 'blank'
+    if (!isBlank) {
+      stampSeal(getCoverTemplate(st.currentEvent, st.homeCategory).glyph)
+      speakGift(giftData.name, giftData.amount)
+    }
     touchSession()
     // 只解密刚写入的这一条并插入，不再每次记账都重拉整本账簿。
     const createdGift = created?.data
@@ -147,11 +158,13 @@ async function saveGift(giftData, resetForm) {
       st.currentPage = Math.ceil(st.gifts.length / 12) || 1
       syncEventTotal()
       // 记下这一笔在礼簿里的位置：录入卡片给出回执，礼簿上标出那一格。
-      markRecentEntry({
-        index: st.gifts.findIndex((g) => g.id === createdGift.id),
-        name: giftData.name,
-        amount: giftData.amount,
-      })
+      if (!isBlank) {
+        markRecentEntry({
+          index: st.gifts.findIndex((g) => g.id === createdGift.id),
+          name: giftData.name,
+          amount: giftData.amount,
+        })
+      }
     } else {
       // 万一返回内容异常，退回全量刷新，保证界面与数据一致。
       await loadGiftsForCurrentEvent()
@@ -258,6 +271,7 @@ export function showQueueModal() {
 // ---- 详情与修改 ----
 
 export function openGiftDetails(index) {
+  if (st.gifts[index]?.data?.kind === 'blank') return fillBlank(index)
   const gift = st.gifts[index]
   if (!gift) return
   const data = gift.data
@@ -350,7 +364,7 @@ function showInlineEdit(index, field) {
   if (field === 'name') {
     html = `<div class="themed-edit-area"><label>纠错姓名</label><input type="text" id="inline-edit-name" value="${escapeHtml(data.name)}" maxlength="20" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'amount') {
-    html = `<div class="themed-edit-area"><label>修改金额与类型</label><input type="number" id="inline-edit-amount" value="${escapeHtml(data.amount)}" min="0.01" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${['现金', '支付宝', '微信', '其他'].map((t) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-type" value="${t}" ${data.type === t ? 'checked' : ''} class="mr-1 themed-ring" />${t}</label>`).join('')}</div><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
+    html = `<div class="themed-edit-area"><label>修改金额与类型</label><input type="number" id="inline-edit-amount" value="${escapeHtml(data.amount)}" min="0" max="1000000" step="0.01" class="w-full p-2 border rounded themed-ring mb-2" /><div class="flex flex-wrap gap-x-3 gap-y-1 mb-2">${['现金', '支付宝', '微信', '其他'].map((t) => `<label class="flex items-center text-sm font-normal"><input type="radio" name="inline-edit-type" value="${t}" ${data.type === t ? 'checked' : ''} class="mr-1 themed-ring" />${t}</label>`).join('')}</div><div class="flex justify-end space-x-2"><button class="text-sm px-3 py-1 rounded themed-button-secondary border" data-cancel>取消</button><button class="text-sm px-3 py-1 rounded themed-button-primary" data-save>验证并保存</button></div></div>`
   } else if (field === 'relation') {
     const current = data.relation || RELATION_FALLBACK
     // 历史数据可能存了不在预设里的关系，补进这一组免得改不了。
@@ -396,8 +410,8 @@ function showInlineEdit(index, field) {
     } else if (field === 'return') {
       const amount = parseFloat(document.getElementById('inline-return-amount')?.value)
       const note = document.getElementById('inline-return-note')?.value.trim() || ''
-      if (!Number.isFinite(amount) || amount < MIN_GIFT_AMOUNT || amount > MAX_GIFT_AMOUNT) {
-        return showAlert('回礼金额无效', `请输入 ${MIN_GIFT_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString('zh-CN')} 元之间的金额。`)
+      if (!Number.isFinite(amount) || amount < MIN_RETURN_AMOUNT || amount > MAX_GIFT_AMOUNT) {
+        return showAlert('回礼金额无效', `请输入 ${MIN_RETURN_AMOUNT} ~ ${MAX_GIFT_AMOUNT.toLocaleString('zh-CN')} 元之间的金额。`)
       }
       const patch = appendReturn(data, amount, note)
       await updateWithHistory(index, patch, `登记第 ${patch.returnRecords.length} 次回礼 ${formatCurrency(amount)}${note ? `（${note}）` : ''}`)
@@ -419,6 +433,158 @@ export class GiftUpdateError extends Error {
 }
 
 // options.silent：批量登记回礼时逐条调用，不弹窗、不重开详情，由调用方统一收尾。
+// 空白/跳过：占住纸簿里的一行，不计入人数与金额，之后可以原位补录。
+export function submitBlank(resetForm) {
+  if (!ensureWritable()) return
+  if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再录入。')
+  return saveGift({
+    name: '', amount: 0, type: '现金', relation: '', remarks: '',
+    kind: 'blank', skippedAt: new Date().toISOString(),
+  }, resetForm)
+}
+
+// 补录占位行：更新原记录（时间、位置都不变），避免后续序号前移。
+export async function fillBlank(index) {
+  const gift = st.gifts[index]
+  if (!gift?.data || gift.data.kind !== 'blank') return
+  const html = `
+    <div class="gb-fill-blank">
+      <p class="gb-picker-hint">这一行原本是「跳过」。补录后会留在原位置，后面的记录不会前移。</p>
+      <div class="field"><label class="field-label" for="fill-name">姓名</label><input id="fill-name" type="text" maxlength="20" autocomplete="off" /></div>
+      <div class="field"><label class="field-label" for="fill-amount">金额（元，可填 0）</label><input id="fill-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" value="0" /></div>
+      <div class="field"><label class="field-label" for="fill-remarks">备注（选填）</label><input id="fill-remarks" type="text" maxlength="4000" /></div>
+      <div id="fill-error" class="gb-inline-error" role="alert"></div>
+    </div>`
+  openModal('补录跳过行', { type: 'html', html }, [
+    { text: '取消', class: 'themed-button-secondary border px-4 py-2 rounded' },
+    {
+      text: '补录',
+      class: 'themed-button-primary px-4 py-2 rounded',
+      keepOpen: true,
+      handler: async () => {
+        const name = document.getElementById('fill-name')?.value.trim() || ''
+        const amountText = document.getElementById('fill-amount')?.value ?? ''
+        const remarks = document.getElementById('fill-remarks')?.value.trim() || ''
+        const errorBox = document.getElementById('fill-error')
+        const fail = (message) => { if (errorBox) errorBox.textContent = message }
+        if (!name) return fail('请填写姓名')
+        const amount = Number(amountText)
+        if (!Number.isFinite(amount) || amount < MIN_GIFT_AMOUNT || amount > MAX_GIFT_AMOUNT) {
+          return fail('金额需在 0 ~ 1,000,000 元之间')
+        }
+        const ok = await updateWithHistory(index, {
+          name, amount, remarks, type: '现金', relation: '', kind: 'gift', skippedAt: null,
+        }, `补录跳过行：${name} ${formatCurrency(amount)}`)
+        if (ok) {
+          closeModal()
+          notify.success('已补录', `「${name}」已留在原位置。`)
+        } else {
+          fail('补录失败，请稍后重试')
+        }
+      },
+    },
+  ], { dismissable: true })
+}
+
+// 批量备注：给多条已有记录写同一段话（例如「共同操办」）。
+// 默认追加，不覆盖原备注；每条都走 updateWithHistory，保留位置与修改留痕。
+export function batchNote() {
+  const targets = st.gifts
+    .map((gift, index) => ({ gift, index }))
+    .filter(({ gift }) => gift?.data && gift.data.kind !== 'blank')
+  if (!targets.length) return showAlert('批量备注', '当前账簿还没有可备注的记录。')
+  const chosen = new Set()
+  let keyword = ''
+  const matched = () => targets.filter(({ gift }) => !keyword || String(gift.data?.name || '').includes(keyword))
+  const listHtml = () => matched().map(({ gift, index }) => `
+      <label class="gb-batch-row">
+        <input type="checkbox" value="${index}" ${chosen.has(index) ? 'checked' : ''} />
+        <b>${escapeHtml(gift.data?.name || '未命名')}</b>
+        <small>${formatCurrency(gift.data?.amount || 0)}${gift.data?.remarks ? ' · 已有备注' : ''}</small>
+      </label>`).join('') || '<div class="gb-empty">没有匹配的记录。</div>'
+  const html = `
+    <div id="gb-batch-note" class="gb-batch-note">
+      <p class="gb-picker-intro">给选中的记录写同一段备注。默认<b>追加</b>到原备注后面，不会覆盖已有内容。</p>
+      <input id="gb-batch-keyword" type="search" placeholder="按姓名查找" autocomplete="off" />
+      <div class="gb-batch-tools">
+        <button type="button" class="gb-link-btn" data-batch-all>全选当前结果</button>
+        <button type="button" class="gb-link-btn" data-batch-none>清空选择</button>
+        <span id="gb-batch-count">已选 0 条</span>
+      </div>
+      <div id="gb-batch-list" class="gb-batch-list">${listHtml()}</div>
+      <div class="field"><label class="field-label" for="gb-batch-text">备注内容</label><textarea id="gb-batch-text" rows="2" maxlength="500" placeholder="如：共同操办"></textarea></div>
+      <div class="payment-options">
+        <label><input type="radio" name="gb-batch-mode" value="append" checked /><span>追加到原备注</span></label>
+        <label><input type="radio" name="gb-batch-mode" value="overwrite" /><span>覆盖原备注</span></label>
+      </div>
+      <div id="gb-batch-error" class="gb-inline-error" role="alert"></div>
+    </div>`
+  openModal('批量备注', { type: 'html', html }, [
+    { text: '取消', class: 'themed-button-secondary border px-4 py-2 rounded' },
+    {
+      text: '写入备注',
+      class: 'themed-button-primary px-4 py-2 rounded',
+      keepOpen: true,
+      handler: async () => {
+        const text = document.getElementById('gb-batch-text')?.value.trim() || ''
+        const mode = document.querySelector('input[name="gb-batch-mode"]:checked')?.value || 'append'
+        const box = document.getElementById('gb-batch-error')
+        const fail = (message) => { if (box) box.textContent = message }
+        if (!text) return fail('请填写备注内容')
+        const indices = [...chosen].sort((a, b) => a - b)
+        if (!indices.length) return fail('请先选择记录')
+        if (indices.length > 100) return fail('一次最多处理 100 条，请分批操作')
+        let done = 0
+        for (const index of indices) {
+          const current = st.gifts[index]?.data
+          if (!current || current.kind === 'blank') continue
+          const next = mode === 'overwrite' ? text : [current.remarks, text].filter(Boolean).join('；')
+          const ok = await updateWithHistory(index, { remarks: next.slice(0, 4000) }, `批量备注：${text}`, { silent: true })
+          if (ok) done += 1
+        }
+        closeModal()
+        if (done) notify.success('备注已写入', `已更新 ${done} 条记录，原顺序不变。`)
+        else fail('没有记录被更新，请重试')
+      },
+    },
+  ], { size: 'large', dismissable: true })
+  afterModalRender(() => {
+    const root = document.getElementById('gb-batch-note')
+    if (!root) return
+    const count = document.getElementById('gb-batch-count')
+    const sync = () => { if (count) count.textContent = `已选 ${chosen.size} 条` }
+    document.getElementById('gb-batch-keyword')?.addEventListener('input', (event) => {
+      keyword = event.target.value.trim()
+      const list = document.getElementById('gb-batch-list')
+      if (list) list.innerHTML = listHtml()
+    })
+    document.getElementById('gb-batch-list')?.addEventListener('change', (event) => {
+      const box = event.target
+      if (box?.type !== 'checkbox') return
+      const index = Number(box.value)
+      if (box.checked) chosen.add(index)
+      else chosen.delete(index)
+      sync()
+    })
+    root.addEventListener('click', (event) => {
+      const all = event.target.closest('[data-batch-all]')
+      if (all) {
+        matched().forEach(({ index }) => chosen.add(index))
+        const list = document.getElementById('gb-batch-list')
+        if (list) list.innerHTML = listHtml()
+        sync()
+      }
+      const none = event.target.closest('[data-batch-none]')
+      if (none) {
+        chosen.clear()
+        const list = document.getElementById('gb-batch-list')
+        if (list) list.innerHTML = listHtml()
+        sync()
+      }
+    })
+  })
+}
+
 export async function updateWithHistory(index, fields, changeLog, options = {}) {
   const silent = options.silent === true
   if (st.locked) {

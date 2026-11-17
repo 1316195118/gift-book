@@ -105,14 +105,15 @@ export function exportToExcel() {
   ]
   scopeGifts().forEach((g, i) => {
     const d = g.data || {}
+    const blank = d.kind === 'blank'
     rows.push([
       { v: i + 1, s: style.center },
-      { v: `${isLate(g) ? '*补录 ' : ''}${d.name || ''}`, s: style.center },
-      { v: Number(d.amount) || 0, s: style.money },
-      { v: amountToChinese(d.amount), s: style.text },
-      { v: d.type || '', s: style.center },
-      { v: d.relation || '未分类', s: style.center },
-      { v: d.remarks || '', s: style.text },
+      { v: blank ? '— 跳过 —' : `${isLate(g) ? '*补录 ' : ''}${d.name || ''}`, s: style.center },
+      { v: blank ? '—' : Number(d.amount) || 0, s: style.money },
+      { v: blank ? '—' : amountToChinese(d.amount), s: style.text },
+      { v: blank ? '' : d.type || '', s: style.center },
+      { v: blank ? '' : d.relation || '未分类', s: style.center },
+      { v: blank ? '占位行，不计入人数与金额' : d.remarks || '', s: style.text },
       { v: formatDateTime(d.timestamp), s: style.center },
     ])
   })
@@ -443,6 +444,9 @@ export function exportToWord() {
     .map((g, i) => {
       const d = g.data || {}
       const when = formatDateTime(d.timestamp)
+      if (d.kind === 'blank') {
+        return `<tr><td class="c">${i + 1}</td><td class="name">— 跳过 —</td><td class="num">—</td><td class="cap">—</td><td class="c"></td><td class="c"></td><td class="remark">占位行，不计入人数与金额</td><td class="time">${escapeHtml(when)}</td></tr>`
+      }
       const nameChars = Array.from(String(d.name || ''))
       const shownName = nameChars.slice(0, 12).join('') + (nameChars.length > 12 ? '…' : '')
       const nameClass = nameChars.length === 1 ? ' len1' : nameChars.length === 2 ? ' len2' : ''

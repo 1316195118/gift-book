@@ -6,9 +6,9 @@ import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { hasReturned } from './return-gift.js'
 import { recentEntry } from './recent-entry.js'
 import {
-  submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
-  showQrDialog,
+  showQrDialog, batchNote,
 } from './ledger-actions.js'
 
 const ITEMS_PER_PAGE = 12
@@ -41,8 +41,10 @@ export function totalPages(gifts = st.gifts) {
 // computeStats 统一由 stats-core.js 提供（主界面与统计弹窗共用同一口径）。
 
 export function amountPreview(value) {
-  const amount = Number(value)
-  return !Number.isFinite(amount) || amount <= 0 ? '输入金额后显示大写' : `大写：${amountToChinese(amount)}`
+  const text = String(value ?? '').trim()
+  const amount = Number(text)
+  // 0 是合法金额：手动输入 0 时就显示「零元整」，只有留空才提示输入。
+  return !text || !Number.isFinite(amount) ? '输入金额后显示大写' : `大写：${amountToChinese(amount)}`
 }
 
 export function isLateGift(gift) {
@@ -67,6 +69,9 @@ function newCls(index) {
 function nameCell(gift, index) {
   if (!gift?.data) return `<div class="book-cell name-cell" data-gift-index="${index}"></div>`
   const data = gift.data
+  if (data.kind === 'blank') {
+    return `<div class="book-cell name-cell is-blank" data-gift-index="${index}" title="这一行已跳过，点击可补录"><span class="blank-mark">跳过</span></div>`
+  }
   const modified = Array.isArray(data.history) && data.history.length > 0
   const chars = Array.from(String(data.name ?? ''))
   const shown = chars.slice(0, 24)
@@ -89,6 +94,9 @@ function nameCell(gift, index) {
 
 function amountCell(gift, index) {
   if (!gift?.data) return `<div class="book-cell amount-cell" data-gift-index="${index}"></div>`
+  if (gift.data.kind === 'blank') {
+    return `<div class="book-cell amount-cell is-blank" data-gift-index="${index}"><span class="blank-mark">—</span></div>`
+  }
   const chinese = amountToChinese(gift.data.amount)
   const cnClass = chinese.length > 18 ? ' scale tiny' : chinese.length > 8 ? ' scale' : ''
   return `<div class="book-cell amount-cell${newCls(index)}" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? ' scale' : ''}">${formatCurrency(gift.data.amount)}</div></div>`
@@ -111,7 +119,7 @@ export function bookMarkup() {
 export { computeStats } from './stats-core.js'
 
 export {
-  submitGift, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
-  showQrDialog,
+  showQrDialog, batchNote,
 }

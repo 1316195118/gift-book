@@ -2,11 +2,22 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.16'
+export const APP_VERSION = '2.4.17'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.17',
+    date: '2026-11-17',
+    notes: [
+      { t: 'feat', text: '金额可以录 0：保留必填，手动输入 0 即可保存，大写显示「零元整」；回礼金额仍须大于 0' },
+      { t: 'feat', text: '「空白 / 跳过」占位行：按纸簿顺序占住一行，不计入人数与金额，导出保留序号；点击可原位补录，后面的记录不会前移' },
+      { t: 'feat', text: '批量备注：勾选多条记录一次写入同一段话，默认追加不覆盖，每条都留修改记录（一次最多 100 条）' },
+      { t: 'fix', text: '录入确认后把焦点还给姓名框，Windows 输入法不再退回英文' },
+      { t: 'fix', text: '手机记满一页时，停在最后一页的其它设备会自动跟着翻页；停在中间页查看旧记录的用户不受影响' },
+    ],
+  },
   {
     version: '2.4.16',
     date: '2026-11-17',

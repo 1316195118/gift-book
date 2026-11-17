@@ -12,6 +12,20 @@ describe('computeStats', () => {
     expect(s.topGivers).toEqual([])
   })
 
+  it('跳过占位行不计入人数、金额与笔数', () => {
+    const gifts = [
+      { data: { name: '张三', amount: 100, type: '现金' } },
+      { data: { name: '', amount: 0, type: '现金', kind: 'blank', skippedAt: '2026-11-17T00:00:00Z' } },
+      { data: { name: '李四', amount: 0, type: '微信' } },
+    ]
+    const s = computeStats(gifts)
+    expect(s.recordCount).toBe(2)
+    expect(s.totalAmount).toBe(100)
+    expect(s.totalGivers).toBe(2)
+    expect(s.byType['现金']).toBe(100)
+    expect(s.byType['微信']).toBe(0)
+  })
+
   it('金额 / 类型 / 关系 / 回礼 / 人数与 Top', () => {
     const gifts = [
       { data: { name: '张三', amount: 100, type: '现金', relation: '朋友', returnRecords: [{ amount: 50 }] } },

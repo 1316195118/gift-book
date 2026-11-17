@@ -70,7 +70,7 @@
             <p>{{ copy.entrySub }}</p>
           </div>
 
-          <form id="add-gift-form" @submit.prevent="onSubmit" autocomplete="off">
+          <form id="add-gift-form" @submit.prevent="onSubmit" @keydown.alt.s.prevent="onBlank" autocomplete="off">
             <div class="entry-field">
               <label for="guest-name">{{ copy.nameLabel }} <span class="field-counter">{{ entry.name.length }}/20</span></label>
               <div class="field-shell">
@@ -82,7 +82,7 @@
             <div class="entry-field">
               <label for="gift-amount">{{ copy.amountLabel }} <small>人民币 / 元</small></label>
               <div class="field-shell">
-                <input v-model="entry.amount" type="number" id="gift-amount" data-suffix="元" placeholder="0.00" required min="0.01" max="1000000" step="0.01" inputmode="decimal" :disabled="readOnly" />
+                <input v-model="entry.amount" type="number" id="gift-amount" data-suffix="元" placeholder="0.00" required min="0" max="1000000" step="0.01" inputmode="decimal" :disabled="readOnly" />
                 <span class="field-suffix">元</span>
               </div>
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
@@ -114,8 +114,11 @@
               <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="readOnly"></textarea>
             </div>
 
-            <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
-            <p class="entry-hint">按回车核对并提交 · Shift + 回车换行</p>
+            <div class="entry-submit-row">
+              <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
+              <button type="button" id="submit-blank-btn" class="gb-blank-btn" :disabled="readOnly" title="占位一行，之后可以原位补录（Alt+S）" @click="onBlank">空白 / 跳过</button>
+            </div>
+            <p class="entry-hint">按回车核对并提交 · Shift + 回车换行 · Alt + S 跳过一行</p>
           </form>
         </section>
 
@@ -134,6 +137,7 @@
               </div>
             </div>
             <button id="search-top-btn" type="button" @click="onSearch">查找</button>
+            <button id="batch-note-btn" type="button" @click="batchNote">批量备注</button>
           </div>
 
           <div class="ledger-summary" aria-live="polite">
@@ -204,7 +208,7 @@ import { pulse } from '../lib/feedback.js'
 import { playPage } from '../lib/sound.js'
 import {
   PAYMENT_OPTIONS, RELATION_OPTIONS, entry, resetEntry, bookMarkup, computeStats, pageItems,
-  totalPages, amountPreview, submitGift, runSearch, openGiftDetails, showQueueModal,
+  totalPages, amountPreview, submitGift, submitBlank, batchNote, runSearch, openGiftDetails, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock, showQrDialog,
 } from '../lib/ledger-view.js'
 import { focusGiftRow } from '../lib/ledger-actions.js'
@@ -317,6 +321,11 @@ function onSubmit() {
   submitGift({ ...entry }, resetEntry)
 }
 
+// 「跳过」占住纸簿里的一行，之后点那一格可以原位补录，后面的序号不会前移。
+function onBlank() {
+  submitBlank(resetEntry)
+}
+
 // 「在礼簿中查看」：翻到那一页并把它滚到视野中间，闪一下做定位。
 async function revealRecent() {
   receiptVisible.value = false
@@ -417,8 +426,11 @@ function onRemoteChange(payload) {
   remoteTimer = window.setTimeout(async () => {
     if (st.locked) return
     const page = st.currentPage
+    // 已经在最后一页 = 正在跟着录入：别的设备记满一页时跟着翻过去。
+    // 停在中间页查看旧记录时保持不动，不把人硬拽走。
+    const wasAtEnd = page >= totalPages()
     await loadGiftsForCurrentEvent().catch(() => {})
-    if (st.gifts.length) st.currentPage = Math.min(page, totalPages())
+    if (st.gifts.length) st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
   }, 450)
 }
 

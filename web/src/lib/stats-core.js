@@ -18,7 +18,8 @@ export function computeStats(gifts = []) {
   let recordCount = 0
 
   gifts.forEach(({ data }) => {
-    if (!data) return
+    // 「跳过」占位行只为对齐纸簿顺序，不计入人数、金额与笔数。
+    if (!data || data.kind === 'blank') return
     recordCount += 1
     const cents = toCents(data.amount)
     totalCents += cents

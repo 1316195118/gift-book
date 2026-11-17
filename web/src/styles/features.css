@@ -1193,3 +1193,88 @@
     animation: none;
   }
 }
+
+/* 跳过占位行与批量备注 */
+.entry-submit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.entry-submit-row > button:first-child {
+  flex: 1;
+}
+
+.gb-blank-btn {
+  padding: 9px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.gb-blank-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.book-cell.is-blank {
+  opacity: .6;
+}
+
+.blank-mark {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  letter-spacing: .1em;
+}
+
+.gb-batch-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  text-align: left;
+}
+
+.gb-batch-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.gb-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 38vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: var(--sp-2);
+}
+
+.gb-batch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.gb-batch-row:hover {
+  background: var(--surface-sunken);
+}
+
+.gb-batch-row b {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.gb-batch-row small {
+  margin-left: auto;
+  color: var(--muted);
+}
