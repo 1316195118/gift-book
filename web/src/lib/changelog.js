@@ -2,11 +2,19 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.24'
+export const APP_VERSION = '2.4.25'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.25',
+    date: '2026-11-17',
+    notes: [
+      { t: 'fix', text: '录入查重补上「本机最近提交」：第一笔还在待同步时，第二笔同名同额会立刻弹重复确认，不再静默写入两条' },
+      { t: 'opt', text: '页码导航重做：页码改为可点文字，点击才出现小输入框；首末页箭头更轻，窄屏自动隐藏' },
+    ],
+  },
   {
     version: '2.4.24',
     date: '2026-11-17',

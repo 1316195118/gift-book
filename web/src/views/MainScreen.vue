@@ -159,11 +159,11 @@
               <div class="book-navigation">
                 <button class="page-edge" type="button" aria-label="第一页" title="第一页（Home）" :disabled="st.currentPage <= 1" @click="jumpPage(1)">«</button>
                 <button id="prev-page-btn" type="button" aria-label="上一页" title="上一页（←）" :disabled="st.currentPage <= 1" @click="pageBy(-1)">‹</button>
-                <span class="book-page-label">
-                  第 {{ st.currentPage }} / {{ pages }} 页
+                <button type="button" class="book-page-label" title="点击输入页码" @click="startPageEdit">
+                  <span>第 {{ st.currentPage }} / {{ pages }} 页</span>
                   <small v-if="pageRange">{{ pageRange.from }}–{{ pageRange.to }} 条</small>
-                </span>
-                <input id="page-jump" v-model.number="pageInput" class="page-jump" type="number" min="1" :max="pages" inputmode="numeric" aria-label="跳转到页码" title="输入页码后回车跳转" @keydown.enter.prevent="jumpToInput" />
+                </button>
+                <input v-if="pageEditing" id="page-jump" ref="pageJumpInput" v-model.number="pageInput" class="page-jump" type="number" min="1" :max="pages" inputmode="numeric" aria-label="跳转到页码" @keydown.enter.prevent="jumpToInput" @keydown.esc.prevent="cancelPageEdit" @blur="finishPageEdit" />
                 <button id="next-page-btn" type="button" aria-label="下一页" title="下一页（→）" :disabled="st.currentPage >= pages" @click="pageBy(1)">›</button>
                 <button class="page-edge" type="button" aria-label="最后一页" title="最后一页（End）" :disabled="st.currentPage >= pages" @click="jumpPage(pages)">»</button>
               </div>
@@ -210,7 +210,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { state as st, updateSessionEvent } from '../store.js'
 import { api } from '../lib/api.js'
 import { copyOf } from '../lib/content.js'
@@ -417,6 +417,24 @@ function onDocClick(event) {
 }
 
 const pageInput = ref(1)
+const pageEditing = ref(false)
+const pageJumpInput = ref(null)
+
+async function startPageEdit() {
+  pageInput.value = st.currentPage
+  pageEditing.value = true
+  await nextTick()
+  pageJumpInput.value?.focus()
+  pageJumpInput.value?.select()
+}
+
+function finishPageEdit() {
+  pageEditing.value = false
+}
+
+function cancelPageEdit() {
+  pageEditing.value = false
+}
 watch(
   () => st.currentPage,
   (value) => { pageInput.value = value },
@@ -429,6 +447,7 @@ watch(pages, (value) => {
 const pageRange = computed(() => pageRangeFor(st.currentPage, st.gifts.length))
 
 function jumpPage(target) {
+  pageEditing.value = false
   const value = Math.min(Math.max(1, Number(target) || 1), pages.value)
   if (value !== st.currentPage) {
     playPage(value > st.currentPage ? 1 : -1)
@@ -439,7 +458,7 @@ function jumpPage(target) {
 
 function jumpToInput() {
   jumpPage(pageInput.value)
-  document.getElementById('page-jump')?.blur()
+  pageEditing.value = false
 }
 
 function onKeydown(event) {

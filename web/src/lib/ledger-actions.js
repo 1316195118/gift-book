@@ -30,6 +30,42 @@ export const MIN_RETURN_AMOUNT = 0.01
 
 // ---- 录入 ----
 
+// 本机最近提交（含已进离线队列、尚未出现在礼簿里的）：用于拦住短时间内的重复录入。
+const RECENT_KEY = 'gb-recent-submits'
+const RECENT_WINDOW = 10 * 60 * 1000
+
+function readRecentSubmits() {
+  try {
+    const list = JSON.parse(sessionStorage.getItem(RECENT_KEY) || '[]')
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+function noteRecentSubmit(name, amount) {
+  try {
+    const now = Date.now()
+    const list = readRecentSubmits().filter((item) => now - Number(item.at) < RECENT_WINDOW)
+    list.push({ name: String(name || '').trim(), amount: Number(amount) || 0, at: now })
+    sessionStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(-200)))
+  } catch {
+    /* 隐私模式禁用存储时忽略，仍靠礼簿内查重 */
+  }
+}
+
+function findRecentName(name) {
+  const now = Date.now()
+  return readRecentSubmits().find((item) => item.name === name && now - Number(item.at) <= 2 * 60 * 1000)
+}
+
+function findRecentSubmit(name, amount) {
+  const now = Date.now()
+  return readRecentSubmits().find((item) => item.name === name
+    && Math.abs(Number(item.amount) - Number(amount)) < 0.005
+    && now - Number(item.at) <= RECENT_WINDOW)
+}
+
 export async function submitGift(giftData, resetForm) {
   if (!ensureWritable()) return
   if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再录入。')
@@ -48,6 +84,8 @@ export async function submitGift(giftData, resetForm) {
 
   const sameName = st.gifts.filter((g) => g.data?.name === name)
   const exactMatch = sameName.some((g) => g.data?.amount === amount)
+    || Boolean(findRecentSubmit(name, amount))
+    || Boolean(findRecentName(name))
   const start = new Date(st.currentEvent.startDateTime).getTime()
   const end = new Date(st.currentEvent.endDateTime).getTime()
   const hasWindow = Number.isFinite(start) && Number.isFinite(end)
@@ -74,7 +112,7 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
     title = '重复信息确认'
     body = `
       <div class="space-y-3 text-left">
-        <div class="modal-notice modal-notice-warn"><strong class="font-bold">警告：</strong><p class="text-sm">系统中已存在“相同姓名”且“相同金额”的记录，为避免重复录入，请仔细核对。</p></div>
+        <div class="modal-notice modal-notice-warn"><strong class="font-bold">警告：</strong><p class="text-sm">系统中已存在“相同姓名”且“相同金额”的记录（也可能是刚刚提交、还在待同步的那一笔），请仔细核对后再提交。</p></div>
         <p><strong>${copy.confirmGuestLabel}:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
         <p><strong>金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
         <div><label for="modal-remarks-input" class="block text-sm font-medium text-gray-700">如非重复，建议填写备注(选填)</label><textarea id="modal-remarks-input" placeholder="${escapeHtml(copy.remarksTip)}" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea></div>
@@ -141,6 +179,7 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
   let queued = null
   let record = null
   try {
+    noteRecentSubmit(giftData.name, giftData.amount)
     const fullGift = { ...giftData, timestamp: timestampOverride || new Date().toISOString(), late }
     const encryptedContent = await encryptData(fullGift, st.currentPassword)
     record = { eventId: st.currentEvent.id, encryptedContent, requestId: newRequestId() }

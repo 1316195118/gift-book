@@ -2058,7 +2058,26 @@ body.theme-solemn .hero-book-art .book {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 1px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
   line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.book-page-label:hover {
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+}
+
+.book-page-label span {
+  font-variant-numeric: tabular-nums;
 }
 
 .book-page-label small {
@@ -2068,16 +2087,17 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .page-jump {
-  width: 46px;
-  height: 30px;
-  padding: 0 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  width: 40px;
+  height: 26px;
+  padding: 0 2px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
   font-size: var(--fs-xs);
   text-align: center;
   font-variant-numeric: tabular-nums;
+  box-shadow: none;
 }
 
 .page-jump::-webkit-outer-spin-button,
