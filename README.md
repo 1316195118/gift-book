@@ -95,7 +95,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本：带 OCR 的多架构镜像用 `ocr-v2.4.18`（v2.4.18），无 OCR 的旧版用 `vue3-20261117-0348`（v2.4.16）。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。需要 OCR 时改用多架构标签 `ocr`（同时提供 linux/amd64 与 linux/arm64），它带 Python 与本地模型，体积约 594MB；无 OCR 的精简镜像约 366MB。
+- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本：带 OCR 的多架构镜像用 `ocr-v2.4.19`（v2.4.19），无 OCR 的旧版用 `vue3-20261117-0348`（v2.4.16）。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。需要 OCR 时改用多架构标签 `ocr`（同时提供 linux/amd64 与 linux/arm64），它带 Python 与本地模型，体积约 594MB；无 OCR 的精简镜像约 366MB。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
