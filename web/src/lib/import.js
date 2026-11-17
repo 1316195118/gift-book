@@ -143,6 +143,7 @@ function renderPreview() {
   if (!summary || !preview) return
   const { records, errors, fileName } = pending
   if (!fileName) return
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   summary.innerHTML = `已解析 <b>${escapeHtml(fileName)}</b>：可导入 <b>${records.length}</b> 条${errors.length ? `，跳过 <b class="text-red-600">${errors.length}</b> 条` : ''}。`
   const head = `<tr>${['姓名', '金额', '收款方式', '关系', '备注'].map((h) => `<th style="border:1px solid #ddd;padding:4px 6px;background:#f7f7f7;font-weight:600">${h}</th>`).join('')}</tr>`
   const body = records
@@ -151,6 +152,7 @@ function renderPreview() {
     .join('')
   const more = records.length > 8 ? `<p class="hint">仅预览前 8 条，共 ${records.length} 条。</p>` : ''
   const errBox = errors.length ? `<div class="modal-notice modal-notice-warn" style="margin-top:8px"><strong>跳过：</strong><ul>${errors.slice(0, 6).map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>${errors.length > 6 ? '<p class="hint">…仅显示前 6 条</p>' : ''}</div>` : ''
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   preview.innerHTML = `<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">${head}${body}</table></div>${more}${errBox}`
 }
 

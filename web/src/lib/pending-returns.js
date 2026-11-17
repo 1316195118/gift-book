@@ -96,6 +96,7 @@ export function openPendingReturns() {
     const more = matched.length > shown
       ? `<button type="button" class="gb-more-btn" data-pending-act="more">显示更多（还有 ${matched.length - shown} 条）</button>`
       : ''
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     list.innerHTML = matched.length ? rows + more : '<div class="gb-empty">没有符合条件的记录。</div>'
     updateCounter()
   }

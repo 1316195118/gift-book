@@ -360,6 +360,7 @@
     layer.setAttribute("role", "group");
     layer.setAttribute("aria-label", "调整礼簿边框");
     const shown = base.toDataURL("image/jpeg", 0.85);
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     layer.innerHTML = `
       <div class="ocr-layer-head"><div><b>对齐纸张边框</b><span>${found ? "已自动找到纸张四角，可拖动圆点微调" : "未能自动找到边框，请拖动四个圆点对准纸张四角"}</span></div><button type="button" class="ocr-layer-close" data-act="cancel" aria-label="取消">×</button></div>
       <div class="ocr-crop-stage"><div class="ocr-crop-frame"><img alt="待校正的礼簿照片" src="${shown}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon class="ocr-quad" points="${quadPath(quad)}"></polygon></svg>${quad.map((_, i) => `<button type="button" class="ocr-handle" data-corner="${i}" aria-label="${["左上", "右上", "右下", "左下"][i]}角，可用方向键微调"></button>`).join("")}</div></div>

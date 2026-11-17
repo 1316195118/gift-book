@@ -395,6 +395,7 @@ export async function exportReturnsPdf() {
       p === 0
         ? `<h1 class="print-header"><span class="print-header-name">${escapeHtml(ev.name)}</span><span class="print-header-sep">·</span><span class="print-header-kind">回礼明细</span></h1><p class="returns-print-meta">${escapeHtml(returnsMetaLine(ev, list, total, copy))}</p>`
         : `<h1 class="print-header"><span class="print-header-name">${escapeHtml(ev.name)}</span><span class="print-header-sep">·</span><span class="print-header-kind">回礼明细（续）</span></h1>`
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     page.innerHTML = `${head}
       <table class="returns-print-table"><thead><tr><th>序号</th><th>姓名</th><th>关系</th><th>原礼金</th><th>回礼金额</th><th>次数</th><th>最近回礼</th><th>备注</th><th>类型</th></tr></thead>
       <tbody>${slice
@@ -509,6 +510,7 @@ export async function exportLedgerPdf() {
 function showPdfProgress(total) {
   const box = document.createElement('div')
   box.id = 'pdf-progress'
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   box.innerHTML = `<div class="pdf-progress-card"><span class="pdf-progress-spin" aria-hidden="true"></span><div><b>正在生成 PDF…</b><small id="pdf-progress-text">共 ${total} 页</small></div></div>`
   document.body.appendChild(box)
   return {

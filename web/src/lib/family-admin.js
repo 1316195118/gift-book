@@ -32,6 +32,7 @@ function renderList() {
     const total = families.reduce((sum, item) => sum + (item.eventCount || 0), 0)
     summary.textContent = `共 ${families.length} 个家庭 · ${total} 本账簿`
   }
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   list.innerHTML = families.length
     ? families.map((item) => `
       <div class="gb-family-row" data-family-id="${escapeHtml(item.id)}">

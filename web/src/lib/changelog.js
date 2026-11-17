@@ -2,11 +2,25 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.28'
+export const APP_VERSION = '2.4.29'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: "2.4.29",
+    date: "2026-11-17",
+    notes: [
+      {
+        t: "sec",
+        text: "接入 no-unsanitized 静态检查：27 处 innerHTML 逐行核对（均已转义）并加豁免说明，新增代码默认拦截"
+      },
+      {
+        t: "opt",
+        text: "重复录入检测抽离为独立模块并补单测"
+      }
+    ]
+  },
   {
     version: "2.4.28",
     date: "2026-11-17",

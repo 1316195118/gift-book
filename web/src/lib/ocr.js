@@ -271,6 +271,7 @@
     dialog.id = "paper-ocr-dialog";
     dialog.setAttribute("aria-labelledby", "ocr-heading");
     dialog.className = "paper-ocr";
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     dialog.innerHTML = `
       <header class="ocr-head"><div><span class="ocr-kicker">纸上心意 · 数字留存</span><h2 id="ocr-heading">扫描纸质礼簿</h2><p>导入「${esc(options.eventName)}」 · 图片仅在本容器识别</p>${options.notice ? `<p class="ocr-late-notice">${esc(options.notice)}</p>` : ""}</div><button type="button" class="ocr-close" aria-label="关闭扫描窗口">×</button></header>
       <div class="ocr-body">
@@ -350,6 +351,7 @@
       }
     }
     function renderFiles() {
+      // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
       $("#ocr-thumbnails").innerHTML = files.map((f, i) => `<div class="${f.corrected ? "is-corrected" : ""}"><button type="button" data-page="${i}" title="${esc(f.file.name)}"><img src="${f.url}" alt="第 ${i + 1} 页"><span>第 ${i + 1} 页${f.corrected ? " · 已校正" : ""}</span></button><button type="button" data-adjust="${i}" class="ocr-adjust" aria-label="调整第 ${i + 1} 页边框">边框</button><button type="button" data-remove="${i}" aria-label="移除第 ${i + 1} 页">×</button></div>`).join("");
       $("#ocr-thumbnails").querySelectorAll("[data-adjust]").forEach(b => b.onclick = () => adjustPage(Number(b.dataset.adjust)));
       $("#ocr-thumbnails").querySelectorAll("[data-page]").forEach(b => b.onclick = () => showImage(Number(b.dataset.page)));
@@ -370,6 +372,7 @@
     }
     function renderRows() {
       $("#ocr-empty").hidden = rows.length > 0;
+      // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
       $("#ocr-rows").innerHTML = rows.map((row, i) => `<article class="ocr-row" data-row="${i}">
         <div class="ocr-row-top"><label><input type="checkbox" data-field="selected" ${row.selected ? "checked" : ""}>第 ${i + 1} 笔${row.pageIndex >= 0 ? ` · 第 ${row.pageIndex + 1} 页` : " · 手动补录"}</label><button type="button" data-action="locate">对照原图</button></div>
         <label>姓名<input data-field="name" type="text" maxlength="20" autocomplete="off" value="${esc(row.name)}" aria-label="第 ${i + 1} 笔姓名"></label>

@@ -1,9 +1,18 @@
 import pluginVue from 'eslint-plugin-vue'
+import noUnsanitized from 'eslint-plugin-no-unsanitized'
 
 // 轻量门禁：只拦真实错误（未使用变量、Vue 模板结构问题），不做格式强制，
 // 避免一次性重排全仓产生海量 diff。
 export default [
   { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
+  {
+    plugins: { 'no-unsanitized': noUnsanitized },
+    rules: {
+      // innerHTML / insertAdjacentHTML 必须经过转义；已人工核对过的位置逐行豁免。
+      'no-unsanitized/property': ['error', { escape: { taggedTemplates: ['escapeHtml'] } }],
+      'no-unsanitized/method': 'error',
+    },
+  },
   {
     files: ['e2e/**'],
     languageOptions: {

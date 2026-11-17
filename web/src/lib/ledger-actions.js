@@ -14,6 +14,7 @@ import { enqueueGift, removeQueued, queueFor, readQueue, readCache } from './off
 import { toast } from './toast.js'
 import { notify } from './notify.js'
 import { pageOfIndexFor, pageSizeAt } from './page-size.js'
+import { noteRecentSubmit, findRecentSubmit, findRecentName } from './recent-submits.js'
 import { probeAllLinks } from './network.js'
 import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
 import { getVoiceOptions, qrStorageKey } from './prefs.js'
@@ -30,42 +31,6 @@ export const MIN_GIFT_AMOUNT = 0
 export const MIN_RETURN_AMOUNT = 0.01
 
 // ---- 录入 ----
-
-// 本机最近提交（含已进离线队列、尚未出现在礼簿里的）：用于拦住短时间内的重复录入。
-const RECENT_KEY = 'gb-recent-submits'
-const RECENT_WINDOW = 10 * 60 * 1000
-
-function readRecentSubmits() {
-  try {
-    const list = JSON.parse(sessionStorage.getItem(RECENT_KEY) || '[]')
-    return Array.isArray(list) ? list : []
-  } catch {
-    return []
-  }
-}
-
-function noteRecentSubmit(name, amount) {
-  try {
-    const now = Date.now()
-    const list = readRecentSubmits().filter((item) => now - Number(item.at) < RECENT_WINDOW)
-    list.push({ name: String(name || '').trim(), amount: Number(amount) || 0, at: now })
-    sessionStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(-200)))
-  } catch {
-    /* 隐私模式禁用存储时忽略，仍靠礼簿内查重 */
-  }
-}
-
-function findRecentName(name) {
-  const now = Date.now()
-  return readRecentSubmits().find((item) => item.name === name && now - Number(item.at) <= 2 * 60 * 1000)
-}
-
-function findRecentSubmit(name, amount) {
-  const now = Date.now()
-  return readRecentSubmits().find((item) => item.name === name
-    && Math.abs(Number(item.amount) - Number(amount)) < 0.005
-    && now - Number(item.at) <= RECENT_WINDOW)
-}
 
 export async function submitGift(giftData, resetForm) {
   if (!ensureWritable()) return
@@ -748,6 +713,7 @@ export function batchNote() {
     document.getElementById('gb-batch-keyword')?.addEventListener('input', (event) => {
       keyword = event.target.value.trim()
       const list = document.getElementById('gb-batch-list')
+      // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
       if (list) list.innerHTML = listHtml()
     })
     document.getElementById('gb-batch-list')?.addEventListener('change', (event) => {
@@ -763,6 +729,7 @@ export function batchNote() {
       if (all) {
         matched().forEach(({ index }) => chosen.add(index))
         const list = document.getElementById('gb-batch-list')
+        // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
         if (list) list.innerHTML = listHtml()
         sync()
       }
@@ -770,6 +737,7 @@ export function batchNote() {
       if (none) {
         chosen.clear()
         const list = document.getElementById('gb-batch-list')
+        // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
         if (list) list.innerHTML = listHtml()
         sync()
       }
@@ -985,6 +953,7 @@ export async function runSearch(name, amountText, options = {}) {
     moreBtn?.addEventListener('click', () => {
       const start = listEl.querySelectorAll('.search-row').length
       const next = results.slice(start, start + SEARCH_BATCH)
+      // eslint-disable-next-line no-unsanitized/method -- 静态内容，无用户输入
       listEl.insertAdjacentHTML('beforeend', next.map(rowHtml).join(''))
       const left = total - (start + next.length)
       if (left > 0) moreBtn.textContent = `显示更多（剩余 ${left} 条）`

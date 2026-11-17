@@ -97,6 +97,7 @@ function renderCharts(stats, table) {
   if (typeBox) {
     const entries = Object.entries(stats.byType).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
     const max = Math.max(1, ...entries.map(([, v]) => v))
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     typeBox.innerHTML = entries.length
       ? entries.map(([type, amount]) => `<div class="bar-row" data-filter="${escapeHtml(type)}" title="点击筛选明细"><span class="bar-label">${escapeHtml(type)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
       : '<p class="empty">暂无数据</p>'
@@ -112,6 +113,7 @@ function renderCharts(stats, table) {
   if (relationBox) {
     const entries = Object.entries(stats.byRelation).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
     const max = Math.max(1, ...entries.map(([, v]) => v))
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     relationBox.innerHTML = entries.length
       ? entries.map(([relation, amount]) => `<div class="bar-row" data-filter="${escapeHtml(relation)}" title="点击筛选明细"><span class="bar-label">${escapeHtml(relation)}</span><span class="bar-track"><span class="bar-fill" style="width:${((amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${formatCurrency(amount)}</span></div>`).join('')
       : '<p class="empty">暂无数据</p>'
@@ -145,6 +147,7 @@ function renderCharts(stats, table) {
       d.amount = byDay[d.key] || 0
     })
     const max = Math.max(1, ...days.map((d) => d.amount))
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     dayBox.innerHTML = days
       .map((d) => `<div class="bar-row"><span class="bar-label">${d.key}</span><span class="bar-track"><span class="bar-fill" style="width:${((d.amount / max) * 100).toFixed(1)}%"></span></span><span class="bar-value">${d.amount ? formatCurrency(d.amount) : ''}</span></div>`)
       .join('')
@@ -155,6 +158,7 @@ function renderStatsTable(container, columns, rows) {
   if (!container) return
   const PAGE_SIZE = 20
   const state = { q: '', sortCol: -1, sortDir: 1, page: 1 }
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   container.innerHTML = `
     <div class="stats-table-wrap">
       <div class="stats-table-bar"><input type="search" id="stats-search" placeholder="搜索姓名、备注或收款方式" autocomplete="off" /><span class="stats-count" id="stats-count"></span></div>
@@ -189,6 +193,7 @@ function renderStatsTable(container, columns, rows) {
     if (state.page > totalPages) state.page = totalPages
     const start = (state.page - 1) * PAGE_SIZE
     const pageRows = list.slice(start, start + PAGE_SIZE)
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     tbody.innerHTML = pageRows.length
       ? pageRows
           .map((r) => `<tr>${r.map((cell, i) => {

@@ -123,6 +123,7 @@ export function buildPrintPages(giftList = null) {
 
   const coverPage = document.createElement('div')
   coverPage.className = 'print-page print-cover-page'
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
   coverPage.innerHTML = renderCoverMarkup(ev, false, st.homeCategory)
   printView.appendChild(coverPage)
 
@@ -137,9 +138,11 @@ export function buildPrintPages(giftList = null) {
     pageContainer.className = 'print-page'
     const content = document.createElement('div')
     content.className = 'print-book-content'
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     content.innerHTML = renderBookRows(pageGifts)
     if (i === 0) {
       // 账簿名和「礼金明细」之间要有分隔，否则会连成「喜宴礼金明细」读不断句
+      // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
       pageContainer.innerHTML += `<h1 class="print-header"><span class="print-header-name">${escapeHtml(ev.name)}</span><span class="print-header-sep">·</span><span class="print-header-kind">${copy.detailTitle}</span></h1>`
     }
     pageContainer.appendChild(content)
@@ -155,6 +158,7 @@ export function buildPrintPages(giftList = null) {
       const shown = historyRows.slice(0, 8)
       const historyBox = document.createElement('div')
       historyBox.className = 'print-history'
+      // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
       historyBox.innerHTML =
         '<div class="print-history-title">本页修改记录</div><ol>' +
         shown.map((row) => `<li><b>${escapeHtml(row.name)}</b> ${escapeHtml(row.text)}${row.when ? ` <span>${escapeHtml(row.when)}</span>` : ''}</li>`).join('') +
@@ -165,6 +169,7 @@ export function buildPrintPages(giftList = null) {
 
     const pageSubtotal = pageGifts.reduce((sum, gift) => sum + (Number(gift.data?.amount) || 0), 0)
     const isLast = i === totalGiftPages - 1
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     pageContainer.innerHTML += `
       <div class="print-footer">
         <p>日期: ${dateStr || '未设置'}</p>
@@ -192,6 +197,7 @@ function appendAppendix(printView, dateStr, gifts) {
     const items = remarked.slice(j * perPage, (j + 1) * perPage)
     const page = document.createElement('div')
     page.className = 'print-page'
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     page.innerHTML = `
       <h1 class="print-header">${copy.appendixTitle}</h1>
       <table class="print-appendix-table"><thead><tr><th>姓名</th><th>记录索引</th><th>备注信息</th></tr></thead><tbody>

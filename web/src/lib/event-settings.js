@@ -72,6 +72,7 @@ export function openSettings({ section = 'general' } = {}) {
     : '<p class="gb-picker-hint">还没有页段规则，全部按默认行数。</p>'
   const rerenderRules = () => {
     const box = document.getElementById('gb-page-rules')
+    // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
     if (box) box.innerHTML = pageRulesMarkup()
   }
   const collectPageRules = () => {
