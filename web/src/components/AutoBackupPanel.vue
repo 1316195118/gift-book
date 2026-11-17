@@ -157,6 +157,9 @@ async function save() {
     await api.autobackupSave({ enabled: enabled.value, intervalHours: interval.value, keep: keep.value, familyEnabled: familyEnabled.value, familyKeep: familyKeep.value })
     await load()
     message.value = '设置已保存'
+    notify.success('自动备份设置已保存', enabled.value
+      ? `每 ${interval.value} 小时备份 · 整站保留 ${keep.value} 份${familyEnabled.value ? ` · 家庭保留 ${familyKeep.value} 份` : ''}`
+      : '整站自动备份已关闭（手动与家庭备份不受影响）')
   } catch (err) {
     error.value = err.message || '保存失败'
   } finally {

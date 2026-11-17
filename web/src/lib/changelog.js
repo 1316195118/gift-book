@@ -2,11 +2,21 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.29'
+export const APP_VERSION = '2.4.30'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: "2.4.30",
+    date: "2026-11-18",
+    notes: [
+      {
+        t: "opt",
+        text: "自动备份设置保存后弹明显的成功提示（含备份周期与保留份数），页面提示带脉冲动画；全站排查其余保存入口均已有反馈"
+      }
+    ]
+  },
   {
     version: "2.4.29",
     date: "2026-11-17",

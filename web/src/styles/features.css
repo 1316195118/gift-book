@@ -1659,3 +1659,15 @@
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+
+/* 保存成功的提示脉冲 */
+.autobackup-ok {
+  animation: saved-pulse 1.2s ease;
+}
+
+@keyframes saved-pulse {
+  0% { opacity: 0; transform: translateY(2px); }
+  30% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: .7; }
+}
