@@ -14,6 +14,7 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG BUILD_ID=multiarch
 WORKDIR /src
 COPY go.mod ./
 COPY cmd/ ./cmd/
@@ -21,7 +22,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"multiarch","version":"2.4.16"}\n' > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.16"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 

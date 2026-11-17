@@ -38,6 +38,7 @@ jobs:
           REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
           docker buildx build --platform linux/${{ matrix.arch }} -f Dockerfile.ocr \
             --build-arg TARGETOS=linux --build-arg TARGETARCH=${{ matrix.arch }} \
+            --build-arg BUILD_ID="$GITHUB_RUN_ID" \
             -t "$IMAGE:ocr-${{ matrix.arch }}-$REF" --push .
 
   manifest:
