@@ -1509,3 +1509,114 @@
   font-size: var(--fs-sm);
   text-align: center;
 }
+
+/* 礼簿骨架屏 */
+.book-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 12px;
+}
+
+.sk-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk-line {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface) 50%, var(--surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s linear infinite;
+}
+
+.sk-line.w60 { width: 60%; }
+.sk-line.w40 { width: 40%; }
+.sk-line.w80 { width: 80%; }
+
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.sk-cell {
+  display: block;
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface) 50%, var(--surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s linear infinite;
+}
+
+@keyframes sk-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* 备注紧凑化：默认折叠时不给录入按钮留压力 */
+.entry-remarks textarea {
+  min-height: 42px;
+  max-height: 84px;
+  resize: none;
+}
+
+/* 手机端录入区紧凑化：让「确认录入」尽量落在首屏 */
+@media (max-width: 720px) {
+  .entry-panel {
+    padding: 12px;
+  }
+
+  .entry-heading {
+    margin-bottom: 6px;
+  }
+
+  .entry-heading h2 {
+    margin: 0;
+    font-size: var(--fs-md);
+  }
+
+  .entry-heading p {
+    margin: 2px 0 0;
+    font-size: var(--fs-xs);
+  }
+
+  .entry-field {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .amount-chinese-preview {
+    min-height: 20px;
+    line-height: 20px;
+    font-size: var(--fs-xs);
+  }
+
+  .amount-quick {
+    gap: 5px;
+    margin-top: 4px;
+  }
+
+  .entry-more-toggle {
+    padding: 4px 10px;
+    margin: 0 0 4px;
+  }
+
+  .entry-submit-row {
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .entry-submit-row button {
+    padding: 10px 14px;
+  }
+
+  .entry-hint {
+    margin-top: 4px;
+    font-size: var(--fs-2xs);
+    line-height: 1.4;
+  }
+}

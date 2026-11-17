@@ -4,6 +4,15 @@ import pluginVue from 'eslint-plugin-vue'
 // 避免一次性重排全仓产生海量 diff。
 export default [
   { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
+  {
+    files: ['e2e/**'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { process: 'readonly', console: 'readonly' },
+    },
+    rules: { 'no-console': 'off', 'no-undef': 'off' },
+  },
   ...pluginVue.configs['flat/recommended'],
   {
     languageOptions: {

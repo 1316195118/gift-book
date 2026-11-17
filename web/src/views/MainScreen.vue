@@ -91,7 +91,7 @@
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
             </div>
 
-            <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="entryMore = !entryMore">
+            <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="toggleEntryMore">
               <span>{{ entryMore ? '收起' : '展开' }}更多选项</span><small>收款方式 · 关系 · 备注</small>
             </button>
             <div v-show="entryMore" class="entry-more-fields">
@@ -118,7 +118,7 @@
 
             <div class="entry-field entry-remarks">
               <label for="remarks">备注 <small>选填 · {{ entry.remarks.length }}/4000</small></label>
-              <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="readOnly"></textarea>
+              <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="1" maxlength="4000" :disabled="readOnly"></textarea>
             </div>
 
             </div>
@@ -169,9 +169,14 @@
                   <small v-if="pageRange">{{ pageRange.from }}–{{ pageRange.to }} 条</small>
                 </button>
                 <input v-if="pageEditing" id="page-jump" ref="pageJumpInput" v-model.number="pageInput" class="page-jump" type="number" min="1" :max="pages" inputmode="numeric" aria-label="跳转到页码" @keydown.enter.prevent="jumpToInput" @keydown.esc.prevent="cancelPageEdit" @blur="finishPageEdit" />
+                <button v-if="pageEditing" type="button" class="page-jump-btn" aria-label="跳转" @mousedown.prevent @click="jumpToInput">跳</button>
                 <button id="next-page-btn" type="button" aria-label="下一页" title="下一页（→）" :disabled="st.currentPage >= pages" @click="pageBy(1)">›</button>
                 <button class="page-edge" type="button" aria-label="最后一页" title="最后一页（End）" :disabled="st.currentPage >= pages" @click="jumpPage(pages)">»</button>
               </div>
+            </div>
+            <div v-if="st.currentEvent && !st.giftsLoaded" class="book-skeleton" aria-busy="true" aria-label="正在加载礼簿">
+              <div class="sk-block"><i class="sk-line w60"></i><i class="sk-line w40"></i><i class="sk-line w80"></i></div>
+              <div class="sk-grid"><i v-for="n in 8" :key="n" class="sk-cell"></i></div>
             </div>
             <div v-if="!st.gifts.length" class="book-empty">这本账簿还没有记录，从左边录入第一笔吧。</div>
             <div v-else-if="!pageRange" class="book-empty">这一页没有记录。<button type="button" class="gb-link-btn" @click="jumpPage(1)">回到第一页</button></div>
@@ -244,7 +249,15 @@ const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
 const searchUnreturned = ref(false)
-const entryMore = ref(typeof window !== 'undefined' && window.innerWidth >= 720)
+const ENTRY_MORE_KEY = 'gb-entry-more'
+function readEntryMorePref() {
+  try { return localStorage.getItem(ENTRY_MORE_KEY) === '1' } catch { return false }
+}
+const entryMore = ref(readEntryMorePref())
+function toggleEntryMore() {
+  entryMore.value = !entryMore.value
+  try { localStorage.setItem(ENTRY_MORE_KEY, entryMore.value ? '1' : '0') } catch { /* 隐私模式忽略 */ }
+}
 
 // 录入回执只在刚记完的一小段时间里出现，避免常驻挡视线。
 const receiptVisible = ref(false)

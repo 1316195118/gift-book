@@ -2100,6 +2100,18 @@ body.theme-solemn .hero-book-art .book {
   box-shadow: none;
 }
 
+.page-jump-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  cursor: pointer;
+}
+
 .page-jump::-webkit-outer-spin-button,
 .page-jump::-webkit-inner-spin-button {
   -webkit-appearance: none;

@@ -258,6 +258,7 @@ export async function loadGiftsForCurrentEvent() {
   if (!event || !password) return
   const eventId = event.id
   const generation = ++loadGeneration
+  st.giftsLoaded = false
   const cipher = (await ensureCipher())?.keys || null
   if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
   try {
@@ -309,6 +310,7 @@ export async function loadGiftsForCurrentEvent() {
     // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
     // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
     st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
+    st.giftsLoaded = true
     st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
     st.queueCount = pending.length
     const unreadable = encryptedGifts.length - decrypted.length
@@ -325,6 +327,7 @@ export async function loadGiftsForCurrentEvent() {
   } catch (error) {
     if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return
     if (generation === loadGeneration) setSyncStatus('账簿数据加载失败，请检查网络后重试。', true)
+    st.giftsLoaded = true
   }
 }
 

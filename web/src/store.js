@@ -11,6 +11,7 @@ export const state = reactive({
   currentEvent: null,
   currentPassword: null,
   gifts: [],
+  giftsLoaded: false,
   currentPage: 1,
   cachedEvents: {},
   ledgerKeys: new Map(),
