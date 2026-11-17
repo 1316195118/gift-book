@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+# 带 OCR 的多架构镜像：优先体积，构建期下载模型，运行时不联网。
+# 默认 Dockerfile 仍是精简的 Alpine 版（无 OCR），这个镜像按需单独使用。
+
+# ---------- 前端 ----------
+FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS web
+WORKDIR /src
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# ---------- Go 二进制（按目标架构交叉编译） ----------
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS builder
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /src
+COPY go.mod ./
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY embed.go ./
+RUN mkdir -p webapp/dist
+COPY --from=web /src/dist/ ./webapp/dist/
+RUN printf '{"build":"multiarch","version":"2.4.16"}\n' > webapp/dist/build.json \
+ && touch webapp/dist/.gitkeep \
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
+
+# ---------- OCR 运行时：venv + 模型一次装好 ----------
+FROM python:3.12-slim-bookworm AS ocrbuild
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY ocr/ /opt/ocr/
+RUN python -m venv /opt/ocr/venv \
+ && /opt/ocr/venv/bin/pip install --no-cache-dir -r /opt/ocr/requirements.txt \
+ && cd /opt/ocr \
+ && ./venv/bin/python engine.py
+
+# ---------- 最终镜像 ----------
+FROM python:3.12-slim-bookworm
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates tzdata libgomp1 wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /data /config
+COPY --from=builder /out/giftbook /usr/local/bin/giftbook
+COPY --from=ocrbuild /opt/ocr /usr/local/bin/ocr
+ENV TZ=Asia/Shanghai \
+    GIFTBOOK_OCR_PYTHON=/usr/local/bin/ocr/venv/bin/python \
+    GIFTBOOK_OCR_SCRIPT=/usr/local/bin/ocr/recognize.py
+VOLUME ["/data", "/config"]
+EXPOSE 8099
+ENTRYPOINT ["/usr/local/bin/giftbook"]
+CMD ["-addr", "0.0.0.0", "-port", "8099", "-data", "/data", "-config", "/config"]

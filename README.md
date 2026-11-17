@@ -255,6 +255,12 @@ ocr/
 
 4 个自写源码文件已随仓库提供；`models/` 与 `venv/` 体积大且各有许可，由 `.gitignore` 排除，需按 `ocr/THIRD_PARTY.md` 自行准备。也可用环境变量 `GIFTBOOK_OCR_PYTHON`、`GIFTBOOK_OCR_SCRIPT` 指定。未配置时界面会明确提示「当前部署未内置 OCR」，其余功能不受影响。
 
+### 镜像选择与按需加载
+
+- 默认 `Dockerfile` 产出精简的 Alpine 镜像（无 Python、无 OCR）；需要 OCR 时用 `Dockerfile.ocr` 构建带引擎的镜像。CI 会按 amd64 / arm64 分别构建并合并为多架构标签 `ghcr.io/1316195118/gift-book:ocr`，可用 `docker buildx imagetools inspect` 查看支持的架构。
+- **按需加载**：OCR 不作为常驻服务。收到识别请求时 Go 才拉起一个短生命周期的 Python 进程，`engine.py` 此时校验三个模型的 SHA256 并加载；进程结束即释放内存。模型缺失或校验失败时直接失败关闭，运行时不会联网下载。
+- 前端按 `/api/capabilities` 的 `ocr` 字段决定是否显示入口；没有引擎的部署不会露出不可用的按钮。
+
 ---
 
 ## 目录结构
