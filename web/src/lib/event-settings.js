@@ -13,6 +13,7 @@ import { motionPreference, setMotionPreference } from './feedback.js'
 import { showQrDialog } from './qr-dialog.js'
 import { label, hintIcon, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field-parts.js'
 import { ceremonyLabel, ceremonyInputs } from './ceremony.js'
+import { totalPagesFor } from './page-size.js'
 import { openGuestPanel } from './guest-entry.js'
 import { notify } from './notify.js'
 
@@ -51,6 +52,37 @@ export function openSettings({ section = 'general' } = {}) {
   const ceremony = ceremonyInputs(ev.ceremonyAt)
   const ceremonyName = ceremonyLabel(ev, st.homeCategory)
   // 让用户点选时就看到会变成多少页，而不是保存后才发现。
+  let pageRulesDraft = Array.isArray(ev.pageRules)
+    ? ev.pageRules.filter((rule) => rule && Number(rule.from) >= 1).map((rule) => ({
+        from: Number(rule.from), to: Number(rule.to) || 0, perPage: Number(rule.perPage) || 12,
+      }))
+    : []
+  const pageRuleRow = (rule, index) => `
+    <div class="gb-rule-row" data-rule-row="${index}">
+      <span>第</span>
+      <input type="number" min="1" max="9999" value="${rule.from}" data-rule-field="from" aria-label="起始页" />
+      <span>到</span>
+      <input type="number" min="0" max="9999" value="${rule.to || ''}" placeholder="末页" data-rule-field="to" aria-label="结束页（留空表示到末页）" />
+      <span>页</span>
+      <select data-rule-field="perPage" aria-label="每页行数">${[8, 10, 12].map((n) => `<option value="${n}" ${rule.perPage === n ? 'selected' : ''}>${n} 行</option>`).join('')}</select>
+      <button type="button" class="gb-rule-remove" data-rule-remove="${index}" aria-label="删除这段规则">×</button>
+    </div>`
+  const pageRulesMarkup = () => pageRulesDraft.length
+    ? pageRulesDraft.map((rule, index) => pageRuleRow(rule, index)).join('')
+    : '<p class="gb-picker-hint">还没有页段规则，全部按默认行数。</p>'
+  const rerenderRules = () => {
+    const box = document.getElementById('gb-page-rules')
+    if (box) box.innerHTML = pageRulesMarkup()
+  }
+  const collectPageRules = () => {
+    const rows = [...document.querySelectorAll('[data-rule-row]')]
+    return rows.map((row) => ({
+      from: Number(row.querySelector('[data-rule-field="from"]')?.value) || 0,
+      to: Number(row.querySelector('[data-rule-field="to"]')?.value) || 0,
+      perPage: Number(row.querySelector('[data-rule-field="perPage"]')?.value) || 12,
+    })).filter((rule) => rule.from >= 1 && (rule.to === 0 || rule.to >= rule.from))
+  }
+
   const perPageHint = (size) => {
     const total = st.gifts.length
     const pages = Math.max(1, Math.ceil(total / size))
@@ -104,6 +136,12 @@ export function openSettings({ section = 'general' } = {}) {
           ${[8, 10, 12].map((n) => `<button type="button" class="option-chip${selectedPerPage === n ? ' active' : ''}" data-per-page="${n}" aria-pressed="${selectedPerPage === n}">${n} 行</button>`).join('')}
         </div>
         <p class="field-hint" id="edit-per-page-hint">${perPageHint(selectedPerPage)}</p>
+        <div class="field">
+          <label class="field-label">按页段指定行数</label>
+          <div id="gb-page-rules">${pageRulesMarkup()}</div>
+          <button type="button" id="gb-add-page-rule" class="gb-link-btn">+ 添加页段</button>
+          <p class="field-hint">例如「第 1–10 页 12 行、第 11 页起 8 行」。只影响指定页段，未覆盖的页用上面的默认行数；调整页段不会改动已录入记录的顺序。</p>
+        </div>
       </section>
 
       <section class="settings-section">
@@ -203,6 +241,7 @@ export function openSettings({ section = 'general' } = {}) {
           location: document.getElementById('edit-event-location').value.trim(),
           note: document.getElementById('edit-event-note').value.trim(),
           perPage: selectedPerPage,
+          pageRules: collectPageRules(),
         }
         const ceremonyDate = document.getElementById('edit-ceremony-date').value
         const ceremonyTime = document.getElementById('edit-ceremony-time').value || '00:00'
@@ -219,10 +258,8 @@ export function openSettings({ section = 'general' } = {}) {
           const result = await api.updateEvent(ev.id, payload)
           st.currentEvent = { ...st.currentEvent, ...payload, ...(result.data || {}) }
           updateSessionEvent(st.currentEvent)
-          // 列数变了：总页数马上重算，当前页不能超过新上限，避免本页小计与页码不一致。
-          const size = selectedPerPage
-          const pages = Math.ceil(st.gifts.length / size) || 1
-          st.currentPage = Math.min(st.currentPage, pages)
+          // 行数或页段变了：按新规则重算总页数，当前页不能超过上限。
+          st.currentPage = Math.min(st.currentPage, totalPagesFor(st.gifts.length))
           closeModal()
           notify.success('账簿设置已保存', '', { duration: 3200 })
         } catch (error) {
@@ -233,6 +270,19 @@ export function openSettings({ section = 'general' } = {}) {
   ])
 
   afterModalRender(() => {
+    document.getElementById('gb-add-page-rule')?.addEventListener('click', () => {
+      pageRulesDraft = collectPageRules()
+      const last = pageRulesDraft[pageRulesDraft.length - 1]
+      pageRulesDraft.push({ from: last ? (last.to || last.from) + 1 : 1, to: 0, perPage: selectedPerPage })
+      rerenderRules()
+    })
+    document.getElementById('gb-page-rules')?.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-rule-remove]')
+      if (!remove) return
+      pageRulesDraft = collectPageRules()
+      pageRulesDraft.splice(Number(remove.dataset.ruleRemove), 1)
+      rerenderRules()
+    })
     document.querySelectorAll('[data-per-page]').forEach((button) => {
       button.addEventListener('click', () => {
         selectedPerPage = Number(button.dataset.perPage)

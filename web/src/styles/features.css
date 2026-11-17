@@ -1278,3 +1278,181 @@
   margin-left: auto;
   color: var(--muted);
 }
+
+/* 分页区间规则编辑器 */
+#gb-page-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.gb-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.gb-rule-row input[type="number"] {
+  width: 64px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.gb-rule-row select {
+  padding: 4px 6px;
+}
+
+.gb-rule-remove {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gb-rule-remove:hover {
+  color: #b03024;
+}
+
+/* 常用金额快填 */
+.amount-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.amount-quick button {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.amount-quick button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 同名记录检查 */
+.gb-dup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 58vh;
+  overflow: auto;
+}
+
+.gb-dup-group {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.gb-dup-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--fs-sm);
+}
+
+.gb-dup-head span {
+  color: var(--muted);
+}
+
+.gb-dup-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gb-dup-group li {
+  display: flex;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.gb-dup-group li span {
+  color: var(--muted);
+}
+
+.gb-dup-group li em {
+  margin-left: auto;
+  color: var(--muted);
+  font-style: normal;
+}
+
+/* 手机端录入 / 礼簿快速跳转 */
+.mobile-jump {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .mobile-jump {
+    position: fixed;
+    left: 50%;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 60;
+    display: flex;
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+    transform: translateX(-50%);
+    backdrop-filter: blur(6px);
+  }
+
+  .mobile-jump button {
+    padding: 6px 16px;
+    border: none;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+
+  .mobile-jump button:active {
+    background: var(--surface-sunken);
+  }
+}
+
+/* 宾客待确认：勾选与批量操作 */
+.gb-guest-pick {
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.gb-guest-bulk {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* 搜索栏的快捷筛选 */
+.search-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}

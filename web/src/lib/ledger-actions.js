@@ -12,13 +12,13 @@ import { newRequestId, NO_PASSWORD_HASH } from './crypto.js'
 import { enqueueGift, removeQueued, queueFor, readQueue, readCache } from './offline.js'
 import { toast } from './toast.js'
 import { notify } from './notify.js'
-import { itemsPerPage, pageOfIndex } from './page-size.js'
+import { pageOfIndexFor, pageSizeAt } from './page-size.js'
 import { probeAllLinks } from './network.js'
 import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
 import { getVoiceOptions, qrStorageKey } from './prefs.js'
 import { speakText, previewVoice } from './voice.js'
 import { showQrImage } from './qr.js'
-import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn } from './return-gift.js'
+import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn, hasReturned } from './return-gift.js'
 import { compareGiftsByRegistration, registeredAtOf } from './gift-order.js'
 import { markRecentEntry } from './recent-entry.js'
 import { isArchived, ensureWritable } from './archive.js'
@@ -109,7 +109,21 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
   ])
 }
 
+// 防重复提交：确认按钮在弱网/手抖时可能被点两次，两次请求的 requestId 不同，
+// 服务端无法去重。这里用同步的在途标记把第二次直接挡掉。
+let saveInFlight = false
+
 async function saveGift(giftData, resetForm, timestampOverride) {
+  if (saveInFlight) return false
+  saveInFlight = true
+  try {
+    return await saveGiftInner(giftData, resetForm, timestampOverride)
+  } finally {
+    saveInFlight = false
+  }
+}
+
+async function saveGiftInner(giftData, resetForm, timestampOverride) {
   if (isArchived()) {
     closeModal()
     return ensureWritable()
@@ -156,7 +170,7 @@ async function saveGift(giftData, resetForm, timestampOverride) {
         st.gifts.push({ ...createdGift, data: createdData })
       }
       st.gifts.sort(compareGiftsByRegistration)
-      st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
+      st.currentPage = pageOfIndexFor(st.gifts.length - 1, st.gifts.length)
       syncEventTotal()
       // 记下这一笔在礼簿里的位置：录入卡片给出回执，礼簿上标出那一格。
       if (!isBlank) {
@@ -193,7 +207,7 @@ async function handleOffline(record, giftData, item, serverIssue) {
     pending: true,
     data: { ...giftData, timestamp: item.queuedAt },
   })
-  st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
+  st.currentPage = pageOfIndexFor(st.gifts.length - 1, st.gifts.length)
   markRecentEntry({ index: st.gifts.length - 1, name: giftData.name, amount: giftData.amount })
   if (serverIssue) {
     setSyncStatus('服务暂时不可用，这一笔已加密暂存在本机，恢复后会自动补传。', true)
@@ -502,7 +516,7 @@ export function insertBlankAt(index, position = 'before') {
     kind: 'blank', skippedAt,
   }, null, skippedAt).then(() => {
     const inserted = st.gifts.findIndex((item) => item.data?.kind === 'blank' && item.data.skippedAt === skippedAt)
-    if (inserted >= 0) st.currentPage = pageOfIndex(inserted)
+    if (inserted >= 0) st.currentPage = pageOfIndexFor(inserted, st.gifts.length)
   })
 }
 
@@ -531,7 +545,7 @@ export function deleteBlank(index) {
           await api.deleteGift(st.currentEvent.id, gift.id)
           closeModal()
           st.gifts.splice(index, 1)
-          st.currentPage = Math.min(st.currentPage, Math.max(1, Math.ceil(st.gifts.length / itemsPerPage())))
+          st.currentPage = Math.min(st.currentPage, Math.max(1, st.gifts.length ? pageOfIndexFor(st.gifts.length - 1, st.gifts.length) : 1))
           notify.success('占位行已删除', '后面的记录已前移。')
         } catch (error) {
           showAlert('删除失败', error.message || '请稍后重试。')
@@ -606,7 +620,7 @@ export function batchNote() {
       </label>`).join('') || '<div class="gb-empty">没有匹配的记录。</div>'
   const html = `
     <div id="gb-batch-note" class="gb-batch-note">
-      <p class="gb-picker-intro">给选中的记录写同一段备注。默认<b>追加</b>到原备注后面，不会覆盖已有内容。</p>
+      <p class="gb-picker-intro">对选中的记录批量修改备注、关系或收款方式；不填的项目保持原样。</p>
       <input id="gb-batch-keyword" type="search" placeholder="按姓名查找" autocomplete="off" />
       <div class="gb-batch-tools">
         <button type="button" class="gb-link-btn" data-batch-all>全选当前结果</button>
@@ -614,38 +628,52 @@ export function batchNote() {
         <span id="gb-batch-count">已选 0 条</span>
       </div>
       <div id="gb-batch-list" class="gb-batch-list">${listHtml()}</div>
-      <div class="field"><label class="field-label" for="gb-batch-text">备注内容</label><textarea id="gb-batch-text" rows="2" maxlength="500" placeholder="如：共同操办"></textarea></div>
+      <div class="gb-form-grid">
+        <div class="field"><label class="field-label" for="gb-batch-relation">关系</label><select id="gb-batch-relation"><option value="">不修改</option>${RELATION_OPTIONS.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}</select></div>
+        <div class="field"><label class="field-label" for="gb-batch-type">收款方式</label><select id="gb-batch-type"><option value="">不修改</option>${['现金', '支付宝', '微信', '其他'].map((t) => `<option value="${t}">${t}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label class="field-label" for="gb-batch-text">备注内容（选填）</label><textarea id="gb-batch-text" rows="2" maxlength="500" placeholder="如：共同操办"></textarea></div>
       <div class="payment-options">
-        <label><input type="radio" name="gb-batch-mode" value="append" checked /><span>追加到原备注</span></label>
-        <label><input type="radio" name="gb-batch-mode" value="overwrite" /><span>覆盖原备注</span></label>
+        <label><input type="radio" name="gb-batch-mode" value="append" checked /><span>备注追加到原文后</span></label>
+        <label><input type="radio" name="gb-batch-mode" value="overwrite" /><span>备注覆盖原文</span></label>
       </div>
       <div id="gb-batch-error" class="gb-inline-error" role="alert"></div>
     </div>`
-  openModal('批量备注', { type: 'html', html }, [
+  openModal('批量修改', { type: 'html', html }, [
     { text: '取消', class: 'themed-button-secondary border px-4 py-2 rounded' },
     {
-      text: '写入备注',
+      text: '写入修改',
       class: 'themed-button-primary px-4 py-2 rounded',
       keepOpen: true,
       handler: async () => {
         const text = document.getElementById('gb-batch-text')?.value.trim() || ''
+        const relation = document.getElementById('gb-batch-relation')?.value || ''
+        const type = document.getElementById('gb-batch-type')?.value || ''
         const mode = document.querySelector('input[name="gb-batch-mode"]:checked')?.value || 'append'
         const box = document.getElementById('gb-batch-error')
         const fail = (message) => { if (box) box.textContent = message }
-        if (!text) return fail('请填写备注内容')
+        if (!text && !relation && !type) return fail('请至少填写备注、关系或收款方式中的一项')
         const indices = [...chosen].sort((a, b) => a - b)
         if (!indices.length) return fail('请先选择记录')
         if (indices.length > 100) return fail('一次最多处理 100 条，请分批操作')
+        const labels = []
+        if (relation) labels.push(`关系→${relation}`)
+        if (type) labels.push(`方式→${type}`)
+        if (text) labels.push(`备注：${text}`)
+        const log = `批量修改：${labels.join('，')}`
         let done = 0
         for (const index of indices) {
           const current = st.gifts[index]?.data
           if (!current || current.kind === 'blank') continue
-          const next = mode === 'overwrite' ? text : [current.remarks, text].filter(Boolean).join('；')
-          const ok = await updateWithHistory(index, { remarks: next.slice(0, 4000) }, `批量备注：${text}`, { silent: true })
+          const fields = {}
+          if (relation) fields.relation = relation
+          if (type) fields.type = type
+          if (text) fields.remarks = (mode === 'overwrite' ? text : [current.remarks, text].filter(Boolean).join('；')).slice(0, 4000)
+          const ok = await updateWithHistory(index, fields, log, { silent: true })
           if (ok) done += 1
         }
         closeModal()
-        if (done) notify.success('备注已写入', `已更新 ${done} 条记录，原顺序不变。`)
+        if (done) notify.success('批量修改完成', `已更新 ${done} 条记录，原顺序不变。`)
         else fail('没有记录被更新，请重试')
       },
     },
@@ -758,7 +786,7 @@ function isLate(gift) {
 export async function focusGiftRow(index) {
   const i = Number(index)
   if (!Number.isInteger(i) || i < 0 || i >= st.gifts.length) return false
-  const page = pageOfIndex(i)
+  const page = pageOfIndexFor(i, st.gifts.length)
   if (page !== st.currentPage) {
     st.currentPage = page
     await nextTick()
@@ -788,14 +816,14 @@ async function waitScrollUnlocked(timeout = 700) {
 
 // ---- 查询 ----
 
-export async function runSearch(name, amountText) {
+export async function runSearch(name, amountText, options = {}) {
   // 手机端点到「查找」时输入框还带着焦点，软键盘会占掉半屏：
   // 先收起键盘，后面翻页定位才不会在缩小的视口里算错位置。
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   const normalize = (value) => String(value || '').replace(/[\s　​-‍﻿]/g, '')
   const nameTerm = normalize(name)
   const amountRaw = String(amountText ?? '').trim()
-  if (!nameTerm && amountRaw === '') return showAlert('提示', '请输入姓名或金额后再查询。')
+  if (!nameTerm && amountRaw === '' && !options.unreturned) return showAlert('提示', '请输入姓名或金额后再查询。')
   const amountTerm = amountRaw === '' ? null : Number(amountRaw)
   if (amountTerm !== null && (!Number.isFinite(amountTerm) || amountTerm < 0)) return showAlert('提示', '请输入有效的金额。')
   const results = st.gifts
@@ -805,11 +833,13 @@ export async function runSearch(name, amountText) {
       const names = [g.data.name, g.data.giverName, g.giverName, g.name].filter(Boolean).map(normalize)
       const nameOk = !nameTerm || names.some((n) => n.includes(nameTerm))
       const amountOk = amountTerm === null || Math.abs(Number(g.data.amount) - amountTerm) < 0.005
-      return nameOk && amountOk
+      const returnOk = !options.unreturned || !hasReturned(g.data)
+      return nameOk && amountOk && returnOk
     })
   const criteria = []
   if (nameTerm) criteria.push(`姓名包含「${nameTerm}」`)
   if (amountTerm !== null) criteria.push(`金额 ${formatCurrency(amountTerm)}`)
+  if (options.unreturned) criteria.push('仅未回礼')
   if (!results.length) return showAlert('查找结果', escapeHtml(`没有找到${criteria.join('、')}的记录。`))
 
   // 只命中一条：不绕结果列表，直接翻到那一页再弹详情，

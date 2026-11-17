@@ -7,6 +7,39 @@ import { formatCurrency, formatDateTime, escapeHtml } from './crypto.js'
 import { computeStats } from './stats-core.js'
 export { computeStats }
 
+// 同名记录：同名不等于重复（可能真是两位同名客人），只列出来供核对。
+export function duplicateGroups(gifts = st.gifts) {
+  const map = new Map()
+  gifts.forEach((gift) => {
+    const data = gift?.data
+    if (!data || data.kind === 'blank' || !data.name) return
+    const list = map.get(data.name) || []
+    list.push({ amount: Number(data.amount) || 0, timestamp: data.timestamp, remarks: data.remarks || '' })
+    map.set(data.name, list)
+  })
+  return [...map.entries()]
+    .filter(([, list]) => list.length > 1)
+    .sort((a, b) => b[1].length - a[1].length)
+}
+
+export function openDuplicateNames() {
+  const groups = duplicateGroups()
+  if (!groups.length) return
+  const html = `
+    <div class="gb-dup-names">
+      <p class="gb-picker-intro">共 <b>${groups.length}</b> 组同名记录。同名不一定是重复录入，请对照金额与时间核对。</p>
+      <div class="gb-dup-list">
+        ${groups.map(([name, list]) => `
+          <div class="gb-dup-group">
+            <div class="gb-dup-head"><b>${escapeHtml(name)}</b><span>${list.length} 笔 · 合计 ${formatCurrency(list.reduce((sum, item) => sum + item.amount, 0))}</span></div>
+            <ul>${list.map((item) => `<li>${formatCurrency(item.amount)}<span>${formatDateTime(item.timestamp)}</span>${item.remarks ? `<em>${escapeHtml(item.remarks)}</em>` : ''}</li>`).join('')}</ul>
+          </div>`).join('')}
+      </div>
+      <p class="gb-picker-hint">统计金额按每一条记录累加；「送礼人数」按姓名去重，所以同名记录会影响笔数与金额，但不会重复增加人数。</p>
+    </div>`
+  openModal('同名记录', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }], { size: 'large', dismissable: true })
+}
+
 export function openStats() {
   const stats = computeStats(st.gifts)
   const copy = copyOf(st.currentEvent, st.homeCategory)
@@ -30,6 +63,7 @@ export function openStats() {
           <li class="flex justify-between"><span>记录笔数:</span> <span>${stats.recordCount} 笔</span></li>
           <li class="flex justify-between"><span>人均礼金:</span> <span>${formatCurrency(stats.average)}</span></li>
         </ul></div>
+        <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">同名记录:</h4>${duplicateGroups().length ? `<button type="button" id="dup-names-btn" class="gb-link-btn">检查同名（${duplicateGroups().length} 组）</button>` : '<p class="text-sm text-gray-500">没有同名记录。</p>'}</div>
         <div class="border-t pt-4 mt-4"><h4 class="font-semibold mb-2">金额 Top 5:</h4><ul class="space-y-2">${stats.topGivers.map(([name, amount], i) => `<li class="flex justify-between"><span>${i + 1}. ${escapeHtml(name)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
       </div>
     </div>
@@ -52,6 +86,7 @@ export function openStats() {
   // 弹窗内容由 Vue 在下一帧挂载，等它进入 DOM 后再填充图表与表格。
   const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', formatDateTime(g.data.timestamp)])
   afterModalRender(() => {
+    document.getElementById('dup-names-btn')?.addEventListener('click', () => openDuplicateNames())
     const table = renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
     renderCharts(stats, table)
   })

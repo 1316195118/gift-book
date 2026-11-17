@@ -1,7 +1,7 @@
 // 记账页主界面：录入、礼簿渲染、汇总、工具栏。
 import { reactive } from 'vue'
 import { state as st } from '../store.js'
-import { itemsPerPage, DEFAULT_PER_PAGE } from './page-size.js'
+import { pageOffsetFor, pageSizeAt, totalPagesFor, DEFAULT_PER_PAGE } from './page-size.js'
 import { copyOf } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { hasReturned } from './return-gift.js'
@@ -32,12 +32,13 @@ export const PAYMENT_OPTIONS = PAYMENT_TYPES
 export { ITEMS_PER_PAGE }
 
 export function pageItems(gifts = st.gifts, page = st.currentPage) {
-  const size = itemsPerPage()
-  return gifts.slice((page - 1) * size, page * size)
+  const offset = pageOffsetFor(page, gifts.length)
+  const size = pageSizeAt(page)
+  return gifts.slice(offset, offset + size)
 }
 
 export function totalPages(gifts = st.gifts) {
-  return Math.ceil(gifts.length / itemsPerPage()) || 1
+  return totalPagesFor(gifts.length)
 }
 
 // computeStats 统一由 stats-core.js 提供（主界面与统计弹窗共用同一口径）。
@@ -111,10 +112,11 @@ export function bookMarkup() {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const items = pageItems()
   const rows = { name: [], type: [], amount: [] }
-  const size = itemsPerPage()
+  const size = pageSizeAt(st.currentPage)
+  const offset = pageOffsetFor(st.currentPage, st.gifts.length)
   for (let i = 0; i < size; i += 1) {
     const gift = items[i]
-    const index = (st.currentPage - 1) * size + i
+    const index = offset + i
     rows.name.push(nameCell(gift, index))
     rows.type.push(`<div class="book-cell type-cell">${escapeHtml(copy.bookType)}</div>`)
     rows.amount.push(amountCell(gift, index))

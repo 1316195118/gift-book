@@ -23,6 +23,7 @@ function bodyHtml() {
     ? pending
         .map((item) => `
           <div class="gb-trash-item">
+            <label class="gb-guest-pick"><input type="checkbox" data-guest-pick="${escapeHtml(item.id)}" aria-label="选择 ${escapeHtml(item.name)}" /></label>
             <div class="gb-trash-main">
               <b>${escapeHtml(item.name)} · ¥${Number(item.amount || 0).toFixed(2)}</b>
               <span>${escapeHtml(item.relation || '未填关系')} · ${item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN') : ''}${item.note ? ' · ' + escapeHtml(item.note) : ''}</span>
@@ -46,8 +47,39 @@ function bodyHtml() {
         <button type="button" class="gb-link-btn" data-guest-share>获取二维码</button>
       </div>
       <h4 class="gb-snapshot-section-title">待确认登记（${pending.length}）</h4>
+      ${pending.length ? '<div class="gb-guest-bulk"><button type="button" class="gb-link-btn" data-guest-all>全选</button><button type="button" class="gb-link-btn" data-guest-confirm-all>确认所选</button></div>' : ''}
       ${rows}
     </div>`
+}
+
+async function confirmOne(ev, id) {
+  const item = pending.find((entry) => entry.id === id)
+  if (!item) return false
+  const gift = {
+    name: item.name, amount: Number(item.amount), relation: item.relation || '',
+    note: item.note || '', timestamp: new Date().toISOString(), late: false, source: 'guest-qr',
+  }
+  const encryptedContent = await encryptData(gift, st.currentPassword)
+  await api.createGift({ eventId: ev.id, encryptedContent, requestId: newRequestId() })
+  await api.guestDismiss(ev.id, id)
+  return true
+}
+
+async function confirmMany(ev, ids) {
+  let done = 0
+  for (const id of ids) {
+    try {
+      if (await confirmOne(ev, id)) done += 1
+    } catch (error) {
+      showAlert('部分确认失败', error.message || '请稍后重试')
+      break
+    }
+  }
+  await refresh(ev)
+  await loadEvents()
+  closeModal()
+  show(ev)
+  if (done) notify.success('已确认入库', `已写入 ${done} 条登记。`)
 }
 
 function show(ev) {
@@ -93,25 +125,26 @@ function show(ev) {
         }
         return
       }
+      if (event.target.closest('[data-guest-all]')) {
+        root.querySelectorAll('[data-guest-pick]').forEach((box) => { box.checked = true })
+        return
+      }
+      if (event.target.closest('[data-guest-confirm-all]')) {
+        const ids = [...root.querySelectorAll('[data-guest-pick]:checked')].map((box) => box.dataset.guestPick)
+        if (!ids.length) return showAlert('确认所选', '请先勾选要确认的登记。')
+        await confirmMany(ev, ids)
+        return
+      }
       const confirmButton = event.target.closest('[data-guest-confirm]')
       if (confirmButton) {
-        const id = confirmButton.dataset.guestConfirm
-        const item = pending.find((entry) => entry.id === id)
-        if (!item) return
         confirmButton.disabled = true
         try {
-          const gift = {
-            name: item.name, amount: Number(item.amount), relation: item.relation || '',
-            note: item.note || '', timestamp: new Date().toISOString(), late: false, source: 'guest-qr',
-          }
-          const encryptedContent = await encryptData(gift, st.currentPassword)
-          await api.createGift({ eventId: ev.id, encryptedContent, requestId: newRequestId() })
-          await api.guestDismiss(ev.id, id)
+          if (!(await confirmOne(ev, confirmButton.dataset.guestConfirm))) return
           await refresh(ev)
           await loadEvents()
           closeModal()
           show(ev)
-          notify.success('已确认入库', `「${item.name}」的登记已加密写入账簿。`)
+          notify.success('已确认入库', '登记已加密写入账簿。')
         } catch (err) {
           confirmButton.disabled = false
           showAlert('确认失败', err.message || '请稍后重试')

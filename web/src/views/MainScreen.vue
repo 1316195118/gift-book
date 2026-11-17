@@ -35,14 +35,14 @@
             <button type="button" class="version-chip version-chip-sm" @click="openChangelog">v{{ version }}</button>
           </div>
           <div class="main-tools">
-            <button id="settings-btn" class="main-tool" type="button" @click="openSettings()">设置</button>
-            <button id="lock-btn" class="main-tool" type="button" @click="onToggleLock">{{ st.locked ? '解锁' : '锁定' }}</button>
-            <button id="qr-show-btn" class="main-tool" type="button" @click="showQr">收款码</button>
-            <button id="stats-btn" class="main-tool" type="button" @click="openStats">统计</button>
+            <button id="settings-btn" class="main-tool" type="button" title="账簿设置：名称、时间、每页行数" @click="openSettings()">设置</button>
+            <button id="lock-btn" class="main-tool" type="button" title="暂时锁定录入与修改" @click="onToggleLock">{{ st.locked ? '解锁' : '锁定' }}</button>
+            <button id="qr-show-btn" class="main-tool" type="button" title="展示或上传收款码" @click="showQr">收款码</button>
+            <button id="stats-btn" class="main-tool" type="button" title="金额、人数与分类汇总" @click="openStats">统计</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
-            <button id="print-btn" class="main-tool" type="button" @click="openPrint">打印</button>
+            <button id="print-btn" class="main-tool" type="button" title="打印礼簿（可选字号与页边距）" @click="openPrint">打印</button>
             <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
-            <button id="export-btn" class="main-tool main-tool-primary" type="button" @click="openExport">导出</button>
+            <button id="export-btn" class="main-tool main-tool-primary" type="button" title="导出 Excel / PDF / Word" @click="openExport">导出</button>
           </div>
         </div>
       </header>
@@ -61,7 +61,7 @@
       </div>
 
       <div class="ledger-layout">
-        <section class="entry-panel" aria-label="礼金录入">
+        <section id="entry-panel" class="entry-panel" aria-label="礼金录入">
           <div class="entry-heading">
             <h2>
               <span>{{ copy.entryTitle }}</span>
@@ -84,6 +84,9 @@
               <div class="field-shell">
                 <input v-model="entry.amount" type="number" id="gift-amount" data-suffix="元" placeholder="0.00" required min="0" max="1000000" step="0.01" inputmode="decimal" :disabled="readOnly" />
                 <span class="field-suffix">元</span>
+              </div>
+              <div class="amount-quick" aria-label="常用金额">
+                <button v-for="quick in [100, 200, 500, 1000]" :key="quick" type="button" :disabled="readOnly" @click="entry.amount = String(quick)">{{ quick }}</button>
               </div>
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
             </div>
@@ -118,11 +121,11 @@
               <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
               <button type="button" id="submit-blank-btn" class="gb-blank-btn" :disabled="readOnly" title="占位一行，之后可以原位补录（Alt+S）" @click="onBlank">空白 / 跳过</button>
             </div>
-            <p class="entry-hint">按回车核对并提交 · Shift + 回车换行 · Alt + S 跳过一行</p>
+            <p class="entry-hint">回车核对并提交 · Shift + 回车换行 · Alt + S 跳过 · Alt + N 回到姓名 · / 查找 · ←/→ 翻页</p>
           </form>
         </section>
 
-        <section class="book-panel" :aria-label="copy.bookTitle + '与汇总'">
+        <section id="book-panel" class="book-panel" :aria-label="copy.bookTitle + '与汇总'">
           <div class="book-search">
             <div class="search-field">
               <div class="field-shell">
@@ -136,13 +139,14 @@
                 <span class="field-suffix">元</span>
               </div>
             </div>
+            <label class="search-flag" title="只看还没有回礼的记录"><input v-model="searchUnreturned" type="checkbox" />未回礼</label>
             <button id="search-top-btn" type="button" @click="onSearch">查找</button>
             <button id="batch-note-btn" type="button" @click="batchNote">批量备注</button>
           </div>
 
           <div class="ledger-summary" aria-live="polite">
             <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(displayTotal) }}</span></div>
-            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span><small v-if="stats.recordCount > stats.totalGivers" class="summary-sub">共 {{ stats.recordCount }} 笔</small></div>
+            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span><small class="summary-sub">{{ stats.recordCount }} 笔 · 人均 {{ formatCurrency(stats.average) }}</small></div>
             <div class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
 
@@ -153,9 +157,15 @@
                 <p>传统竖排 · 数字留痕</p>
               </div>
               <div class="book-navigation">
-                <button id="prev-page-btn" type="button" aria-label="上一页" :disabled="st.currentPage <= 1" @click="pageBy(-1)">‹</button>
-                <span>第 {{ st.currentPage }} / {{ pages }} 页</span>
-                <button id="next-page-btn" type="button" aria-label="下一页" :disabled="st.currentPage >= pages" @click="pageBy(1)">›</button>
+                <button class="page-edge" type="button" aria-label="第一页" title="第一页（Home）" :disabled="st.currentPage <= 1" @click="jumpPage(1)">«</button>
+                <button id="prev-page-btn" type="button" aria-label="上一页" title="上一页（←）" :disabled="st.currentPage <= 1" @click="pageBy(-1)">‹</button>
+                <span class="book-page-label">
+                  第 {{ st.currentPage }} / {{ pages }} 页
+                  <small v-if="pageRange">{{ pageRange.from }}–{{ pageRange.to }} 条</small>
+                </span>
+                <input id="page-jump" v-model.number="pageInput" class="page-jump" type="number" min="1" :max="pages" inputmode="numeric" aria-label="跳转到页码" title="输入页码后回车跳转" @keydown.enter.prevent="jumpToInput" />
+                <button id="next-page-btn" type="button" aria-label="下一页" title="下一页（→）" :disabled="st.currentPage >= pages" @click="pageBy(1)">›</button>
+                <button class="page-edge" type="button" aria-label="最后一页" title="最后一页（End）" :disabled="st.currentPage >= pages" @click="jumpPage(pages)">»</button>
               </div>
             </div>
             <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动">
@@ -166,6 +176,12 @@
           </div>
         </section>
       </div>
+    </div>
+
+    <!-- 手机端快速跳转：录入与礼簿来回切换，不用长距离滚动。 -->
+    <div class="mobile-jump" aria-label="快速跳转">
+      <button type="button" @click="scrollToSection('entry')">录入</button>
+      <button type="button" @click="scrollToSection('book')">礼簿</button>
     </div>
 
     <!-- 录入回执：手机端礼簿在表单上方，记完一笔看不到更新；这条浮在底部，可一键回礼簿定位。 -->
@@ -215,10 +231,12 @@ import {
 import { focusGiftRow } from '../lib/ledger-actions.js'
 import { recentEntry } from '../lib/recent-entry.js'
 import { isArchived } from '../lib/archive.js'
+import { pageRangeFor } from '../lib/page-size.js'
 
 const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
+const searchUnreturned = ref(false)
 
 // 录入回执只在刚记完的一小段时间里出现，避免常驻挡视线。
 const receiptVisible = ref(false)
@@ -327,6 +345,11 @@ function onBlank() {
   submitBlank(resetEntry)
 }
 
+function scrollToSection(which) {
+  const target = document.getElementById(which === 'entry' ? 'entry-panel' : 'book-panel')
+  target?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+}
+
 // 「在礼簿中查看」：翻到那一页并把它滚到视野中间，闪一下做定位。
 async function revealRecent() {
   receiptVisible.value = false
@@ -337,7 +360,7 @@ async function revealRecent() {
   await focusGiftRow(recentEntry.index)
 }
 
-const onSearch = () => runSearch(searchName.value, searchAmount.value)
+const onSearch = () => runSearch(searchName.value, searchAmount.value, { unreturned: searchUnreturned.value })
 const goHome = () => showHome()
 const onToggleLock = () => toggleLedgerLock()
 
@@ -393,13 +416,60 @@ function onDocClick(event) {
   }
 }
 
+const pageInput = ref(1)
+watch(
+  () => st.currentPage,
+  (value) => { pageInput.value = value },
+  { immediate: true },
+)
+watch(pages, (value) => {
+  if (pageInput.value > value) pageInput.value = value
+})
+
+const pageRange = computed(() => pageRangeFor(st.currentPage, st.gifts.length))
+
+function jumpPage(target) {
+  const value = Math.min(Math.max(1, Number(target) || 1), pages.value)
+  if (value !== st.currentPage) {
+    playPage(value > st.currentPage ? 1 : -1)
+    st.currentPage = value
+  }
+  pageInput.value = value
+}
+
+function jumpToInput() {
+  jumpPage(pageInput.value)
+  document.getElementById('page-jump')?.blur()
+}
+
 function onKeydown(event) {
   if (event.key === 'Escape' && dropdownOpen.value) {
     dropdownOpen.value = false
     return
   }
+  // Alt+N 回到姓名框：手机外接键盘和桌面录入都常用。
+  if (event.altKey && (event.key === 'n' || event.key === 'N')) {
+    event.preventDefault()
+    document.getElementById('guest-name')?.focus()
+    return
+  }
   const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')
   if (typing || event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.key === '/') {
+    event.preventDefault()
+    document.getElementById('search-name')?.focus()
+    return
+  }
+  if (event.key === 'Home') {
+    event.preventDefault()
+    jumpPage(1)
+    return
+  }
+  if (event.key === 'End') {
+    event.preventDefault()
+    jumpPage(pages.value)
+    return
+  }
   if (event.key === 'ArrowLeft') pageBy(-1)
   if (event.key === 'ArrowRight') pageBy(1)
 }

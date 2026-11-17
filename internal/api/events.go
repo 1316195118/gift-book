@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +20,60 @@ var eventIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 var extraFields = []string{
 	"theme", "voiceName", "voiceEnabled", "coverImage", "startDateTime", "endDateTime",
 	"minSpeechAmount", "qrcode", "template", "category", "location", "note",
-	"totalAmount", "coverStyle", "archived", "archivedAt", "perPage", "ceremonyAt",
+	"totalAmount", "coverStyle", "archived", "archivedAt", "perPage", "ceremonyAt", "pageRules",
+}
+
+// normalizePageRules 规整「第 X–Y 页用 N 行」的区间规则：
+// 只保留合法、互不重叠的规则，按起始页排序，最多 20 条。
+func normalizePageRules(value any) []map[string]int {
+	raw, ok := value.([]any)
+	if !ok {
+		return []map[string]int{}
+	}
+	out := make([]map[string]int, 0, len(raw))
+	for _, item := range raw {
+		fields, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		from := int(numberValue(fields["from"]))
+		to := int(numberValue(fields["to"]))
+		size := int(numberValue(fields["perPage"]))
+		if from < 1 || from > 9999 || (to != 0 && to < from) {
+			continue
+		}
+		if size != 8 && size != 10 && size != 12 {
+			continue
+		}
+		out = append(out, map[string]int{"from": from, "to": to, "perPage": size})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i]["from"] < out[j]["from"] })
+	kept := make([]map[string]int, 0, len(out))
+	lastTo := 0
+	for _, rule := range out {
+		if rule["from"] <= lastTo {
+			continue
+		}
+		kept = append(kept, rule)
+		if rule["to"] > 0 {
+			lastTo = rule["to"]
+		}
+		if len(kept) >= 20 {
+			break
+		}
+	}
+	return kept
+}
+
+func numberValue(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case string:
+		n, _ := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return n
+	}
+	return 0
 }
 
 // normalizePerPage 只接受 8 / 10 / 12，旧账簿没有这个字段时按 12 处理。
@@ -232,6 +286,10 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 					event[field] = normalizePerPage(value)
 					continue
 				}
+				if field == "pageRules" {
+					event[field] = normalizePageRules(value)
+					continue
+				}
 				event[field] = value
 			}
 		}
@@ -288,6 +346,10 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 			if value, ok := body[field]; ok {
 				if field == "perPage" {
 					event[field] = normalizePerPage(value)
+					continue
+				}
+				if field == "pageRules" {
+					event[field] = normalizePageRules(value)
 					continue
 				}
 				event[field] = value

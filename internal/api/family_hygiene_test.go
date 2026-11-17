@@ -333,6 +333,35 @@ func TestEncryptedBackupRoundTrip(t *testing.T) {
 	}
 }
 
+// 分页区间规则：只保留合法、按起始页排序、互不重叠的规则。
+func TestEventPageRules(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{"name": "分页", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	id := payload["data"].(map[string]any)["id"].(string)
+	rules := []map[string]any{
+		{"from": 11, "to": 0, "perPage": 8},
+		{"from": 1, "to": 10, "perPage": 12},
+		{"from": 5, "to": 6, "perPage": 10}, // 与第一段重叠，应被丢弃
+		{"from": 0, "to": 3, "perPage": 9},  // 非法起始页 / 行数，丢弃
+	}
+	res, payload = env.do(t, "PUT", "/api/events/"+id, map[string]any{"pageRules": rules}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("保存分页规则失败: %d %v", res.StatusCode, payload)
+	}
+	got := payload["data"].(map[string]any)["pageRules"].([]any)
+	if len(got) != 2 {
+		t.Fatalf("应只保留 2 条规则: %v", got)
+	}
+	first := got[0].(map[string]any)
+	if first["from"].(float64) != 1 || first["to"].(float64) != 10 || first["perPage"].(float64) != 12 {
+		t.Fatalf("排序或内容不对: %v", got)
+	}
+}
+
 // 正期时间（婚礼 / 殡期）保存后随账簿一起返回。
 func TestEventCeremonyAt(t *testing.T) {
 	env := newEnv(t)

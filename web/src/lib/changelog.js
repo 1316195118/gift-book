@@ -2,11 +2,26 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.23'
+export const APP_VERSION = '2.4.24'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.24',
+    date: '2026-11-17',
+    notes: [
+      { t: 'feat', text: '分页规则：可按「第 X–Y 页用 N 行」分段设置，未覆盖的页用默认行数；中途调整不会打乱已排好的页' },
+      { t: 'feat', text: '同名记录检查：统计页列出同名多笔，显示金额与时间，方便判断重复录入还是同名客人' },
+      { t: 'feat', text: '批量修改：可一次改多条的关系、收款方式与备注，备注默认追加，逐条留痕' },
+      { t: 'feat', text: '查找支持「只看未回礼」，可单独筛出还没回礼的记录' },
+      { t: 'feat', text: '宾客待确认支持全选与批量确认，散场后一次处理' },
+      { t: 'feat', text: '常用金额快填（100 / 200 / 500 / 1000）与汇总卡「人均」显示' },
+      { t: 'feat', text: '手机端底部「录入 / 礼簿」快速跳转，长账簿不用来回滚动' },
+      { t: 'feat', text: '礼簿页码支持首页/末页、页码输入跳转，并显示当前页的记录范围' },
+      { t: 'opt', text: '桌面端金额字号放宽；工具栏补充悬停说明；快捷键 /、Home、End、Alt+N' },
+    ],
+  },
   {
     version: '2.4.23',
     date: '2026-11-17',
