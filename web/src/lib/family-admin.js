@@ -47,6 +47,54 @@ function renderList() {
     : '<div class="gb-empty">还没有家庭，先在下面创建一个。</div>'
 }
 
+// 管理员导入家庭备份：后台会新建家庭并重新分配冲突的账簿编号。
+function openImportFamily(file) {
+  const encrypted = /\.gbenc$/i.test(file.name)
+  const html = `
+    <div class="gb-import-family">
+      <p class="gb-picker-hint">将把「${escapeHtml(file.name)}」导入为一个新家庭，现有家庭与账簿不受影响。</p>
+      <div class="field"><label class="field-label" for="gb-import-name">家庭名称</label><input id="gb-import-name" type="text" maxlength="40" placeholder="如：王家（迁移）" /></div>
+      <div class="field"><label class="field-label" for="gb-import-code">访问码（选填）<span class="gb-hint" data-hint="留空表示任何能打开本站的人都能进入这个家庭；建议设置一个与原来不同的访问码。" role="note" aria-label="留空表示任何能打开本站的人都能进入这个家庭；建议设置一个与原来不同的访问码。" tabindex="0">?</span></label><input id="gb-import-code" type="text" maxlength="128" autocomplete="off" /><p class="gb-picker-hint" id="gb-import-code-hint"></p></div>
+      ${encrypted ? '<div class="field"><label class="field-label" for="gb-import-password">备份口令</label><input id="gb-import-password" type="password" autocomplete="current-password" /></div>' : ''}
+      <div id="gb-import-error" class="gb-inline-error" role="alert"></div>
+    </div>`
+  openModal('导入家庭备份', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '导入',
+      class: 'modal-btn-primary',
+      keepOpen: true,
+      handler: async () => {
+        const name = document.getElementById('gb-import-name')?.value.trim() || ''
+        const code = document.getElementById('gb-import-code')?.value.trim() || ''
+        const password = document.getElementById('gb-import-password')?.value || ''
+        const box = document.getElementById('gb-import-error')
+        const fail = (message) => { if (box) box.textContent = message }
+        if (!name) return fail('请填写家庭名称')
+        const problem = familyCodeProblem(code)
+        if (problem) return fail(problem + '；留空则创建开放家庭')
+        if (encrypted && !password) return fail('这个备份已加密，请输入口令')
+        const form = new FormData()
+        form.append('file', file, file.name)
+        form.append('name', name)
+        form.append('accessCode', code)
+        if (password) form.append('password', password)
+        try {
+          const res = await fetch('/api/families/import', { method: 'POST', body: form, credentials: 'same-origin' })
+          const payload = await res.json().catch(() => ({}))
+          if (!res.ok || !payload.success) throw new Error(payload.message || '导入失败')
+          closeModal()
+          notify.success('家庭已导入', `${payload.data.family}：${payload.data.events} 本账簿、${payload.data.gifts} 条礼金`)
+          setTimeout(() => showAdmin(), 200)
+        } catch (error) {
+          fail(error.message || '导入失败，请重试')
+        }
+      },
+    },
+  ], { size: 'large', dismissable: true })
+  afterModalRender(() => paintCodeHint('gb-import-code', 'gb-import-code-hint'))
+}
+
 function setError(text) {
   const el = document.getElementById('gb-family-error')
   if (el) el.textContent = text || ''
@@ -68,11 +116,25 @@ function showAdmin() {
         </div>
         <button type="button" id="gb-family-create-btn" class="modal-btn-primary" ${authReady ? '' : 'disabled'}>创建家庭</button>
       </div>
+      <div class="gb-family-create">
+        <h4>从备份导入家庭</h4>
+        <p class="gb-picker-hint">换 NAS 或迁移单个家庭时用：选择家庭备份（.zip 或 .gbenc），会新建一个家庭，<b>不影响现有家庭</b>。只有站点管理员能操作。</p>
+        <button type="button" id="gb-family-import-btn" class="themed-button-secondary" ${authReady ? '' : 'disabled'}>选择家庭备份…</button>
+        <input type="file" id="gb-family-import-file" accept=".zip,.gbenc" hidden />
+      </div>
       <div id="gb-family-error" class="gb-inline-error" role="alert"></div>
     </div>`
   openModal('家庭管理', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }], { size: 'large', dismissable: true })
   afterModalRender(() => {
     renderList()
+    document.getElementById('gb-family-import-btn')?.addEventListener('click', () => {
+      document.getElementById('gb-family-import-file')?.click()
+    })
+    document.getElementById('gb-family-import-file')?.addEventListener('change', (event) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (file) openImportFamily(file)
+    })
     const root = document.getElementById('gb-family-admin')
     if (!root) return
     document.getElementById('gb-family-code')?.addEventListener('input', () => {

@@ -89,6 +89,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/families", s.open(s.handleListFamilies))
 	mux.HandleFunc("GET /api/families/activity", s.open(s.handleFamilyActivity))
 	mux.HandleFunc("POST /api/families", s.open(s.handleCreateFamily))
+	mux.HandleFunc("POST /api/families/import", s.open(s.handleImportFamilyBackup))
 	mux.HandleFunc("GET /api/families/open", s.open(s.handleOpenFamilies))
 	mux.HandleFunc("PUT /api/families/{id}", s.openID(s.handleUpdateFamily))
 	mux.HandleFunc("DELETE /api/families/{id}", s.openID(s.handleDeleteFamily))

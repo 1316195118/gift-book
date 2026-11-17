@@ -351,6 +351,69 @@ func TestEventCeremonyAt(t *testing.T) {
 	}
 }
 
+// 管理员把家庭备份导入为新家庭（换 NAS 迁移单个家庭），不影响现有家庭。
+func TestAdminImportFamilyBackup(t *testing.T) {
+	env := newEnv(t)
+	admin := env.enableAdminPassword(t, "adminpass123")
+	res, payload := env.do(t, "POST", "/api/families", map[string]any{
+		"name": "老家", "accessCode": "laojia2026",
+	}, map[string]string{"Cookie": admin})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("创建家庭失败: %d %v", res.StatusCode, payload)
+	}
+	oldID := payload["data"].(map[string]any)["id"].(string)
+	oldCookie := env.loginFamily(t, "laojia2026", "")
+	res, payload = env.do(t, "POST", "/api/events", map[string]any{"name": "老账簿", "passwordHash": noPassKey}, map[string]string{"Cookie": oldCookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	res, familyZip := env.getBytes(t, "/api/family/backup", oldCookie)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("家庭备份失败: %d", res.StatusCode)
+	}
+	// 家庭成员不能导入。
+	res, payload = env.do(t, "POST", "/api/families/import", nil, map[string]string{"Cookie": oldCookie})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("家庭成员不应能导入: %d %v", res.StatusCode, payload)
+	}
+	// 管理员导入为新家庭。
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, _ := mw.CreateFormFile("file", "old.zip")
+	part.Write(familyZip)
+	mw.WriteField("name", "新家的副本")
+	mw.WriteField("accessCode", "xinjia2026")
+	mw.Close()
+	req, _ := http.NewRequest("POST", env.server.URL+"/api/families/import", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Cookie", admin)
+	req.RemoteAddr = "127.0.0.1:12345"
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var imported map[string]any
+	json.NewDecoder(res.Body).Decode(&imported)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("导入家庭备份失败: %d %v", res.StatusCode, imported)
+	}
+	newID := imported["data"].(map[string]any)["familyId"].(string)
+	if newID == oldID {
+		t.Fatal("导入应生成新的家庭编号")
+	}
+	// 新家庭能登录，并看到导入的账簿；原家庭不受影响。
+	newCookie := env.loginFamily(t, "xinjia2026", "")
+	res, payload = env.do(t, "GET", "/api/events", nil, map[string]string{"Cookie": newCookie})
+	if len(payload["data"].(map[string]any)) != 1 {
+		t.Fatalf("新家庭应有 1 本账簿: %v", payload["data"])
+	}
+	res, payload = env.do(t, "GET", "/api/events", nil, map[string]string{"Cookie": oldCookie})
+	if len(payload["data"].(map[string]any)) != 1 {
+		t.Fatalf("原家庭账簿不应受影响: %v", payload["data"])
+	}
+}
+
 // 每页行数只接受 8 / 10 / 12，非法值回落 12，旧账簿默认 12。
 func TestEventPerPageSetting(t *testing.T) {
 	env := newEnv(t)

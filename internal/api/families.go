@@ -708,6 +708,101 @@ func (s *Server) handleFamilyActivity(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response{Success: true, Data: items})
 }
 
+// ---- POST /api/families/import（站点管理员：把家庭备份导入为新家庭） ----
+
+// 换 NAS / 迁移单个家庭时用：整站备份会覆盖全站，这里只新建一个家庭并写入它的账簿，
+// 不影响现有家庭，也不需要知道原家庭的访问码。
+func (s *Server) handleImportFamilyBackup(w http.ResponseWriter, r *http.Request) {
+	if !s.isSiteAdmin(r) {
+		fail(w, http.StatusForbidden, "只有站点管理员可以导入家庭备份")
+		return
+	}
+	parsed, filename, ok := s.readBackupUpload(w, r)
+	if !ok {
+		return
+	}
+	if parsed.manifest.Scope != "family" {
+		fail(w, http.StatusBadRequest, "请选择「家庭备份」文件；整站备份请到「备份与恢复」里还原")
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		name = strings.TrimSpace(parsed.manifest.FamilyName)
+	}
+	if name == "" {
+		name = "导入的家庭"
+	}
+	if len([]rune(name)) > 40 {
+		fail(w, http.StatusBadRequest, "家庭名称不能超过 40 个字")
+		return
+	}
+	code := strings.TrimSpace(r.FormValue("accessCode"))
+	if problem := familyCodeProblem(code); problem != "" {
+		fail(w, http.StatusBadRequest, problem+"；留空则创建开放家庭")
+		return
+	}
+	families, err := s.store.ReadFamilies()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "家庭清单读取失败")
+		return
+	}
+	if len(families) >= 1 && !s.auth.Enabled() {
+		failCode(w, http.StatusForbidden, "admin_password_required", "开启多家庭前，请先设置管理员密码")
+		return
+	}
+	if s.familyCodeTaken(families, "", code) {
+		fail(w, http.StatusConflict, "这个访问码已被其他家庭使用，请换一个")
+		return
+	}
+	id := "fam_" + randomFamilyHex(6)
+	rec := store.Record{"id": id, "name": name, "createdAt": time.Now().Format("2006-01-02 15:04:05")}
+	if code != "" {
+		salt := randomFamilyHex(16)
+		rec["accessHash"] = hashFamilyCode(code, salt)
+		rec["salt"] = salt
+	}
+	if err := s.store.WithFamilies(func(items map[string]store.Record) (bool, error) {
+		items[id] = rec
+		return true, nil
+	}); err != nil {
+		fail(w, http.StatusInternalServerError, "家庭保存失败")
+		return
+	}
+	// 备份可能来自同一台机器（复制家庭），账簿编号会撞车；撞了就换新编号，
+	// 礼金文件跟着新编号走，原家庭完全不受影响。
+	existing, _ := s.store.ReadEvents()
+	events := make(map[string]store.Record, len(parsed.events))
+	gifts := make(map[string]map[string]store.Record, len(parsed.gifts))
+	for oldID, event := range parsed.events {
+		newID := oldID
+		if _, clash := existing[oldID]; clash {
+			newID = store.NewID()
+		}
+		event["id"] = newID
+		event["familyId"] = id
+		events[newID] = event
+		if items, ok := parsed.gifts[oldID]; ok {
+			gifts[newID] = items
+		}
+	}
+	if err := s.store.ReplaceFamily(id, events, gifts); err != nil {
+		// 导入失败时把刚建的空家庭撤掉，避免留下一个进不去的空壳。
+		_ = s.store.WithFamilies(func(items map[string]store.Record) (bool, error) {
+			delete(items, id)
+			return true, nil
+		})
+		fail(w, http.StatusInternalServerError, "导入失败："+err.Error())
+		return
+	}
+	s.audit(r, "导入家庭备份", name, filename)
+	s.notifyChange(r, "family-restore", "imported", id, "")
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
+		"familyId": id, "family": name,
+		"events": len(events), "gifts": countGifts(gifts),
+		"hasCode": code != "", "sourceName": filename,
+	}})
+}
+
 // ---- POST /api/families（站点管理员） ----
 
 func (s *Server) handleCreateFamily(w http.ResponseWriter, r *http.Request) {
