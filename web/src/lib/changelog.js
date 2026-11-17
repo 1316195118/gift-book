@@ -2,11 +2,18 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.19'
+export const APP_VERSION = '2.4.20'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.20',
+    date: '2026-11-17',
+    notes: [
+      { t: 'feat', text: '占位行可以在任意位置插入（此行前 / 此行后），也可以直接删除；删除时提醒后面的记录会前移' },
+    ],
+  },
   {
     version: '2.4.19',
     date: '2026-11-17',

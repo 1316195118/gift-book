@@ -7,7 +7,7 @@ import { amountToChinese, formatCurrency, escapeHtml } from './crypto.js'
 import { hasReturned } from './return-gift.js'
 import { recentEntry } from './recent-entry.js'
 import {
-  submitGift, submitBlank, fillBlank, insertBlankBefore, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, insertBlankBefore, insertBlankAfter, deleteBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
   showQrDialog, batchNote,
 } from './ledger-actions.js'
@@ -125,7 +125,7 @@ export function bookMarkup() {
 export { computeStats } from './stats-core.js'
 
 export {
-  submitGift, submitBlank, fillBlank, insertBlankBefore, openGiftDetails, runSearch, flushQueue, showQueueModal,
+  submitGift, submitBlank, fillBlank, insertBlankBefore, insertBlankAfter, deleteBlank, openGiftDetails, runSearch, flushQueue, showQueueModal,
   openStats, openExport, openPrint, openSettings, openOcr, toggleLedgerLock,
   showQrDialog, batchNote,
 }

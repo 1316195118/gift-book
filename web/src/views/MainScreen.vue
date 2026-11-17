@@ -456,6 +456,30 @@ function onRemoteChange(payload) {
 onMounted(() => {
   document.addEventListener('click', onDocClick)
   document.addEventListener('keydown', onKeydown)
+  // 手机浏览器会冻结后台页面、断掉 SSE：切回前台时主动补一次同步，
+  // 不用用户手动刷新才能看到别的设备新记的礼金或改过的每页行数。
+  const resyncOnVisible = async () => {
+    if (document.visibilityState !== 'visible' || !st.currentEvent) return
+    const page = st.currentPage
+    const wasAtEnd = page >= totalPages()
+    try {
+      const [event, loaded] = await Promise.all([
+        api.getEvent(st.currentEvent.id).catch(() => null),
+        loadGiftsForCurrentEvent().then(() => true).catch(() => false),
+      ])
+      if (event?.data) {
+        st.currentEvent = { ...st.currentEvent, ...event.data }
+        updateSessionEvent(st.currentEvent)
+      }
+      // loadGifts 会把页码拉到末页；这里按回到前台前的浏览位置恢复，
+      // 只有原本就在末页的人才跟着最新一页走。
+      if (loaded) st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
+    } catch {
+      /* 网络还没恢复时保持现状，下一次可见或 SSE 重连会再补 */
+    }
+  }
+  document.addEventListener('visibilitychange', resyncOnVisible)
+  onBeforeUnmount(() => document.removeEventListener('visibilitychange', resyncOnVisible))
   startRealtime(onRemoteChange)
 })
 

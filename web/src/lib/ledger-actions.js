@@ -319,7 +319,7 @@ export function openGiftDetails(index) {
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
         <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
-        ${isArchived() ? '' : '<div class="mt-2"><button type="button" class="text-sm text-blue-600 hover:underline px-2 py-1" data-insert-blank>在此行前插入占位</button></div>'}
+        ${isArchived() ? '' : '<div class="mt-2 flex gap-2"><button type="button" class="text-sm text-blue-600 hover:underline px-2 py-1" data-insert-blank="before">在此行前插入占位</button><button type="button" class="text-sm text-blue-600 hover:underline px-2 py-1" data-insert-blank="after">在此行后插入占位</button></div>'}
         ${isArchived() ? '<p class="gb-readonly-note">账簿已结簿，现在只能查看</p>' : ''}
       </div>
     </div>`
@@ -337,9 +337,11 @@ export function openGiftDetails(index) {
     // 结簿后详情只展示，去掉所有纠错 / 回礼按钮。
     if (isArchived()) container?.querySelectorAll('[data-edit], [data-remove-return]').forEach((el) => el.remove())
     container?.addEventListener('click', (event) => {
-      if (event.target.closest('[data-insert-blank]')) {
+      const insertButton = event.target.closest('[data-insert-blank]')
+      if (insertButton) {
+        const position = insertButton.dataset.insertBlank === 'after' ? 'after' : 'before'
         closeModal()
-        setTimeout(() => insertBlankBefore(index), 150)
+        setTimeout(() => insertBlankAt(index, position), 150)
         return
       }
       const field = event.target.closest('[data-edit]')?.dataset.edit
@@ -450,9 +452,9 @@ export function submitBlank(resetForm) {
   }, resetForm)
 }
 
-// 后续插入占位：把时间戳放在目标行与前一行之间，插出来的行正好落在目标行前面。
-// 只在账簿有效时间内允许，避免把补录时间搞乱。
-export function insertBlankBefore(index) {
+// 后续插入占位：before = 插在目标行前，after = 插在目标行后。
+// 时间戳取相邻两条的中点，插出来的行正好落在目标位置；插在末尾时取目标时间 +1 秒。
+export function insertBlankAt(index, position = 'before') {
   if (!ensureWritable()) return
   if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再插入占位。')
   const gift = st.gifts[index]
@@ -465,14 +467,22 @@ export function insertBlankBefore(index) {
     return showAlert('无法插入占位', '已超出账簿设定的有效时间，请先在「账簿设置」里调整起止时间。')
   }
   const targetAt = registeredAtOf(gift)
-  const prevAt = index > 0 ? registeredAtOf(st.gifts[index - 1]) : NaN
+  const after = position === 'after'
+  const neighbor = st.gifts[after ? index + 1 : index - 1]
+  const neighborAt = neighbor ? registeredAtOf(neighbor) : NaN
   let at = now - 1
-  if (Number.isFinite(prevAt) && Number.isFinite(targetAt) && targetAt - prevAt > 1) {
-    at = prevAt + Math.floor((targetAt - prevAt) / 2)
+  if (after) {
+    if (Number.isFinite(targetAt) && Number.isFinite(neighborAt) && neighborAt - targetAt > 1) {
+      at = targetAt + Math.floor((neighborAt - targetAt) / 2)
+    } else if (Number.isFinite(targetAt)) {
+      at = targetAt + 1000
+    }
+  } else if (Number.isFinite(neighborAt) && Number.isFinite(targetAt) && targetAt - neighborAt > 1) {
+    at = neighborAt + Math.floor((targetAt - neighborAt) / 2)
   } else if (Number.isFinite(targetAt)) {
     at = targetAt - 1
-  } else if (Number.isFinite(prevAt)) {
-    at = prevAt + 1
+  } else if (Number.isFinite(neighborAt)) {
+    at = neighborAt + 1
   }
   const skippedAt = new Date(at).toISOString()
   return saveGift({
@@ -482,6 +492,41 @@ export function insertBlankBefore(index) {
     const inserted = st.gifts.findIndex((item) => item.data?.kind === 'blank' && item.data.skippedAt === skippedAt)
     if (inserted >= 0) st.currentPage = pageOfIndex(inserted)
   })
+}
+
+export const insertBlankBefore = (index) => insertBlankAt(index, 'before')
+export const insertBlankAfter = (index) => insertBlankAt(index, 'after')
+
+// 删除占位行：只有占位可以删，真实礼金仍然不支持删除（要留痕）。
+export function deleteBlank(index) {
+  const gift = st.gifts[index]
+  if (!gift?.data || gift.data.kind !== 'blank') return
+  if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再删除占位。')
+  if (isArchived()) return showAlert('账簿已结簿', '结簿后不能删除占位，请先解除结簿。')
+  const html = `
+    <div class="gb-delete-blank">
+      <p>确定删除这一行「跳过」吗？</p>
+      <p class="field-hint is-warning">删除后，后面记录的页内位置会前移一位；如果只是暂时不记，建议保留占位。</p>
+    </div>`
+  openModal('删除占位行', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '删除',
+      class: 'modal-btn-danger',
+      keepOpen: true,
+      handler: async () => {
+        try {
+          await api.deleteGift(st.currentEvent.id, gift.id)
+          closeModal()
+          st.gifts.splice(index, 1)
+          st.currentPage = Math.min(st.currentPage, Math.max(1, Math.ceil(st.gifts.length / itemsPerPage())))
+          notify.success('占位行已删除', '后面的记录已前移。')
+        } catch (error) {
+          showAlert('删除失败', error.message || '请稍后重试。')
+        }
+      },
+    },
+  ], { dismissable: true })
 }
 
 // 补录占位行：更新原记录（时间、位置都不变），避免后续序号前移。
@@ -497,6 +542,10 @@ export async function fillBlank(index) {
       <div id="fill-error" class="gb-inline-error" role="alert"></div>
     </div>`
   openModal('补录跳过行', { type: 'html', html }, [
+    { text: '删除这一行', class: 'modal-btn-danger', keepOpen: true, handler: () => {
+        closeModal()
+        setTimeout(() => deleteBlank(index), 120)
+      } },
     { text: '取消', class: 'themed-button-secondary border px-4 py-2 rounded' },
     {
       text: '补录',
