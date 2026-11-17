@@ -91,11 +91,13 @@
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
             </div>
 
-            <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="toggleEntryMore">
-              <span>{{ entryMore ? '收起' : '展开' }}更多选项</span><small>收款方式 · 关系 · 备注</small>
-            </button>
-            <div v-show="entryMore" class="entry-more-fields">
-            <div class="entry-field entry-payment">
+            <div class="entry-fold-row">
+              <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="toggleEntryMore">
+                <span>{{ entryMore ? '收起' : '展开' }}更多选项</span><small>{{ foldSummary }}</small>
+              </button>
+              <button type="button" class="entry-fields-btn" title="选择哪些字段显示在常用区" @click="openFieldPicker">字段</button>
+            </div>
+            <div v-show="entryMore || entryShow.type" class="entry-field entry-payment">
               <label>收款方式</label>
               <div class="payment-options">
                 <label v-for="option in PAYMENT_OPTIONS" :key="option">
@@ -104,7 +106,7 @@
               </div>
             </div>
 
-            <div class="entry-field entry-relation">
+            <div v-show="entryMore || entryShow.relation" class="entry-field entry-relation">
               <label>关系 <small>选填 · 用于分类汇总</small></label>
               <div class="payment-options">
                 <label>
@@ -116,12 +118,11 @@
               </div>
             </div>
 
-            <div class="entry-field entry-remarks">
+            <div v-show="entryMore || entryShow.remarks" class="entry-field entry-remarks">
               <label for="remarks">备注 <small>选填 · {{ entry.remarks.length }}/4000</small></label>
               <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="1" maxlength="4000" :disabled="readOnly"></textarea>
             </div>
 
-            </div>
             <div class="entry-submit-row">
               <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
               <button type="button" id="submit-blank-btn" class="gb-blank-btn" :disabled="readOnly" title="占位一行，之后可以原位补录（Alt+S）" @click="onBlank">空白 / 跳过</button>
@@ -222,9 +223,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { state as st, updateSessionEvent } from '../store.js'
 import { api } from '../lib/api.js'
+import { openModal } from '../lib/modal.js'
 import { copyOf } from '../lib/content.js'
 import { formatCurrency, formatDate } from '../lib/crypto.js'
 import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
@@ -249,6 +251,46 @@ const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
 const searchUnreturned = ref(false)
+const ENTRY_SHOW_KEY = 'gb-entry-show'
+function readEntryShow() {
+  try {
+    const value = JSON.parse(localStorage.getItem(ENTRY_SHOW_KEY) || '{}')
+    return { type: Boolean(value.type), relation: Boolean(value.relation), remarks: Boolean(value.remarks) }
+  } catch {
+    return { type: false, relation: false, remarks: false }
+  }
+}
+const entryShow = reactive(readEntryShow())
+const foldSummary = computed(() => {
+  const hidden = []
+  if (!entryShow.type) hidden.push('收款方式')
+  if (!entryShow.relation) hidden.push('关系')
+  if (!entryShow.remarks) hidden.push('备注')
+  return hidden.length === 3 ? '收款方式 · 关系 · 备注' : hidden.length ? `折叠：${hidden.join(' · ')}` : '全部常用'
+})
+function openFieldPicker() {
+  const fields = [['type', '收款方式'], ['relation', '关系'], ['remarks', '备注']]
+  const html = `
+    <div class="gb-field-picker">
+      <p class="gb-picker-intro">勾选的字段直接显示在录入表单里，未勾选的收进「更多选项」。选择保存在本机。</p>
+      ${fields.map(([key, label]) => `<label class="gb-field-row"><input type="checkbox" ${entryShow[key] ? 'checked' : ''} data-field="${key}" /><span>${label}</span></label>`).join('')}
+    </div>`
+  openModal('录入字段', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '保存',
+      class: 'modal-btn-primary',
+      handler: () => {
+        document.querySelectorAll('[data-field]').forEach((box) => {
+          const key = box.dataset.field
+          if (key) entryShow[key] = box.checked
+        })
+        try { localStorage.setItem(ENTRY_SHOW_KEY, JSON.stringify(entryShow)) } catch { /* 隐私模式忽略 */ }
+      },
+    },
+  ], { dismissable: true })
+}
+
 const ENTRY_MORE_KEY = 'gb-entry-more'
 function readEntryMorePref() {
   try { return localStorage.getItem(ENTRY_MORE_KEY) === '1' } catch { return false }

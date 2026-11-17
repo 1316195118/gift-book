@@ -2,11 +2,21 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.27'
+export const APP_VERSION = '2.4.28'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: "2.4.28",
+    date: "2026-11-17",
+    notes: [
+      {
+        t: "feat",
+        text: "录入字段可自选：点「字段」勾选收款方式/关系/备注哪些直接显示、哪些收进更多选项，选择保存在本机"
+      }
+    ]
+  },
   {
     version: "2.4.27",
     date: "2026-11-17",

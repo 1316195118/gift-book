@@ -1620,3 +1620,42 @@
     line-height: 1.4;
   }
 }
+
+/* 字段显示设置 */
+.entry-fold-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.entry-fold-row .entry-more-toggle {
+  flex: 1;
+  margin: 0;
+}
+
+.entry-fields-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.gb-field-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gb-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
