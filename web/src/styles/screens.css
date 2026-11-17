@@ -1922,6 +1922,15 @@ body.theme-solemn .hero-book-art .book {
   padding: 0 var(--sp-5);
 }
 
+.summary-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
 .ledger-summary {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;
@@ -2230,6 +2239,23 @@ body.theme-solemn .hero-book-art .book {
 .amount-numeric.tiny {
   font-size: min(9px, 12cqw);
   letter-spacing: -.03em;
+}
+
+/* 桌面端格子更宽：放宽字号上限，避免 ¥2,000.00 被压到 9–10px。
+   窄屏仍然由 cqw 跟随格子宽度，不会溢出。 */
+@media (min-width: 720px) {
+  .amount-numeric {
+    font-size: min(15px, 20cqw);
+  }
+
+  .amount-numeric.scale {
+    font-size: min(13px, 16cqw);
+  }
+
+  .amount-numeric.tiny {
+    font-size: min(12px, 14cqw);
+    letter-spacing: -.02em;
+  }
 }
 
 .book-empty-hint {

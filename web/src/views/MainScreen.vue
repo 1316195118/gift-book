@@ -142,7 +142,7 @@
 
           <div class="ledger-summary" aria-live="polite">
             <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(displayTotal) }}</span></div>
-            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span></div>
+            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span><small v-if="stats.recordCount > stats.totalGivers" class="summary-sub">共 {{ stats.recordCount }} 笔</small></div>
             <div class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
 

@@ -2,11 +2,19 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.21'
+export const APP_VERSION = '2.4.22'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.22',
+    date: '2026-11-17',
+    notes: [
+      { t: 'opt', text: '桌面端礼簿金额字号放宽（15 / 13 / 12px），¥2,000.00 不再缩成一行小字；手机仍按格子宽度自适应' },
+      { t: 'feat', text: '汇总卡人数下方显示「共 N 笔」：笔数与按姓名去重的人数不一致时一眼能看出来' },
+    ],
+  },
   {
     version: '2.4.21',
     date: '2026-11-17',
