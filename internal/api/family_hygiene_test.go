@@ -333,6 +333,34 @@ func TestEncryptedBackupRoundTrip(t *testing.T) {
 	}
 }
 
+// 同名近邻提醒：同一 nameHash 在 10 分钟内再次写入时，返回 warning 时间；窗口外不提醒。
+func TestGiftDuplicateNearWarning(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{"name": "查重", "passwordHash": noPassKey}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	id := payload["data"].(map[string]any)["id"].(string)
+	hash := strings.Repeat("a", 64)
+	post := func(clientAt string) (*http.Response, map[string]any) {
+		body := map[string]any{"eventId": id, "encryptedContent": validCipher(byte(len(clientAt) % 250)), "clientAt": clientAt, "nameHash": hash}
+		return env.do(t, "POST", "/api/gifts", body, map[string]string{"Cookie": cookie})
+	}
+	res, payload = post("2026-11-17 12:00:00")
+	if res.StatusCode != http.StatusOK || payload["warning"] != nil {
+		t.Fatalf("第一笔不应有提醒: %d %v", res.StatusCode, payload)
+	}
+	res, payload = post("2026-11-17 12:05:00")
+	if res.StatusCode != http.StatusOK || payload["warning"] == nil {
+		t.Fatalf("5 分钟内第二笔应有提醒: %d %v", res.StatusCode, payload)
+	}
+	res, payload = post("2026-11-17 13:00:00")
+	if res.StatusCode != http.StatusOK || payload["warning"] != nil {
+		t.Fatalf("超过 10 分钟不应提醒: %d %v", res.StatusCode, payload)
+	}
+}
+
 // 分页区间规则：只保留合法、按起始页排序、互不重叠的规则。
 func TestEventPageRules(t *testing.T) {
 	env := newEnv(t)

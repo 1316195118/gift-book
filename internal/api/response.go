@@ -21,6 +21,7 @@ type response struct {
 	Message   string `json:"message,omitempty"`
 	Code      string `json:"code,omitempty"`
 	Duplicate bool   `json:"duplicate,omitempty"`
+	Warning   string `json:"warning,omitempty"`
 
 	Authenticated *bool `json:"authenticated,omitempty"`
 	Enabled       *bool `json:"enabled,omitempty"`

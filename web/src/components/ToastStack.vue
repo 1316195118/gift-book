@@ -13,6 +13,7 @@
         <b class="gb-toast-title">{{ item.title }}</b>
         <p v-if="item.detail" class="gb-toast-detail">{{ item.detail }}</p>
       </div>
+      <button v-if="item.action" type="button" class="gb-toast-action gb-no-ripple" @click="runAction(item)">{{ item.action.label }}</button>
       <button type="button" class="gb-toast-close gb-no-ripple" aria-label="关闭提示" @click="dismiss(item.id)">×</button>
       <i class="gb-toast-progress" :style="{ animationDuration: item.duration + 'ms' }" aria-hidden="true"></i>
     </div>
@@ -29,6 +30,18 @@ const marks = { success: '✓', info: '·', warn: '!' }
 const timers = new Map()
 const left = new Map()
 const since = new Map()
+
+function runAction(item) {
+  const { action } = item
+  dismiss(item.id)
+  if (action && typeof action.onClick === 'function') {
+    try {
+      action.onClick()
+    } catch {
+      /* 撤销失败时由调用方自行提示 */
+    }
+  }
+}
 
 function dismiss(id) {
   const timer = timers.get(id)

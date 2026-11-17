@@ -91,6 +91,10 @@
               <div class="amount-chinese-preview" :class="{ 'is-filled': hasAmount }" aria-live="polite">{{ amountText }}</div>
             </div>
 
+            <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="entryMore = !entryMore">
+              <span>{{ entryMore ? '收起' : '展开' }}更多选项</span><small>收款方式 · 关系 · 备注</small>
+            </button>
+            <div v-show="entryMore" class="entry-more-fields">
             <div class="entry-field entry-payment">
               <label>收款方式</label>
               <div class="payment-options">
@@ -117,6 +121,7 @@
               <textarea v-model="entry.remarks" id="remarks" :placeholder="copy.remarksPlaceholder" rows="2" maxlength="4000" :disabled="readOnly"></textarea>
             </div>
 
+            </div>
             <div class="entry-submit-row">
               <button type="submit" id="submit-gift-btn" :disabled="readOnly">确认录入</button>
               <button type="button" id="submit-blank-btn" class="gb-blank-btn" :disabled="readOnly" title="占位一行，之后可以原位补录（Alt+S）" @click="onBlank">空白 / 跳过</button>
@@ -168,6 +173,8 @@
                 <button class="page-edge" type="button" aria-label="最后一页" title="最后一页（End）" :disabled="st.currentPage >= pages" @click="jumpPage(pages)">»</button>
               </div>
             </div>
+            <div v-if="!st.gifts.length" class="book-empty">这本账簿还没有记录，从左边录入第一笔吧。</div>
+            <div v-else-if="!pageRange" class="book-empty">这一页没有记录。<button type="button" class="gb-link-btn" @click="jumpPage(1)">回到第一页</button></div>
             <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动">
               <div id="gift-book-content" v-html="book"></div>
             </div>
@@ -237,6 +244,7 @@ const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
 const searchUnreturned = ref(false)
+const entryMore = ref(typeof window !== 'undefined' && window.innerWidth >= 720)
 
 // 录入回执只在刚记完的一小段时间里出现，避免常驻挡视线。
 const receiptVisible = ref(false)

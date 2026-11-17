@@ -2,11 +2,21 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.25'
+export const APP_VERSION = '2.4.26'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.26',
+    date: '2026-11-17',
+    notes: [
+      { t: 'fix', text: 'Word 导出两字姓名居中（去掉按字数加间距的样式）' },
+      { t: 'fix', text: '记录详情同时显示「录入时间（本机）」与「同步时间（服务器）」，离线补传不再对不上时间' },
+      { t: 'feat', text: '服务端同名近邻提醒：录入时提交姓名的不可逆哈希，10 分钟内再有同名写入会弹出提醒（只比对、不还原姓名）' },
+      { t: 'feat', text: '删除占位行后可点「撤销」恢复原位（提示条带操作按钮，8 秒内有效）' },
+    ],
+  },
   {
     version: '2.4.25',
     date: '2026-11-17',

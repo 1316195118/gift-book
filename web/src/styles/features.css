@@ -1456,3 +1456,56 @@
   font-size: var(--fs-xs);
   cursor: pointer;
 }
+
+/* 通知里的操作按钮（撤销） */
+.gb-toast-action {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gb-toast-action:hover {
+  text-decoration: underline;
+}
+
+/* 录入表单折叠 */
+.entry-more-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  margin: 2px 0 6px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.entry-more-toggle small {
+  font-weight: 400;
+}
+
+.entry-more-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-bottom: 4px;
+}
+
+/* 空页提示 */
+.book-empty {
+  padding: 18px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}

@@ -1,4 +1,7 @@
 // API 客户端：统一错误分类，供离线队列判断“该重试还是该丢弃”。
+// 约定：所有方法返回解析后的响应体 { success, data?, message?, code?, warning?, duplicate? }；
+// 失败抛 ApiError（携带 code/status/data），调用方按 code 决定重试或丢弃。
+// 敏感字段（口令、账簿钥匙）只通过调用方注入的解析器附加到请求头，不落日志。
 import { clientId } from './client-id.js'
 
 let authGateHandler = () => {}
@@ -159,6 +162,7 @@ export const api = {
 
   listGifts: (eventId, ledgerKey) => apiRequest(`/api/gifts?eventId=${encodeURIComponent(eventId)}`, 'GET', null, ledgerKey !== undefined ? { ledgerKey } : {}),
 
+  /** 新建礼金：payload = { eventId, encryptedContent, requestId, clientAt?, nameHash? }；返回体可能带 warning（近邻重复提醒）。 */
   createGift: (payload) => apiRequest('/api/gifts', 'POST', payload),
 
   updateGift: (eventId, giftId, payload) =>

@@ -275,13 +275,23 @@ export async function loadGiftsForCurrentEvent() {
     }
     if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
     const decrypted = []
+    const decryptedBatch = encryptedGifts.slice(0)
     const batchSize = 50
     for (let i = 0; i < encryptedGifts.length; i += batchSize) {
       const batch = encryptedGifts.slice(i, i + batchSize)
       decrypted.push(
         ...batch
-          .map((g) => ({ ...g, data: decryptData(g.encryptedContent, password, cipher) }))
-          .filter((g) => g.data !== null),
+          .map((g) => {
+            const cacheKey = `${g.id}:${g.updatedAt || g.createdAt || ''}:${String(password || '')}`
+            let data = decryptCache.get(cacheKey)
+            if (data === undefined) {
+              data = decryptData(g.encryptedContent, password, cipher)
+              if (decryptCache.size > 4000) decryptCache.clear()
+              decryptCache.set(cacheKey, data ?? null)
+            }
+            return data ? { ...g, data } : null
+          })
+          .filter((g) => g !== null),
       )
       if (i + batchSize < encryptedGifts.length) await new Promise((resolve) => setTimeout(resolve, 0))
     }
@@ -337,6 +347,10 @@ const cipherFor = (password) =>
   currentCipher && st.currentEvent && currentCipher.eventId === st.currentEvent.id && currentCipher.password === password
     ? currentCipher.keys
     : password
+
+// 解密结果缓存：礼金记录不变时直接复用解析结果，翻页/远端刷新不用重复解密。
+// 键 = 记录ID + 更新时间 + 口令，口令变化或记录更新都会自然失效。
+const decryptCache = new Map()
 
 export const encryptData = (data, key) => LedgerCrypto.encrypt(JSON.stringify(data), cipherFor(key))
 

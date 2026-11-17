@@ -7,6 +7,7 @@ import { safeImport } from './lazy.js'
 import { copyOf, isSolemnEvent, getCoverTemplate, RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
 import { stampSeal } from './stamp.js'
 import { amountToChinese, formatCurrency } from './crypto.js'
+import { sha256Hex } from './crypto.js'
 import { encryptData, decryptData, loadGiftsForCurrentEvent, syncEventTotal, setSyncStatus, showHome, startSession } from '../bootstrap.js'
 import { newRequestId, NO_PASSWORD_HASH } from './crypto.js'
 import { enqueueGift, removeQueued, queueFor, readQueue, readCache } from './offline.js'
@@ -183,8 +184,17 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
     const fullGift = { ...giftData, timestamp: timestampOverride || new Date().toISOString(), late }
     const encryptedContent = await encryptData(fullGift, st.currentPassword)
     record = { eventId: st.currentEvent.id, encryptedContent, requestId: newRequestId() }
+    // 服务端近邻去重：clientAt 是录入时间，nameHash 不可逆，只用于比较同名。
+    record.clientAt = fullGift.timestamp
+    if (giftData.name) {
+      const hash = await sha256Hex(String(giftData.name).trim())
+      if (hash) record.nameHash = hash
+    }
     queued = enqueueGift(record)
     const created = await api.createGift(record)
+    if (created?.warning) {
+      notify.warn('可能重复录入', `本账簿 10 分钟内已有一笔同名记录（${created.warning}），请到礼簿核对是否需要删掉一笔。`)
+    }
     if (queued) removeQueued(queued.qid)
     closeModal()
     resetForm?.()
@@ -278,7 +288,7 @@ export async function flushQueue(manual = false) {
   let rejected = 0
   for (const item of list) {
     try {
-      await api.createGift({ eventId: item.eventId, encryptedContent: item.encryptedContent, requestId: item.requestId })
+      await api.createGift({ eventId: item.eventId, encryptedContent: item.encryptedContent, requestId: item.requestId, clientAt: item.clientAt || undefined, nameHash: item.nameHash || undefined })
       removeQueued(item.qid)
       sent += 1
     } catch (error) {
@@ -334,6 +344,14 @@ export function openGiftDetails(index) {
   const hasHistory = history.length > 0
   const lastTouch = hasHistory ? (data.updatedAt || data.timestamp) : data.timestamp
   const when = lastTouch ? new Date(lastTouch).toLocaleString('zh-CN') : ''
+  // 离线补传时，本机录入时间与服务端入库时间会差很多；两个都标出来，避免对不上。
+  const serverAt = gift.createdAt ? new Date(String(gift.createdAt).replace(' ', 'T')) : null
+  const localAt = data.timestamp ? new Date(data.timestamp) : null
+  const drift = serverAt && localAt && Number.isFinite(serverAt.getTime()) && Number.isFinite(localAt.getTime())
+    ? Math.abs(serverAt.getTime() - localAt.getTime()) : 0
+  const syncNote = drift > 60 * 1000
+    ? `<div class="mt-1">同步时间 ${serverAt.toLocaleString('zh-CN', { hour12: false })}（离线补传，礼簿按录入时间排序）</div>`
+    : ''
   const late = isLate(gift) ? '<div class="modal-notice modal-notice-late"><strong>补录记录：</strong>录入时间已超出账簿设定的起止时间，照常计入总额与修改记录。</div>' : ''
   const warning = hasHistory ? `<div class="modal-notice modal-notice-warn">${copy.historyWarning}</div>` : ''
   const returns = returnRecordsOf(data)
@@ -370,7 +388,8 @@ export function openGiftDetails(index) {
       </div>
       ${returnBlock}
       <div class="mt-auto pt-4 text-xs text-gray-400 border-t">
-        <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间 ${when}`}</div>
+        <div class="whitespace-nowrap">${hasHistory ? `已修改 ${history.length} 次 · 最后一次 ${when}` : `录入时间（本机）${when}`}</div>
+        ${syncNote}
         <div class="mt-1">记录不支持删除，纠错会保留修改痕迹</div>
         ${isArchived() ? '' : '<div class="mt-2 flex gap-2"><button type="button" class="text-sm text-blue-600 hover:underline px-2 py-1" data-insert-blank="before">在此行前插入占位</button><button type="button" class="text-sm text-blue-600 hover:underline px-2 py-1" data-insert-blank="after">在此行后插入占位</button></div>'}
         ${isArchived() ? '<p class="gb-readonly-note">账簿已结簿，现在只能查看</p>' : ''}
@@ -581,11 +600,15 @@ export function deleteBlank(index) {
       keepOpen: true,
       handler: async () => {
         try {
+          const removed = { ...gift.data, timestamp: gift.data.timestamp || gift.data.skippedAt || new Date().toISOString() }
           await api.deleteGift(st.currentEvent.id, gift.id)
           closeModal()
           st.gifts.splice(index, 1)
           st.currentPage = Math.min(st.currentPage, Math.max(1, st.gifts.length ? pageOfIndexFor(st.gifts.length - 1, st.gifts.length) : 1))
-          notify.success('占位行已删除', '后面的记录已前移。')
+          notify.undo('占位行已删除', '后面的记录已前移；点「撤销」恢复原位。', async () => {
+            await saveGift({ ...removed, kind: 'blank' }, null, removed.timestamp)
+            notify.success('已恢复占位行', '回到原来的位置。')
+          })
         } catch (error) {
           showAlert('删除失败', error.message || '请稍后重试。')
         }

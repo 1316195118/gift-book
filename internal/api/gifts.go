@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"giftbook/internal/ledger"
 	"giftbook/internal/store"
@@ -15,6 +16,38 @@ const maxCipherSize = 8 << 20
 
 // 结簿归档后账簿只读：前端入口会隐藏，这里再兜一层，防止绕过界面直接写接口。
 const archivedMessage = "账簿已结簿，处于只读状态；如需录入或修改，请先在「账簿设置」里解除结簿。"
+
+// withinMinutes 判断 at（“YYYY-MM-DD HH:mm:ss”或 ISO 格式）与参考时间是否在 n 分钟内。
+func withinMinutes(at, clientAt, stamp string, minutes int) bool {
+	parse := func(value string) (int64, bool) {
+		if value == "" {
+			return 0, false
+		}
+		normalized := strings.Replace(value, "T", " ", 1)
+		layout := "2006-01-02 15:04:05"
+		if len(normalized) > 19 {
+			normalized = normalized[:19]
+		}
+		parsed, err := time.ParseInLocation(layout, normalized, time.Local)
+		if err != nil {
+			return 0, false
+		}
+		return parsed.Unix(), true
+	}
+	left, ok1 := parse(at)
+	right, ok2 := parse(clientAt)
+	if !ok2 {
+		right, ok2 = parse(stamp)
+	}
+	if !ok1 || !ok2 {
+		return false
+	}
+	diff := left - right
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff <= int64(minutes*60)
+}
 
 func isArchived(event map[string]any) bool {
 	value, _ := event["archived"].(bool)
@@ -92,6 +125,20 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 		}
 		requestID = candidate
 	}
+	clientAt := ""
+	if raw, ok := body["clientAt"].(string); ok {
+		clientAt = strings.TrimSpace(raw)
+		if len(clientAt) > 32 {
+			clientAt = ""
+		}
+	}
+	nameHash := ""
+	if raw, ok := body["nameHash"].(string); ok {
+		hash := strings.ToLower(strings.TrimSpace(raw))
+		if len(hash) == 64 {
+			nameHash = hash
+		}
+	}
 	cipher, ok := body["encryptedContent"].(string)
 	if !ok {
 		fail(w, http.StatusBadRequest, "缺少必要参数")
@@ -104,6 +151,7 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 
 	var created map[string]any
 	var duplicate map[string]any
+	var warning string
 	var status int
 	var message string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
@@ -141,6 +189,31 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 		if requestID != "" {
 			gift["requestId"] = requestID
 		}
+		if clientAt != "" {
+			gift["clientAt"] = clientAt
+		}
+		if nameHash != "" {
+			gift["nameHash"] = nameHash
+		}
+		if nameHash != "" {
+			// 同名近邻提醒：不阻止写入，只告诉前端「10 分钟内已有一笔同名记录」。
+			// 姓名哈希在服务端不可逆，仅用于比较，不泄露姓名本身。
+			for _, existing := range gifts {
+				if value, _ := existing["nameHash"].(string); value != nameHash {
+					continue
+				}
+				at := ""
+				if value, ok := existing["clientAt"].(string); ok && value != "" {
+					at = value
+				} else if value, ok := existing["createdAt"].(string); ok {
+					at = value
+				}
+				if at != "" && withinMinutes(at, clientAt, stamp, 10) {
+					warning = at
+				}
+				break
+			}
+		}
 		gifts[gift["id"].(string)] = gift
 		created = publicGift(gift)
 		return migrated && valid, true, nil
@@ -162,7 +235,7 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 	if id, ok := created["id"].(string); ok {
 		s.notifyChange(r, "gift", "created", eventID, id)
 	}
-	writeJSON(w, http.StatusOK, response{Success: true, Data: created})
+	writeJSON(w, http.StatusOK, response{Success: true, Data: created, Warning: warning})
 }
 
 func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID string) {

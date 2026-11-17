@@ -93,3 +93,16 @@ export const formatDate = (value) => {
   const date = toDate(value)
   return date ? date.toLocaleDateString('zh-CN') : ''
 }
+
+// 姓名哈希：服务端只能比对、不能还原姓名，用于「10 分钟内同名」近邻提醒。
+export async function sha256Hex(text) {
+  try {
+    if (crypto?.subtle) {
+      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)))
+      return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    }
+  } catch {
+    /* 不支持的浏览器不启用近邻提醒 */
+  }
+  return ''
+}
