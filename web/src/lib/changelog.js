@@ -2,11 +2,20 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.20'
+export const APP_VERSION = '2.4.21'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.21',
+    date: '2026-11-17',
+    notes: [
+      { t: 'fix', text: '远端变更改为立即拉取，不再依赖会被后台标签节流的定时器：手机录入时电脑上的名字与翻页会及时跟上' },
+      { t: 'fix', text: '断网恢复或实时连接重连成功后，当前账簿会自动补拉一次，不用手动刷新' },
+      { t: 'feat', text: '「空白 / 跳过」增加二次确认，避免误点占位' },
+    ],
+  },
   {
     version: '2.4.20',
     date: '2026-11-17',

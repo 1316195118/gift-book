@@ -406,6 +406,56 @@ function onKeydown(event) {
 
 // 其他设备写入后：防抖重拉当前账簿，保留页码，不打断正在输入的表单。
 let remoteTimer = 0
+let remoteWasAtEnd = false
+let remotePage = 1
+// 远端变更一律立即拉取：不再用 setTimeout 防抖，避免后台标签被节流后不刷新。
+// 并发时只保留一次补拉，避免同一批变更把请求打满。
+let giftRefreshing = false
+let giftRefreshPending = false
+
+async function refreshGiftsFromRemote() {
+  if (st.locked) return
+  if (giftRefreshing) {
+    giftRefreshPending = true
+    return
+  }
+  giftRefreshing = true
+  const wasAtEnd = remoteWasAtEnd
+  const page = remotePage
+  try {
+    await loadGiftsForCurrentEvent()
+    if (st.gifts.length) st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
+  } catch {
+    /* 网络暂时不可用：恢复后由重连/网络状态回调补拉 */
+  } finally {
+    giftRefreshing = false
+    if (giftRefreshPending) {
+      giftRefreshPending = false
+      remoteWasAtEnd = st.currentPage >= totalPages()
+      remotePage = st.currentPage
+      void refreshGiftsFromRemote()
+    }
+  }
+}
+
+let eventSyncing = false
+async function syncEventSettings(eventId) {
+  if (eventSyncing) return
+  eventSyncing = true
+  try {
+    const result = await api.getEvent(eventId)
+    if (result?.data) {
+      st.currentEvent = { ...st.currentEvent, ...result.data }
+      updateSessionEvent(st.currentEvent)
+      st.currentPage = Math.min(st.currentPage, totalPages())
+    }
+  } catch {
+    /* 拉不到就保持当前显示，下一次变更或刷新会再同步 */
+  } finally {
+    eventSyncing = false
+  }
+}
+
 function onRemoteChange(payload) {
   if (payload.type === 'restore' || payload.type === 'family-restore') {
     clearTimeout(remoteTimer)
@@ -426,31 +476,15 @@ function onRemoteChange(payload) {
   // 别的设备改了账簿设置（每页行数、正期、名称…）：拉一次最新账簿，
   // 本机立刻按新行数重排，不用等刷新页面。
   if (payload.type === 'event') {
-    clearTimeout(remoteTimer)
-    remoteTimer = window.setTimeout(async () => {
-      try {
-        const result = await api.getEvent(payload.eventId)
-        if (result?.data) {
-          st.currentEvent = { ...st.currentEvent, ...result.data }
-          updateSessionEvent(st.currentEvent)
-          st.currentPage = Math.min(st.currentPage, totalPages())
-        }
-      } catch {
-        /* 拉不到就保持当前显示，下一次变更或刷新会再同步 */
-      }
-    }, 250)
+    // 不用定时器：后台标签会被浏览器节流，导致设置变更迟迟不生效。
+    void syncEventSettings(payload.eventId)
     return
   }
-  clearTimeout(remoteTimer)
-  remoteTimer = window.setTimeout(async () => {
-    if (st.locked) return
-    const page = st.currentPage
-    // 已经在最后一页 = 正在跟着录入：别的设备记满一页时跟着翻过去。
-    // 停在中间页查看旧记录时保持不动，不把人硬拽走。
-    const wasAtEnd = page >= totalPages()
-    await loadGiftsForCurrentEvent().catch(() => {})
-    if (st.gifts.length) st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
-  }, 450)
+  // 在「收到变更的当下」记下是否停在末页：后台标签被节流时，
+  // 回调可能晚很多才执行，那时页码可能已经被别的回调改过。
+  remoteWasAtEnd = st.currentPage >= totalPages()
+  remotePage = st.currentPage
+  void refreshGiftsFromRemote()
 }
 
 onMounted(() => {
@@ -458,8 +492,8 @@ onMounted(() => {
   document.addEventListener('keydown', onKeydown)
   // 手机浏览器会冻结后台页面、断掉 SSE：切回前台时主动补一次同步，
   // 不用用户手动刷新才能看到别的设备新记的礼金或改过的每页行数。
-  const resyncOnVisible = async () => {
-    if (document.visibilityState !== 'visible' || !st.currentEvent) return
+  const resyncCurrent = async () => {
+    if (!st.currentEvent) return
     const page = st.currentPage
     const wasAtEnd = page >= totalPages()
     try {
@@ -478,9 +512,19 @@ onMounted(() => {
       /* 网络还没恢复时保持现状，下一次可见或 SSE 重连会再补 */
     }
   }
-  document.addEventListener('visibilitychange', resyncOnVisible)
-  onBeforeUnmount(() => document.removeEventListener('visibilitychange', resyncOnVisible))
-  startRealtime(onRemoteChange)
+  const handleVisible = () => {
+    if (document.visibilityState === 'visible') resyncCurrent()
+  }
+  document.addEventListener('visibilitychange', handleVisible)
+  onBeforeUnmount(() => document.removeEventListener('visibilitychange', handleVisible))
+  // 网络从断开恢复、或 SSE 断线重连成功时，立即补一次当前账簿的变更。
+  watch(
+    () => net.health.level,
+    (level, previous) => {
+      if (level === 'good' && previous && previous !== 'good') resyncCurrent()
+    },
+  )
+  startRealtime(onRemoteChange, resyncCurrent)
 })
 
 onBeforeUnmount(() => {

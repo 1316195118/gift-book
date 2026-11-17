@@ -25,7 +25,7 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.20"
+const appVersion = "2.4.21"
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")

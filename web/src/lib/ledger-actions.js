@@ -446,10 +446,22 @@ export class GiftUpdateError extends Error {
 export function submitBlank(resetForm) {
   if (!ensureWritable()) return
   if (st.locked) return showAlert('账簿已锁定', '请先解锁账簿后再录入。')
-  return saveGift({
-    name: '', amount: 0, type: '现金', relation: '', remarks: '',
-    kind: 'blank', skippedAt: new Date().toISOString(),
-  }, resetForm)
+  const html = `
+    <div class="gb-blank-confirm">
+      <p>这一行不记礼金，只占住纸簿里的位置；之后可以补录，也可以删除。</p>
+      <p class="field-hint">占位行不计入人数与金额。</p>
+    </div>`
+  openModal('跳过这一行？', { type: 'html', html }, [
+    { text: '取消', class: 'modal-btn-ghost' },
+    {
+      text: '跳过并占位',
+      class: 'modal-btn-primary',
+      handler: () => saveGift({
+        name: '', amount: 0, type: '现金', relation: '', remarks: '',
+        kind: 'blank', skippedAt: new Date().toISOString(),
+      }, resetForm),
+    },
+  ], { dismissable: true })
 }
 
 // 后续插入占位：before = 插在目标行前，after = 插在目标行后。

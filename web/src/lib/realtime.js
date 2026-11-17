@@ -6,9 +6,12 @@ let source = null
 let retry = 0
 let retryTimer = 0
 let onChange = null
+let onReady = null
+let connectedOnce = false
 
-export function startRealtime(handler) {
+export function startRealtime(handler, readyHandler) {
   onChange = handler
+  onReady = readyHandler
   if (source) return
   connect()
 }
@@ -22,7 +25,11 @@ function connect() {
     return
   }
   source.addEventListener('ready', () => {
+    const reconnected = connectedOnce
+    connectedOnce = true
     retry = 0
+    // 断线重连成功：让页面立刻补拉一次，避免错过断线期间的变更。
+    if (reconnected) onReady?.()
   })
   source.addEventListener('change', (event) => {
     let payload = null
@@ -54,4 +61,6 @@ export function stopRealtime() {
   source = null
   retry = 0
   onChange = null
+  onReady = null
+  connectedOnce = false
 }
