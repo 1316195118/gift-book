@@ -50,6 +50,12 @@ export function openSettings({ section = 'general' } = {}) {
   // 正期是「婚礼/殡期」本身的时间，和上面控制录入窗口的起止时间是两回事。
   const ceremony = ceremonyInputs(ev.ceremonyAt)
   const ceremonyName = ceremonyLabel(ev, st.homeCategory)
+  // 让用户点选时就看到会变成多少页，而不是保存后才发现。
+  const perPageHint = (size) => {
+    const total = st.gifts.length
+    const pages = Math.max(1, Math.ceil(total / size))
+    return `默认 12 行。当前共 ${total} 条，按 ${size} 行/页约 ${pages} 页；保存后总页数与本页小计会自动重算，统计口径不变。`
+  }
   const { groups } = buildVoiceGroups()
   const voice = getVoiceOptions()
   const groupHtml = groups
@@ -94,9 +100,10 @@ export function openSettings({ section = 'general' } = {}) {
 
       <section class="settings-section">
         <h4 class="settings-title">每页行数${hintIcon('礼簿按页翻看，可选 8 / 10 / 12 行，默认 12 行。改完后总页数与本页小计会跟着重算，统计口径不变。')}</h4>
-        <div class="option-chips">
-          ${[8, 10, 12].map((n) => `<button type="button" class="option-chip${selectedPerPage === n ? ' active' : ''}" data-per-page="${n}">${n} 行</button>`).join('')}
+        <div class="option-chips" role="group" aria-label="每页行数">
+          ${[8, 10, 12].map((n) => `<button type="button" class="option-chip${selectedPerPage === n ? ' active' : ''}" data-per-page="${n}" aria-pressed="${selectedPerPage === n}">${n} 行</button>`).join('')}
         </div>
+        <p class="field-hint" id="edit-per-page-hint">${perPageHint(selectedPerPage)}</p>
       </section>
 
       <section class="settings-section">
@@ -229,8 +236,12 @@ export function openSettings({ section = 'general' } = {}) {
     document.querySelectorAll('[data-per-page]').forEach((button) => {
       button.addEventListener('click', () => {
         selectedPerPage = Number(button.dataset.perPage)
+        const hint = document.getElementById('edit-per-page-hint')
+        if (hint) hint.textContent = perPageHint(selectedPerPage)
         document.querySelectorAll('[data-per-page]').forEach((item) => {
-          item.classList.toggle('active', Number(item.dataset.perPage) === selectedPerPage)
+          const active = Number(item.dataset.perPage) === selectedPerPage
+          item.classList.toggle('active', active)
+          item.setAttribute('aria-pressed', String(active))
         })
       })
     })

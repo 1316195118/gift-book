@@ -267,6 +267,8 @@
 
   #print-view .amount-numeric.scale { font-size: calc(9pt * var(--print-font-scale, 1)); }
 
+  #print-view .amount-numeric.tiny { font-size: calc(8pt * var(--print-font-scale, 1)); letter-spacing: -.02em; }
+
   #print-view .mark { display: none; }
 
   #print-view .late-mark {

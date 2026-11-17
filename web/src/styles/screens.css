@@ -2067,6 +2067,7 @@ body.theme-solemn .hero-book-art .book {
   align-items: center;
   justify-content: center;
   min-width: 0;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line));
   color: var(--ink);
   text-align: center;
@@ -2222,7 +2223,13 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .amount-numeric.scale {
-  font-size: min(11px, 16cqw);
+  font-size: min(10px, 15cqw);
+}
+
+/* 带千分位与两位小数后更宽，窄屏再降一档，保证不压到相邻格子。 */
+.amount-numeric.tiny {
+  font-size: min(9px, 12cqw);
+  letter-spacing: -.03em;
 }
 
 .book-empty-hint {

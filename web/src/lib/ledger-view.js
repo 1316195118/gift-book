@@ -101,7 +101,10 @@ function amountCell(gift, index) {
   }
   const chinese = amountToChinese(gift.data.amount)
   const cnClass = chinese.length > 18 ? ' scale tiny' : chinese.length > 8 ? ' scale' : ''
-  return `<div class="book-cell amount-cell${newCls(index)}" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${Math.abs(gift.data.amount).toString().length > 6 ? ' scale' : ''}">${formatCurrency(gift.data.amount)}</div></div>`
+  // 按格式化后的文字宽度判断缩放：10000 只有 5 位，但显示成 ¥10,000.00 会顶到隔壁格子。
+  const numeric = formatCurrency(gift.data.amount)
+  const numClass = numeric.length > 11 ? ' tiny' : numeric.length > 7 ? ' scale' : ''
+  return `<div class="book-cell amount-cell${newCls(index)}" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${numClass}">${numeric}</div></div>`
 }
 
 export function bookMarkup() {

@@ -220,6 +220,44 @@ button:disabled {
   letter-spacing: .02em;
 }
 
+/* 分段选项（每页行数、备份频率）：做成有边界的胶囊，选中态用主色描边。 */
+.option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-chip {
+  flex: 0 0 auto;
+  padding: 7px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.option-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.option-chip.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.option-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .field-hint,
 .setup-hint,
 .preview-hint,

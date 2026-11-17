@@ -43,8 +43,36 @@ const app = createApp(App)
 app.config.errorHandler = (err, _instance, info) => reportClientError(`渲染错误（${info}）`, err)
 app.mount('#app')
 
-window.addEventListener('unhandledrejection', (event) => reportClientError('未处理的 Promise 拒绝', event.reason))
-window.addEventListener('error', (event) => reportClientError('未捕获错误', event.error || event.message))
+// 发布后旧页面懒加载的 chunk 会 404：这不是数据问题，自动刷新一次即可恢复。
+// 用 sessionStorage 记一次标记，避免真正的代码错误导致无限刷新。
+const CHUNK_ERROR = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i
+function recoverFromStaleChunk(detail) {
+  const message = String(detail?.message || detail || '')
+  if (!CHUNK_ERROR.test(message)) return false
+  try {
+    if (sessionStorage.getItem('gb-stale-chunk-reloaded') === '1') return false
+    sessionStorage.setItem('gb-stale-chunk-reloaded', '1')
+  } catch {
+    // 隐私模式或内嵌浏览器禁用存储时，不自动刷新，避免刷新循环。
+    return false
+  }
+  window.location.reload()
+  return true
+}
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (recoverFromStaleChunk(event.reason)) return
+  reportClientError('未处理的 Promise 拒绝', event.reason)
+})
+window.addEventListener('error', (event) => {
+  if (recoverFromStaleChunk(event.error || event.message)) return
+  reportClientError('未捕获错误', event.error || event.message)
+})
+
+// 应用正常挂载一段时间后清掉标记：下次发布仍能自动恢复一次。
+window.setTimeout(() => {
+  try { sessionStorage.removeItem('gb-stale-chunk-reloaded') } catch { /* 隐私模式下忽略 */ }
+}, 15000)
 
 // 首屏空闲时预取体积较大的按需模块：点击导出/打印/扫码/更新说明时不再等 chunk 下载。
 function prefetchHeavyModules() {

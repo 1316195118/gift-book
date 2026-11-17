@@ -134,6 +134,7 @@
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { state as st } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
+import { ceremonyLabel, ceremonyText } from '../lib/ceremony.js'
 import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from '../lib/actions.js'
 import { switchCategory } from '../lib/actions.js'
 import { api } from '../lib/api.js'

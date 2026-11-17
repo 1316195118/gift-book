@@ -195,7 +195,8 @@
 
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { state as st } from '../store.js'
+import { state as st, updateSessionEvent } from '../store.js'
+import { api } from '../lib/api.js'
 import { copyOf } from '../lib/content.js'
 import { formatCurrency, formatDate } from '../lib/crypto.js'
 import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
@@ -422,6 +423,24 @@ function onRemoteChange(payload) {
     return
   }
   if (!payload.eventId || payload.eventId !== st.currentEvent?.id) return
+  // 别的设备改了账簿设置（每页行数、正期、名称…）：拉一次最新账簿，
+  // 本机立刻按新行数重排，不用等刷新页面。
+  if (payload.type === 'event') {
+    clearTimeout(remoteTimer)
+    remoteTimer = window.setTimeout(async () => {
+      try {
+        const result = await api.getEvent(payload.eventId)
+        if (result?.data) {
+          st.currentEvent = { ...st.currentEvent, ...result.data }
+          updateSessionEvent(st.currentEvent)
+          st.currentPage = Math.min(st.currentPage, totalPages())
+        }
+      } catch {
+        /* 拉不到就保持当前显示，下一次变更或刷新会再同步 */
+      }
+    }, 250)
+    return
+  }
   clearTimeout(remoteTimer)
   remoteTimer = window.setTimeout(async () => {
     if (st.locked) return

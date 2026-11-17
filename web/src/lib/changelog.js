@@ -2,11 +2,21 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.18'
+export const APP_VERSION = '2.4.19'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: '2.4.19',
+    date: '2026-11-17',
+    notes: [
+      { t: 'fix', text: '手机窄屏礼簿的金额不再压到相邻格子：按格式化后的宽度自动缩一档，格子裁掉溢出' },
+      { t: 'fix', text: '「每页行数」改成有边界的胶囊按钮，选中态清晰，并补上可见说明；自动备份的频率按钮同步受益' },
+      { t: 'fix', text: '一台设备改了账簿设置（每页行数、正期、名称等），其它正在看这本账簿的设备会立即按新设置重排，不用刷新' },
+      { t: 'fix', text: '修复 2.4.18 首页在有账簿时白屏：正期函数漏了导入，导致渲染中断' },
+    ],
+  },
   {
     version: '2.4.18',
     date: '2026-11-17',

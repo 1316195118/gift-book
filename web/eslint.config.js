@@ -46,6 +46,15 @@ export default [
         structuredClone: 'readonly',
         indexedDB: 'readonly',
         requestIdleCallback: 'readonly',
+        // Vue <script setup> 编译宏，不需要 import。
+        // 内嵌的第三方 OCR 代码带 UMD 判断，会出现 typeof module 之类。
+        module: 'readonly',
+        exports: 'readonly',
+        defineProps: 'readonly',
+        defineEmits: 'readonly',
+        defineExpose: 'readonly',
+        defineOptions: 'readonly',
+        withDefaults: 'readonly',
       },
     },
     rules: {
@@ -60,6 +69,8 @@ export default [
       'vue/html-closing-bracket-newline': 'off',
       'vue/attributes-order': 'off',
       'vue/require-default-prop': 'off',
+      // 漏 import 的标识符在浏览器里才报错，必须在这一层拦住。
+      'no-undef': 'error',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
     },
