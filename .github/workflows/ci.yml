@@ -74,7 +74,7 @@ jobs:
       - name: Start app
         run: |
           mkdir -p /tmp/gb-e2e/data /tmp/gb-e2e/config
-          ./giftbook -addr 127.0.0.1 -port 18199 -data /tmp/gb-e2e/data -config /tmp/gb-e2e/config > /tmp/gb-e2e/server.log 2>&1 &
+          ./giftbook.exe -addr 127.0.0.1 -port 18199 -data /tmp/gb-e2e/data -config /tmp/gb-e2e/config > /tmp/gb-e2e/server.log 2>&1 &
 
       - name: Wait for app
         run: |
