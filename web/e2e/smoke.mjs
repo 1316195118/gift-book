@@ -1,9 +1,17 @@
 // 主链路冒烟：建账 → 录入 → 同名重复确认 → 服务端近邻提醒 → 占位删除/撤销 → 统计/导出。
 // 用法：先启动本地服务（默认 http://127.0.0.1:18199），再 `node e2e/smoke.mjs`；BASE_URL 可覆盖。
+import { existsSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:18199'
-const browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true })
+// 本机优先用系统 Edge，CI 用 playwright-core 下载的 Chromium。
+const browserPath = [
+  process.env.E2E_BROWSER,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  chromium.executablePath(),
+].find((candidate) => candidate && existsSync(candidate))
+if (!browserPath) throw new Error('找不到浏览器：请先 npx playwright-core install chromium，或设置 E2E_BROWSER')
+const browser = await chromium.launch({ executablePath: browserPath, headless: true })
 const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push((e.stack || e.message).split('\n')[0]))

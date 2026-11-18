@@ -361,6 +361,19 @@ func TestGiftDuplicateNearWarning(t *testing.T) {
 	}
 }
 
+// ISO 带时区的时间要与本地时间正确比较（UTC 08:05 对本地 16:05 只差几分钟）。
+func TestWithinMinutesISO(t *testing.T) {
+	loc := time.FixedZone("CST", 8*3600)
+	old := time.Local
+	time.Local = loc
+	defer func() { time.Local = old }()
+	local := time.Date(2026, 11, 18, 16, 0, 0, 0, loc).Format("2006-01-02 15:04:05")
+	iso := time.Date(2026, 11, 18, 8, 5, 0, 0, time.UTC).Format(time.RFC3339)
+	if !withinMinutes(local, iso, local, 10) {
+		t.Fatal("带时区 ISO 与本地时间相差 5 分钟，应命中")
+	}
+}
+
 // 分页区间规则：只保留合法、按起始页排序、互不重叠的规则。
 func TestEventPageRules(t *testing.T) {
 	env := newEnv(t)

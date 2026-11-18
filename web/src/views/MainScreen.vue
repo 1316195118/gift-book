@@ -92,7 +92,7 @@
             </div>
 
             <div class="entry-fold-row">
-              <button type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="toggleEntryMore">
+              <button v-if="hiddenFieldCount" type="button" class="entry-more-toggle" :aria-expanded="entryMore" @click="toggleEntryMore">
                 <span>{{ entryMore ? '收起' : '展开' }}更多选项</span><small>{{ foldSummary }}</small>
               </button>
               <button type="button" class="entry-fields-btn" title="选择哪些字段显示在常用区" @click="openFieldPicker">字段</button>
@@ -261,6 +261,7 @@ function readEntryShow() {
   }
 }
 const entryShow = reactive(readEntryShow())
+const hiddenFieldCount = computed(() => [entryShow.type, entryShow.relation, entryShow.remarks].filter(Boolean).length === 3 ? 0 : 1)
 const foldSummary = computed(() => {
   const hidden = []
   if (!entryShow.type) hidden.push('收款方式')

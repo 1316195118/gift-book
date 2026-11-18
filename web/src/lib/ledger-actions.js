@@ -15,6 +15,7 @@ import { toast } from './toast.js'
 import { notify } from './notify.js'
 import { pageOfIndexFor, pageSizeAt } from './page-size.js'
 import { noteRecentSubmit, findRecentSubmit, findRecentName } from './recent-submits.js'
+const recentScope = () => `${st.family?.id || 'default'}:${st.currentEvent?.id || 'default'}`
 import { probeAllLinks } from './network.js'
 import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
 import { getVoiceOptions, qrStorageKey } from './prefs.js'
@@ -50,8 +51,8 @@ export async function submitGift(giftData, resetForm) {
 
   const sameName = st.gifts.filter((g) => g.data?.name === name)
   const exactMatch = sameName.some((g) => g.data?.amount === amount)
-    || Boolean(findRecentSubmit(name, amount))
-    || Boolean(findRecentName(name))
+    || Boolean(findRecentSubmit(name, amount, recentScope()))
+    || Boolean(findRecentName(name, recentScope()))
   const start = new Date(st.currentEvent.startDateTime).getTime()
   const end = new Date(st.currentEvent.endDateTime).getTime()
   const hasWindow = Number.isFinite(start) && Number.isFinite(end)
@@ -78,7 +79,7 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
     title = '重复信息确认'
     body = `
       <div class="space-y-3 text-left">
-        <div class="modal-notice modal-notice-warn"><strong class="font-bold">警告：</strong><p class="text-sm">系统中已存在“相同姓名”且“相同金额”的记录（也可能是刚刚提交、还在待同步的那一笔），请仔细核对后再提交。</p></div>
+        <div class="modal-notice modal-notice-warn"><strong class="font-bold">警告：</strong><p class="text-sm">这位客人近期已有记录（同名，或同名同额；也可能刚提交、还在待同步），请仔细核对后再提交。</p></div>
         <p><strong>${copy.confirmGuestLabel}:</strong> <span class="text-lg">${escapeHtml(name)}</span></p>
         <p><strong>金额:</strong> <span class="font-bold text-xl themed-text">${formatCurrency(amount)}</span></p>
         <div><label for="modal-remarks-input" class="block text-sm font-medium text-gray-700">如非重复，建议填写备注(选填)</label><textarea id="modal-remarks-input" placeholder="${escapeHtml(copy.remarksTip)}" class="w-full mt-1 p-2 border rounded themed-ring" rows="2">${escapeHtml(remarks)}</textarea></div>
@@ -145,7 +146,7 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
   let queued = null
   let record = null
   try {
-    noteRecentSubmit(giftData.name, giftData.amount)
+    noteRecentSubmit(giftData.name, giftData.amount, recentScope())
     const fullGift = { ...giftData, timestamp: timestampOverride || new Date().toISOString(), late }
     const encryptedContent = await encryptData(fullGift, st.currentPassword)
     record = { eventId: st.currentEvent.id, encryptedContent, requestId: newRequestId() }

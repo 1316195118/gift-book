@@ -14,4 +14,11 @@ describe('本机最近提交查重', () => {
     noteRecentSubmit('李四', 100)
     expect(findRecentName('李四')).toBeTruthy()
   })
+
+  it('不同家庭/账簿之间不互相误报', () => {
+    noteRecentSubmit('王五', 200, 'fam_a:evt_1')
+    expect(findRecentSubmit('王五', 200, 'fam_a:evt_1')).toBeTruthy()
+    expect(findRecentSubmit('王五', 200, 'fam_b:evt_1')).toBeUndefined()
+    expect(findRecentName('王五', 'fam_a:evt_2')).toBeUndefined()
+  })
 })

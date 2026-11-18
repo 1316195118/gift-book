@@ -2,11 +2,29 @@
 // v1.0.x 的旧版记录（history）按原样存档，不再改写。
 import history from './changelog-history.json'
 
-export const APP_VERSION = '2.4.30'
+export const APP_VERSION = '2.4.31'
 
 const LOG_TAG = { feat: '新增', fix: '修复', sec: '安全', opt: '优化' }
 
 const CURRENT = [
+  {
+    version: "2.4.31",
+    date: "2026-11-18",
+    notes: [
+      {
+        t: "fix",
+        text: "查重记录按家庭与账簿隔离：切换家庭/账簿后不会拿上一本的近期录入误报重复； duplicate 提醒文案更准确"
+      },
+      {
+        t: "fix",
+        text: "同名近邻判断正确解析带时区的录入时间，跨时区不再差 8 小时"
+      },
+      {
+        t: "opt",
+        text: "主链路 E2E 冒烟接入 CI；字段全部设为常用时不再显示空的「更多选项」按钮"
+      }
+    ]
+  },
   {
     version: "2.4.30",
     date: "2026-11-18",

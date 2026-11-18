@@ -23,6 +23,11 @@ func withinMinutes(at, clientAt, stamp string, minutes int) bool {
 		if value == "" {
 			return 0, false
 		}
+		// 客户端提交的是带时区的 ISO（2026-11-18T12:00:00.000Z）；旧记录是服务端本地时间。
+		// 两种格式都支持，统一换算成同一时刻再比较，避免跨时区差 8 小时。
+		if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+			return parsed.Unix(), true
+		}
 		normalized := strings.Replace(value, "T", " ", 1)
 		layout := "2006-01-02 15:04:05"
 		if len(normalized) > 19 {
