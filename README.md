@@ -436,3 +436,30 @@ OCR 依赖的第三方组件**不随本仓库分发**，各自按其许可证单
 
 > 如需改用更严格的许可证（例如要求衍生作品同样开源的 AGPL-3.0），
 > 替换根目录 `LICENSE`，并同步更新本节与 `web/package.json` 的 `license` 字段即可。
+
+## 一键回滚
+
+发布后要退回旧版本，用仓库里的 `scripts/rollback.sh`，只换程序、不动账簿数据：
+
+```bash
+# 同时回滚 PVE 和 NAS 到 v2.4.30
+GB_PW='<PVE root 密码>' NAS_PW='<NAS 账号密码>' scripts/rollback.sh v2.4.30
+
+# 只回滚其中一处（版本号写 vX.Y.Z 或 ocr-vX.Y.Z 都行）
+NAS_PW='<密码>' scripts/rollback.sh --nas ocr-v2.4.30
+GB_PW='<密码>' scripts/rollback.sh --pve v2.4.30
+```
+
+- NAS：改镜像标签前先备份 compose，校验 `/api/build` 版本不符会自动还原；
+- PVE：从 git tag 用 `git archive` 在临时目录重建二进制，不改当前工作区；
+- 两处回滚后都会核对返回的版本号。
+
+## 备份可用性演练
+
+`backup_drill_test.go` 每次 CI 都会跑：造样本账簿 → 导出备份 → 全新目录还原 →
+逐字节比对礼金密文，并验证被篡改的备份会被拒绝。本地手动跑：
+
+```bash
+go test ./internal/api/ -run TestBackupRestore -v
+```
+

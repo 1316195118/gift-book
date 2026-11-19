@@ -35,6 +35,11 @@ jobs:
       - name: Go test
         run: go test ./...
 
+      # 备份可用性演练：导出 → 校验 → 全新目录还原 → 逐字节比对，
+      # 另含篡改备份必须被拒。确保备份真的能救回来，而不是只有文件在。
+      - name: Backup restore drill
+        run: go test ./internal/api/ -run 'TestBackupRestore' -v
+
       - name: Frontend unit tests
         working-directory: web
         run: npx vitest run
