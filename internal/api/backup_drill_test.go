@@ -1,6 +1,9 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
 	"testing"
 
 	"giftbook/internal/backup"
@@ -83,6 +86,8 @@ func TestBackupRestoreDrill(t *testing.T) {
 }
 
 // 被篡改的备份必须在还原前被拦下，不能把坏数据写进账簿。
+// 做法与字节搜索无关：解开 zip、改掉账簿名、重新打包，保证任何平台上
+// 校验和都能发现内容被改（原来在压缩流里搜明文，store/deflate 差异会让测试时灵时不灵）。
 func TestBackupRestoreRejectsTampered(t *testing.T) {
 	src := newEnv(t)
 	if err := src.store.WithEvents(func(events map[string]store.Record) (bool, error) {
@@ -91,33 +96,51 @@ func TestBackupRestoreRejectsTampered(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	data, _, err := backup.Build(src.store, "drill", false, nil)
+	original, _, err := backup.Build(src.store, "drill", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 把 "原账簿" 改成等长的另一个名字，破坏校验和但不破坏 zip 结构。
-	needle := []byte("原账簿")
-	replacement := []byte("假账簿")
-	found := false
-	for i := 0; i+len(needle) <= len(data); i++ {
-		match := true
-		for j := range needle {
-			if data[i+j] != needle[j] {
-				match = false
-				break
-			}
+
+	// 解开 → 篡改 events.json → 原样文件名重新打包。
+	reader, err := zip.NewReader(bytes.NewReader(original), int64(len(original)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tampered bytes.Buffer
+	writer := zip.NewWriter(&tampered)
+	for _, entry := range reader.File {
+		content, readErr := readZipEntry(entry)
+		if readErr != nil {
+			t.Fatal(readErr)
 		}
-		if match {
-			copy(data[i:i+len(replacement)], replacement)
-			found = true
-			break
+		if entry.Name == "data/events.json" {
+			content = bytes.ReplaceAll(content, []byte("原账簿"), []byte("假账簿"))
+		}
+		header := &zip.FileHeader{Name: entry.Name, Method: zip.Store}
+		header.SetModTime(entry.Modified)
+		out, createErr := writer.CreateHeader(header)
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		if _, err := out.Write(content); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if !found {
-		t.Fatal("测试样本里找不到要篡改的字段")
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
 	}
+
 	targetEnv := newEnv(t)
-	if _, err := targetEnv.api.parseBackupZip(data); err == nil {
+	if _, err := targetEnv.api.parseBackupZip(tampered.Bytes()); err == nil {
 		t.Fatal("被篡改的备份应被校验拦截")
 	}
+}
+
+func readZipEntry(entry *zip.File) ([]byte, error) {
+	rc, err := entry.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(rc)
 }
