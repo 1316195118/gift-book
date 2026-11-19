@@ -77,6 +77,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/ping", s.handlePing)
 	mux.HandleFunc("GET /api/build", s.handleBuild)
 	mux.HandleFunc("GET /api/capabilities", s.handleCapabilities)
+	mux.HandleFunc("GET /api/health", s.open(s.handleHealth))
 	mux.HandleFunc("GET /api/auth", s.handleAuthState)
 	mux.HandleFunc("POST /api/auth", s.handleLogin)
 	mux.HandleFunc("PUT /api/auth", s.handleUpdateAuth)
@@ -251,6 +252,45 @@ func (s *Server) handleBuild(w http.ResponseWriter, r *http.Request) {
 		"build":   s.build,
 		"version": s.version,
 	}})
+}
+
+// handleHealth 给已登录用户看的服务概况：版本、OCR、最近备份、当前家庭数据量。
+// 不含姓名与金额，也不泄露其他家庭的信息；公开探针仍走 /api/build。
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	family, ok := s.resolveFamily(r)
+	if !ok {
+		failCode(w, http.StatusUnauthorized, "family_required", "请选择家庭并输入访问码")
+		return
+	}
+	events, _ := s.store.ReadEvents()
+	eventCount, giftCount := 0, 0
+	for id, event := range events {
+		if !eventBelongsTo(event, family.ID) {
+			continue
+		}
+		eventCount++
+		gifts, err := s.store.ReadGifts(id)
+		if err == nil {
+			giftCount += len(gifts)
+		}
+	}
+	s.lastBackupMu.Lock()
+	lastAt := s.lastBackupAt
+	lastErr := s.lastBackupErr
+	s.lastBackupMu.Unlock()
+	data := map[string]any{
+		"build":       s.build,
+		"version":     s.version,
+		"ocr":         s.ocr.Enabled(),
+		"events":      eventCount,
+		"gifts":       giftCount,
+		"lastBackup":  "",
+		"backupError": lastErr,
+	}
+	if !lastAt.IsZero() {
+		data["lastBackup"] = lastAt.Format(time.RFC3339)
+	}
+	writeJSON(w, http.StatusOK, response{Success: true, Data: data})
 }
 
 // handleCapabilities 报告服务端能力，供前端按需启用入口（例如 OCR）。

@@ -185,19 +185,19 @@ body.theme-solemn::after {
    -------------------------------------------------------------------------- */
 
 .entry-stamp {
+  /* 落在面板右上角标题旁的留白处：像簿页落款，且不遮挡任何输入控件。 */
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 14px;
+  right: 14px;
   display: grid;
   place-items: center;
-  width: 104px;
-  height: 104px;
-  margin: -52px 0 0 -52px;
+  width: 74px;
+  height: 74px;
   border-radius: 4px;
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font-kai);
-  font-size: 56px;
+  font-size: 40px;
   line-height: 1;
   pointer-events: none;
   z-index: var(--z-float);

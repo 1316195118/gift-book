@@ -44,7 +44,7 @@ try {
     await page.locator('#guest-name').fill(name)
     await page.locator('#gift-amount').fill(String(amount))
     await page.locator('#submit-gift-btn').click(); await page.waitForTimeout(300)
-    const ok = page.getByText('确认提交', { exact: true }).first()
+    const ok = page.getByText('确定', { exact: true }).first()
     if (await ok.count()) await ok.click()
     await page.waitForTimeout(900)
   }
@@ -54,7 +54,7 @@ try {
     await page.locator('#gift-amount').fill('300')
     await page.locator('#submit-gift-btn').click(); await page.waitForTimeout(300)
     if (!(await page.getByText('重复信息确认').count())) throw new Error('未出现重复确认')
-    const ok = page.getByText('确认提交', { exact: true }).first()
+    const ok = page.getByText('确定', { exact: true }).first()
     if (await ok.count()) await ok.click()
     await page.waitForTimeout(900)
   })

@@ -1500,13 +1500,17 @@
   padding-bottom: 4px;
 }
 
-/* 空页提示 */
+/* 空页提示：整本簿子为空时它承担整个簿页区域，给足高度居中，不像一条掉在上面的横幅。 */
 .book-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
   padding: 18px 12px;
-  border: 1px dashed var(--line);
-  border-radius: var(--r-sm);
+  border: 1px dashed color-mix(in srgb, var(--accent) 18%, var(--line));
+  border-radius: var(--r-md);
   color: var(--muted);
   font-size: var(--fs-sm);
+  line-height: 1.8;
   text-align: center;
 }
 
@@ -1670,4 +1674,75 @@
   30% { opacity: 1; transform: translateY(0); }
   70% { opacity: 1; }
   100% { opacity: .7; }
+}
+
+/* 查找增强：筛选展开面板 */
+.search-filter-toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-filter-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.search-filter-panel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.search-filter-panel select {
+  padding: 4px 6px;
+  font-size: var(--fs-xs);
+}
+
+.search-filter-panel small {
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+}
+
+/* 「添加页段」跟在规则列表后面，左对齐才像这条设置的附属操作。 */
+#gb-add-page-rule {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* 答谢卡预览：画布按弹窗宽度缩放，保持 4:5 比例。 */
+.thank-card-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#thank-card-canvas {
+  width: min(100%, 420px);
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: #FBF7EE;
+}
+
+.thank-card-hint {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
 }

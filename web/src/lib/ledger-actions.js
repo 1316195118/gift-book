@@ -15,6 +15,8 @@ import { toast } from './toast.js'
 import { notify } from './notify.js'
 import { pageOfIndexFor, pageSizeAt } from './page-size.js'
 import { noteRecentSubmit, findRecentSubmit, findRecentName } from './recent-submits.js'
+import { filterGifts, parseAmountQuery, normalizeName } from './search-filter.js'
+import { openThankCard } from './thank-card.js'
 const recentScope = () => `${st.family?.id || 'default'}:${st.currentEvent?.id || 'default'}`
 import { probeAllLinks } from './network.js'
 import { ledgerKeyOf, verifyLedgerPassword } from './actions.js'
@@ -101,7 +103,7 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
   openModal(title, { type: 'html', html: body }, [
     { text: '返回修改', class: 'themed-button-secondary border px-4 py-2 rounded' },
     {
-      text: '确认提交',
+      text: '确定',
       class: 'themed-button-primary px-4 py-2 rounded',
       keepOpen: true,
       handler: async () => {
@@ -367,7 +369,10 @@ export function openGiftDetails(index) {
   openModal(
     `${data.name} 的${copy.detailTitle}`,
     { type: 'html', html: late + warning + timeline },
-    [{ text: '关闭', class: 'themed-button-secondary border px-4 py-2 rounded' }],
+    [
+      { text: '生成答谢卡', class: 'themed-button-secondary border px-4 py-2 rounded', handler: () => { closeModal(); setTimeout(() => openThankCard(gift), 80) } },
+      { text: '关闭', class: 'themed-button-secondary border px-4 py-2 rounded' },
+    ],
     { size: hasHistory ? 'large' : 'default' },
   )
   afterModalRender(() => {
@@ -851,27 +856,25 @@ export async function runSearch(name, amountText, options = {}) {
   // 手机端点到「查找」时输入框还带着焦点，软键盘会占掉半屏：
   // 先收起键盘，后面翻页定位才不会在缩小的视口里算错位置。
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-  const normalize = (value) => String(value || '').replace(/[\s　​-‍﻿]/g, '')
-  const nameTerm = normalize(name)
-  const amountRaw = String(amountText ?? '').trim()
-  if (!nameTerm && amountRaw === '' && !options.unreturned) return showAlert('提示', '请输入姓名或金额后再查询。')
-  const amountTerm = amountRaw === '' ? null : Number(amountRaw)
-  if (amountTerm !== null && (!Number.isFinite(amountTerm) || amountTerm < 0)) return showAlert('提示', '请输入有效的金额。')
-  const results = st.gifts
-    .map((g, index) => ({ ...g, originalIndex: index }))
-    .filter((g) => {
-      if (!g.data) return false
-      const names = [g.data.name, g.data.giverName, g.giverName, g.name].filter(Boolean).map(normalize)
-      const nameOk = !nameTerm || names.some((n) => n.includes(nameTerm))
-      const amountOk = amountTerm === null || Math.abs(Number(g.data.amount) - amountTerm) < 0.005
-      const returnOk = !options.unreturned || !hasReturned(g.data)
-      return nameOk && amountOk && returnOk
-    })
+  const nameTerm = normalizeName(name)
+  const amountQuery = parseAmountQuery(amountText)
+  const hasFilters = Boolean(nameTerm || amountQuery.kind !== 'any' || options.unreturned || options.relation || options.type)
+  if (!hasFilters) return showAlert('提示', '请输入姓名或金额后再查询。')
+  if (amountQuery.kind === 'invalid') return showAlert('提示', '金额格式不对。可填单个数字或区间，如 300 或 100-500。')
+  const results = filterGifts(st.gifts, nameTerm, amountQuery, {
+    unreturned: options.unreturned,
+    relation: options.relation,
+    type: options.type,
+    hasReturned,
+  })
   const criteria = []
   if (nameTerm) criteria.push(`姓名包含「${nameTerm}」`)
-  if (amountTerm !== null) criteria.push(`金额 ${formatCurrency(amountTerm)}`)
+  if (amountQuery.kind === 'exact') criteria.push(`金额 ${formatCurrency(amountQuery.value)}`)
+  if (amountQuery.kind === 'range') criteria.push(`金额 ${formatCurrency(amountQuery.min)}–${formatCurrency(amountQuery.max)}`)
+  if (options.relation) criteria.push(`关系 ${options.relation}`)
+  if (options.type) criteria.push(`方式 ${options.type}`)
   if (options.unreturned) criteria.push('仅未回礼')
-  if (!results.length) return showAlert('查找结果', escapeHtml(`没有找到${criteria.join('、')}的记录。`))
+  if (!results.length) return showAlert('查找结果', escapeHtml(`没有找到${criteria.join('、')}的记录。试试只按姓氏，或把金额改成区间（如 100-500）。`))
 
   // 只命中一条：不绕结果列表，直接翻到那一页再弹详情，
   // 关掉详情时正好停在礼簿里，能看到前后是谁。

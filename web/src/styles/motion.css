@@ -193,6 +193,22 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
 }
 
 /* --------------------------------------------------------------------------
+   4.5 按压反馈：按钮按下去轻轻下沉，像真按钮。只在完整动效下生效。
+   -------------------------------------------------------------------------- */
+
+:root.motion-full .btn:active:not(:disabled),
+:root.motion-full .modal-btn-primary:active:not(:disabled),
+:root.motion-full .modal-btn-ghost:active:not(:disabled),
+:root.motion-full .modal-btn-danger:active:not(:disabled),
+:root.motion-full #submit-gift-btn:active:not(:disabled),
+:root.motion-full #search-top-btn:active:not(:disabled),
+:root.motion-full .option-chip:active:not(:disabled),
+:root.motion-full button[type="submit"]:active:not(:disabled) {
+  transform: translateY(1.5px) scale(.99);
+  transition: transform 60ms ease-out;
+}
+
+/* --------------------------------------------------------------------------
    5. 通用 toast：右上角堆叠，最多 3 条，悬停暂停，进度条提示剩余时间
    -------------------------------------------------------------------------- */
 
@@ -431,7 +447,7 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
 .gb-modal-leave-active #modal { animation: gb-sheet-out 200ms var(--ease) forwards; }
 
 @keyframes gb-veil-out { to { opacity: 0; } }
-@keyframes gb-sheet-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }
+@keyframes gb-sheet-out { to { opacity: 0; transform: translateY(10%) scale(.99); } }
 
 /* --------------------------------------------------------------------------
    11. 手机端页面切换轻量化：去掉 3D 翻书与位移，只留淡入，

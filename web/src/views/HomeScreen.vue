@@ -134,7 +134,7 @@
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { state as st } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
-import { ceremonyLabel, ceremonyText } from '../lib/ceremony.js'
+import { ceremonyLabel, daysUntilText } from '../lib/ceremony.js'
 import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from '../lib/actions.js'
 import { switchCategory } from '../lib/actions.js'
 import { api } from '../lib/api.js'
@@ -174,13 +174,15 @@ const displayIdOf = (ev) => String(ev.displayId || '').padStart(3, '0').slice(-3
 
 const createdText = (ev) => (ev.createdAt ? String(ev.createdAt).slice(0, 10).replace(/-/g, '/') : '')
 
-// 卡片优先显示婚礼 / 殡期时间；没填正期时退回创建日期。
-const cardDateText = (ev) => ceremonyText(ev) || createdText(ev)
+// 卡片优先显示「距今 N 天」；没填正期和结束日期时退回创建日期。
+const cardDateText = (ev) => daysUntilText(ev) || createdText(ev)
 const ceremonyTitle = (ev) => {
-  if (!ev.ceremonyAt) return ''
-  const at = new Date(ev.ceremonyAt)
+  const raw = ev?.ceremonyAt ? String(ev.ceremonyAt) : ev?.endDate ? String(ev.endDate) : ''
+  if (!raw) return ''
+  const at = new Date(ev.ceremonyAt ? raw : raw.slice(0, 10))
   if (Number.isNaN(at.getTime())) return ''
-  return `${ceremonyLabel(ev, st.homeCategory)}：${at.toLocaleString('zh-CN', { hour12: false })}`
+  const label = ev?.ceremonyAt ? ceremonyLabel(ev, st.homeCategory) : '账簿结束日期'
+  return `${label}：${at.toLocaleString('zh-CN', { hour12: false })}`
 }
 
 // 卡片标签显示创建时选的模板类型（婚宴/寿宴/满月酒…），老账簿没有模板时退回红事/白事

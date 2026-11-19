@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -953,5 +954,41 @@ func TestDeleteFamilyArchivesItsBackups(t *testing.T) {
 	restoredID := payload["data"].(map[string]any)["familyId"].(string)
 	if entries, err := os.ReadDir(filepath.Join(env.api.familyBackupsDir(), restoredID)); err != nil || len(entries) == 0 {
 		t.Fatalf("恢复后家庭备份没有挂回新家庭 %s: %v", restoredID, err)
+	}
+}
+
+// 健康端点：家庭成员能拿到本家数据量，但不泄露其他家庭；未登录拿不到。
+func TestHealthEndpoint(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	if err := env.store.WithEvents(func(events map[string]store.Record) (bool, error) {
+		events["evt_health"] = store.Record{"id": "evt_health", "name": "健康测试账簿", "familyId": store.DefaultFamilyID}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.store.WithGifts("evt_health", func(gifts map[string]store.Record) (bool, error) {
+		gifts["g1"] = store.Record{"id": "g1", "encryptedContent": validCipher(1)}
+		gifts["g2"] = store.Record{"id": "g2", "encryptedContent": validCipher(2)}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	res, payload := env.do(t, "GET", "/api/health", nil, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("健康端点应可访问: %d %v", res.StatusCode, payload)
+	}
+	data := payload["data"].(map[string]any)
+	if data["events"].(float64) < 1 || data["gifts"].(float64) < 2 {
+		t.Fatalf("数据量不对: %v", data)
+	}
+	if _, ok := data["version"]; !ok {
+		t.Fatalf("缺少版本: %v", data)
+	}
+	// 健康端点只能有计数与状态，不能泄露姓名、金额、密文或账簿名。
+	for _, key := range []string{"name", "amount", "encryptedContent", "giverName", "remarks"} {
+		if strings.Contains(strings.ToLower(fmt.Sprint(data)), strings.ToLower(key)) {
+			t.Fatalf("健康端点泄露了敏感字段 %s: %v", key, data)
+		}
 	}
 }

@@ -1,25 +1,32 @@
 import { describe, expect, it } from 'vitest'
-import { ceremonyLabel, ceremonyText, ceremonyInputs } from '../ceremony.js'
+import { daysUntilText } from '../ceremony.js'
 
-describe('正期用词与显示', () => {
-  it('按模板称呼，白事不用直白说法', () => {
-    expect(ceremonyLabel({ template: 'wedding' }, 'red')).toBe('婚礼时间')
-    expect(ceremonyLabel({ template: 'birthday' }, 'red')).toBe('寿宴时间')
-    expect(ceremonyLabel({ template: 'funeral' }, 'white')).toBe('殡期')
-    expect(ceremonyLabel({ template: 'memorial' }, 'white')).toBe('追思时间')
-    expect(ceremonyLabel({}, 'white')).toBe('仪式时间')
-    expect(ceremonyLabel({}, 'red')).toBe('婚礼时间')
+describe('距今天数', () => {
+  const now = new Date(2026, 10, 19)
+
+  it('优先用婚礼时间', () => {
+    const ev = { ceremonyAt: '2026-11-22T12:00', endDate: '2026-11-25' }
+    expect(daysUntilText(ev, now)).toBe('还有 3 天')
   })
 
-  it('卡片文案同一年省略年份，并带时间', () => {
-    const now = new Date('2026-11-17T10:00:00')
-    expect(ceremonyText({ ceremonyAt: '2026-11-18T12:00' }, now)).toBe('11月18日 12:00')
-    expect(ceremonyText({ ceremonyAt: '2025-11-18T09:05' }, now)).toBe('2025年11月18日 09:05')
-    expect(ceremonyText({}, now)).toBe('')
+  it('没有正期时用结束日期', () => {
+    expect(daysUntilText({ endDate: '2026-11-25' }, now)).toBe('还有 6 天')
   })
 
-  it('拆成日期与时间输入', () => {
-    expect(ceremonyInputs('2026-11-18T12:00')).toEqual({ date: '2026-11-18', time: '12:00' })
-    expect(ceremonyInputs('')).toEqual({ date: '', time: '' })
+  it('过去与当天', () => {
+    expect(daysUntilText({ endDate: '2026-11-19' }, now)).toBe('今天')
+    expect(daysUntilText({ ceremonyAt: '2026-11-10T08:00' }, now)).toBe('已过 9 天')
+  })
+
+  it('都没有时返回空', () => {
+    expect(daysUntilText({}, now)).toBe('')
+  })
+})
+
+describe('daysUntilText 兼容字段名', () => {
+  const now = new Date(2026, 10, 19)
+
+  it('endDateTime（新建账簿字段）也认', () => {
+    expect(daysUntilText({ endDateTime: '2026-11-25T18:00' }, now)).toBe('还有 6 天')
   })
 })

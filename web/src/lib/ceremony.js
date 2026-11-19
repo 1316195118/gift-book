@@ -37,3 +37,24 @@ export const ceremonyInputs = (value) => {
   const raw = String(value || '')
   return { date: raw.slice(0, 10), time: raw.slice(11, 16) }
 }
+
+// 距离正期还有多少天：优先用婚礼/殡期时间，没填则用账簿结束日期；两者都没有返回空。
+export function daysUntilText(event, now = new Date()) {
+  let base = null
+  if (event?.ceremonyAt) {
+    const at = new Date(event.ceremonyAt)
+    if (!Number.isNaN(at.getTime())) base = at
+  }
+  // 结束日期在新事件里叫 endDateTime，老数据叫 endDate，两种都认。
+  const endRaw = event?.endDateTime || event?.endDate
+  if (!base && endRaw) {
+    const end = new Date(String(endRaw).slice(0, 10))
+    if (!Number.isNaN(end.getTime())) base = end
+  }
+  if (!base) return ''
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const day = new Date(base.getFullYear(), base.getMonth(), base.getDate())
+  const diff = Math.round((day - today) / 86400000)
+  if (diff === 0) return '今天'
+  return diff > 0 ? `还有 ${diff} 天` : `已过 ${Math.abs(diff)} 天`
+}

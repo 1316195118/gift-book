@@ -70,7 +70,7 @@ function newCls(index) {
 }
 
 function nameCell(gift, index) {
-  if (!gift?.data) return `<div class="book-cell name-cell" data-gift-index="${index}"></div>`
+  if (!gift?.data) return `<div class="book-cell name-cell is-empty" data-gift-index="${index}"></div>`
   const data = gift.data
   if (data.kind === 'blank') {
     return `<div class="book-cell name-cell is-blank" data-gift-index="${index}" title="这一行已跳过，点击可补录"><span class="blank-mark">跳过</span></div>`
@@ -96,7 +96,7 @@ function nameCell(gift, index) {
 }
 
 function amountCell(gift, index) {
-  if (!gift?.data) return `<div class="book-cell amount-cell" data-gift-index="${index}"></div>`
+  if (!gift?.data) return `<div class="book-cell amount-cell is-empty" data-gift-index="${index}"></div>`
   if (gift.data.kind === 'blank') {
     return `<div class="book-cell amount-cell is-blank" data-gift-index="${index}"><span class="blank-mark">—</span></div>`
   }
@@ -110,6 +110,8 @@ function amountCell(gift, index) {
 
 export function bookMarkup() {
   const copy = copyOf(st.currentEvent, st.homeCategory)
+  // 整本簿子还没有任何记录时，不铺满一屏空网格——只留一行提示，等第一笔录入。
+  if (!st.gifts.length) return ''
   const items = pageItems()
   const rows = { name: [], type: [], amount: [] }
   const size = pageSizeAt(st.currentPage)
@@ -118,7 +120,7 @@ export function bookMarkup() {
     const gift = items[i]
     const index = offset + i
     rows.name.push(nameCell(gift, index))
-    rows.type.push(`<div class="book-cell type-cell">${escapeHtml(copy.bookType)}</div>`)
+    rows.type.push(`<div class="book-cell type-cell${gift?.data ? '' : ' is-empty'}">${escapeHtml(copy.bookType)}</div>`)
     rows.amount.push(amountCell(gift, index))
   }
   return `<div class="gift-book-row">${rows.name.join('')}</div><div class="gift-book-row flex-1">${rows.type.join('')}</div><div class="gift-book-row">${rows.amount.join('')}</div>`

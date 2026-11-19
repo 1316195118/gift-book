@@ -141,19 +141,35 @@
             </div>
             <div class="search-field search-field-amount">
               <div class="field-shell">
-                <input v-model="searchAmount" type="number" id="search-amount" placeholder="金额" min="0" step="0.01" inputmode="decimal" @keyup.enter="onSearch" />
+                <input v-model="searchAmount" type="text" id="search-amount" placeholder="金额/区间" inputmode="decimal" @keyup.enter="onSearch" />
                 <span class="field-suffix">元</span>
               </div>
             </div>
-            <label class="search-flag" title="只看还没有回礼的记录"><input v-model="searchUnreturned" type="checkbox" />未回礼</label>
+            <button type="button" class="search-filter-toggle" :aria-expanded="searchFilterOpen" @click="searchFilterOpen = !searchFilterOpen">筛选</button>
             <button id="search-top-btn" type="button" @click="onSearch">查找</button>
             <button id="batch-note-btn" type="button" @click="batchNote">批量备注</button>
+          </div>
+          <div v-if="searchFilterOpen" class="search-filter-panel">
+            <label>关系
+              <select v-model="searchRelation">
+                <option value="">全部</option>
+                <option v-for="rel in RELATION_OPTIONS" :key="rel" :value="rel">{{ rel }}</option>
+              </select>
+            </label>
+            <label>收款方式
+              <select v-model="searchType">
+                <option value="">全部</option>
+                <option v-for="t in ['现金', '支付宝', '微信', '其他']" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label class="search-flag" title="只看还没有回礼的记录"><input v-model="searchUnreturned" type="checkbox" />只看未回礼</label>
+            <small>金额可填区间，如 100-500</small>
           </div>
 
           <div class="ledger-summary" aria-live="polite">
             <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(displayTotal) }}</span></div>
             <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span><small class="summary-sub">{{ stats.recordCount }} 笔 · 人均 {{ formatCurrency(stats.average) }}</small></div>
-            <div class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
+            <div v-if="pages > 1" class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
 
           <div class="gift-book-frame">
@@ -184,7 +200,6 @@
             <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动">
               <div id="gift-book-content" v-html="book"></div>
             </div>
-            <p v-if="!items.length" class="book-empty-hint">{{ copy.emptyHint }}</p>
             <p class="book-note">{{ copy.bookNote }}</p>
           </div>
         </section>
@@ -250,6 +265,9 @@ import { pageRangeFor } from '../lib/page-size.js'
 const dropdownOpen = ref(false)
 const searchName = ref('')
 const searchAmount = ref('')
+const searchRelation = ref('')
+const searchType = ref('')
+const searchFilterOpen = ref(false)
 const searchUnreturned = ref(false)
 const ENTRY_SHOW_KEY = 'gb-entry-show'
 function readEntryShow() {
@@ -424,7 +442,7 @@ async function revealRecent() {
   await focusGiftRow(recentEntry.index)
 }
 
-const onSearch = () => runSearch(searchName.value, searchAmount.value, { unreturned: searchUnreturned.value })
+const onSearch = () => runSearch(searchName.value, searchAmount.value, { unreturned: searchUnreturned.value, relation: searchRelation.value, type: searchType.value })
 const goHome = () => showHome()
 const onToggleLock = () => toggleLedgerLock()
 

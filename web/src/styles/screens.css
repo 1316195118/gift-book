@@ -1933,9 +1933,14 @@ body.theme-solemn .hero-book-art .book {
 
 .ledger-summary {
   display: grid;
+  /* 数量会随「单页时隐藏本页小计」变化，用 auto-fit 让剩下的卡自然铺满。 */
   grid-template-columns: 1.2fr 1fr 1fr;
   gap: var(--sp-3);
   margin-bottom: var(--sp-4);
+}
+
+.ledger-summary:has(.summary-card:nth-child(2):last-child) {
+  grid-template-columns: 1.2fr 1fr;
 }
 
 /* 三块汇总：总额用朱砂挑出来，另外两块用赤金细边收口 */
@@ -2184,6 +2189,17 @@ body.theme-solemn .hero-book-art .book {
   transition: background-color var(--dur-fast) var(--ease);
 }
 
+/* 空格子淡化成「待填」质感：已录入的格子自然更突出。 */
+.book-cell.is-empty {
+  border-color: color-mix(in srgb, var(--accent) 8%, var(--line));
+  border-style: dashed;
+}
+
+.book-cell.is-empty .type-cell,
+.book-cell.is-empty {
+  opacity: .55;
+}
+
 .name-cell:hover {
   background: var(--accent-soft);
 }
@@ -2223,7 +2239,9 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .name.scale {
-  font-size: clamp(4px, calc(86px / var(--name-chars, 6)), 18px);
+  /* 长姓名不再压到看不清：按字数收缩但保底 12px，格子高度足够容纳。 */
+  font-size: clamp(12px, calc(120px / var(--name-chars, 6)), 18px);
+  line-height: 1.25;
 }
 
 .mark {
@@ -2323,12 +2341,14 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .amount-numeric.scale {
-  font-size: min(10px, 15cqw);
+  /* 百万级金额也保持可读，保底 10px。 */
+  font-size: max(10px, min(11px, 17cqw));
 }
 
 /* 带千分位与两位小数后更宽，窄屏再降一档，保证不压到相邻格子。 */
 .amount-numeric.tiny {
-  font-size: min(9px, 12cqw);
+  /* 百万级金额：保底 10px，宁可略挤也不缩成看不清的小字。 */
+  font-size: max(10px, min(10.5px, 15cqw));
   letter-spacing: -.03em;
 }
 
@@ -2340,11 +2360,12 @@ body.theme-solemn .hero-book-art .book {
   }
 
   .amount-numeric.scale {
-    font-size: min(13px, 16cqw);
+    font-size: max(10.5px, min(13px, 16cqw));
   }
 
   .amount-numeric.tiny {
-    font-size: min(12px, 14cqw);
+    /* 百万级金额在桌面格子里也别低于 10.5px。 */
+    font-size: max(10.5px, min(12px, 14cqw));
     letter-spacing: -.02em;
   }
 }
@@ -2895,7 +2916,8 @@ body.theme-solemn .hero-book-art .book {
 
   .entry-panel {
     order: 2;
-    position: static;
+    /* 用 relative 而不是 static：盖章定位以面板为参照；不用 sticky，避免软键盘顶起。 */
+    position: relative;
   }
 
   #add-gift-form {
@@ -2946,10 +2968,23 @@ body.theme-solemn .hero-book-art .book {
 
   .ledger-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-card.primary { grid-column: 1 / -1; }
+  /* 单页时只有两张卡：第二张也铺满，别在右边留半屏空白。 */
+  .ledger-summary:has(.summary-card:nth-child(2):last-child) { grid-template-columns: 1fr; }
 
   .book-search { flex-wrap: wrap; }
   .search-field { flex: 1 1 100%; }
-  .search-field-amount { flex: 1 1 auto; }
+  .search-field-amount { flex: 1 1 60%; }
+  /* 手机搜索区收成两行：姓名一行；金额 + 筛选 + 查找一行；批量备注降为文字按钮。 */
+  #search-top-btn { flex: 1 1 0; }
+  #batch-note-btn {
+    flex: 1 1 100%;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    padding: 2px 4px;
+    text-decoration: underline;
+  }
 
   .home-inner,
   #app-container {
