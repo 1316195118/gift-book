@@ -36,26 +36,29 @@ export function startAutoCheck() {
 
 function panelHtml(info) {
   const current = escapeHtml(String(info?.current || APP_VERSION))
-  let body = `<div class="update-panel">
-    <div class="update-current">当前版本 <b>v${current}</b></div>`
+  let body = `<div class="update-panel">`
+  // 结论先行：用户最想知道「要不要更新」，版本号属于背景信息。
   if (info?.error) {
     body += `<p class="update-error">检查失败：${escapeHtml(info.error)}</p>`
   } else if (info?.available === false) {
-    body += `<p class="update-ok">已是最新版本。</p>`
+    body += `<p class="update-ok">已是最新版本</p>`
   } else if (info?.reason === 'unsupported') {
     body += `<p class="update-hint">当前部署方式不支持容器内自更新。</p>`
   } else if (info?.available) {
     body += `<div class="update-new">
-      <div>发现新版本 <b>v${escapeHtml(info.version)}</b></div>
-      <div class="update-meta">架构 ${escapeHtml(info.arch || '')} · 大小 ${Math.round((info.size || 0) / 1024)} KB</div>
+      <div class="update-new-title">发现新版本 <b>v${escapeHtml(info.version)}</b></div>
+      <div class="update-meta">当前 v${current} · ${escapeHtml(info.arch || '')} · ${Math.round((info.size || 0) / 1024)} KB</div>
     </div>`
   } else {
     body += `<p class="update-hint">点「检查更新」查看是否有新版本。</p>`
   }
+  if (!info?.available) {
+    body += `<div class="update-current">当前版本 <b>v${current}</b></div>`
+  }
   body += `<div class="update-proxy">
     <label for="update-proxy-input">代理地址（可选）</label>
     <div class="update-proxy-row">
-      <input id="update-proxy-input" type="text" inputmode="url" placeholder="http://10.10.10.254:7890" value="${escapeHtml(String(info?.proxy || ''))}" />
+      <input id="update-proxy-input" type="text" inputmode="url" placeholder="http://127.0.0.1:7890" value="${escapeHtml(String(info?.proxy || ''))}" />
       <button type="button" id="update-proxy-save" class="modal-btn-ghost">保存</button>
     </div>
     <p class="update-hint">仅更新检查与下载走此代理；留空表示直连。</p>
@@ -65,7 +68,11 @@ function panelHtml(info) {
   if (info?.available) {
     body += `<button type="button" id="update-apply-btn" class="modal-btn-primary">立即更新并重启</button>`
   }
-  body += `</div></div>`
+  body += `</div>`
+  if (info?.available) {
+    body += `<p class="update-hint">更新会下载约 ${Math.max(1, Math.round((info.size || 0) / 1024 / 1024))} MB，装完自动重启，期间约 10 秒无法访问。</p>`
+  }
+  body += `</div>`
   return body
 }
 

@@ -120,7 +120,8 @@ export function bookMarkup() {
     const gift = items[i]
     const index = offset + i
     rows.name.push(nameCell(gift, index))
-    rows.type.push(`<div class="book-cell type-cell${gift?.data ? '' : ' is-empty'}">${escapeHtml(copy.bookType)}</div>`)
+    // 空白列不重复印「贺礼」：整页 12 列有 9 列是空的时，重复文字会把视线拉散。
+    rows.type.push(`<div class="book-cell type-cell${gift?.data ? '' : ' is-empty'}">${gift?.data ? escapeHtml(copy.bookType) : ''}</div>`)
     rows.amount.push(amountCell(gift, index))
   }
   return `<div class="gift-book-row">${rows.name.join('')}</div><div class="gift-book-row flex-1">${rows.type.join('')}</div><div class="gift-book-row">${rows.amount.join('')}</div>`

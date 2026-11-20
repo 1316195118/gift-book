@@ -1753,10 +1753,12 @@
 .update-current b { color: var(--ink); }
 .update-new { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); }
 .update-meta { margin-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
-.update-ok { color: var(--muted); }
+.update-ok { color: var(--success, #1D9E75); font-weight: 600; margin: 0; }
+.update-new-title { font-size: var(--fs-md); color: var(--ink); }
+.update-new-title b { color: var(--accent); }
 .update-error, .update-hint { color: var(--muted); font-size: var(--fs-sm); }
 .update-error { color: var(--danger); }
-.update-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.update-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
 
 /* 更新代理设置 */
 .update-proxy { display: flex; flex-direction: column; gap: 6px; }
@@ -1774,3 +1776,35 @@
   font-size: var(--fs-sm);
 }
 .update-proxy-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 统计弹窗：左栏表格不跟着右栏拉高，避免内容少时留一大片空背景。 */
+.stats-body > #grid-container { align-self: start; }
+.stat-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+.stat-line span:first-child { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-line span:last-child { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* 统计右栏：每个小节统一用细分割线 + 紧凑间距，减少弹窗总高度。 */
+.stats-block {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.stats-block h4 {
+  margin-bottom: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.stats-block ul { display: flex; flex-direction: column; gap: 6px; }
+
+/* 设置里的次级字段（如按页段指定行数）与上文拉开一点，避免看起来和提示连成一段。 */
+.field-aside { margin-top: 10px; }
+
+/* 「+ 添加页段」是次级动作，不该用主色红抢注意力。 */
+#gb-add-page-rule { color: var(--muted); }
+#gb-add-page-rule:hover { color: var(--accent); }

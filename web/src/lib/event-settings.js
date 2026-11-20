@@ -87,7 +87,7 @@ export function openSettings({ section = 'general' } = {}) {
   const perPageHint = (size) => {
     const total = st.gifts.length
     const pages = Math.max(1, Math.ceil(total / size))
-    return `默认 12 行。当前共 ${total} 条，按 ${size} 行/页约 ${pages} 页；保存后总页数与本页小计会自动重算，统计口径不变。`
+    return `默认 12 行。当前 ${total} 条，按 ${size} 行/页约 ${pages} 页。`
   }
   const { groups } = buildVoiceGroups()
   const voice = getVoiceOptions()
@@ -132,16 +132,16 @@ export function openSettings({ section = 'general' } = {}) {
       </section>
 
       <section class="settings-section">
-        <h4 class="settings-title">每页行数${hintIcon('礼簿按页翻看，可选 8 / 10 / 12 行，默认 12 行。改完后总页数与本页小计会跟着重算，统计口径不变。')}</h4>
+        <h4 class="settings-title">每页行数${hintIcon('每页 8 / 10 / 12 行，默认 12。改完总页数与本页小计会自动重算，统计口径不变。')}</h4>
         <div class="option-chips" role="group" aria-label="每页行数">
           ${[8, 10, 12].map((n) => `<button type="button" class="option-chip${selectedPerPage === n ? ' active' : ''}" data-per-page="${n}" aria-pressed="${selectedPerPage === n}">${n} 行</button>`).join('')}
         </div>
         <p class="field-hint" id="edit-per-page-hint">${perPageHint(selectedPerPage)}</p>
-        <div class="field">
+        <div class="field field-aside">
           <label class="field-label">按页段指定行数</label>
           <div id="gb-page-rules">${pageRulesMarkup()}</div>
           <button type="button" id="gb-add-page-rule" class="gb-link-btn">+ 添加页段</button>
-          <p class="field-hint">例如「第 1–10 页 12 行、第 11 页起 8 行」。只影响指定页段，未覆盖的页用上面的默认行数；调整页段不会改动已录入记录的顺序。</p>
+          <p class="field-hint">如「第 1–10 页 12 行、第 11 页起 8 行」。只影响指定页段，其余页用默认行数；不改动已录入记录的顺序。</p>
         </div>
       </section>
 
