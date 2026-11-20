@@ -70,10 +70,6 @@ services:
       - "8099:8099"                                         # 宿主机:容器 端口映射
     environment:
       - TZ=Asia/Shanghai                                    # 时区
-      - GIFTBOOK_AUTO_RESTART=true                          # 自更新完成后由重启策略拉起新版本
-      - GIFTBOOK_UPDATE_PROXY=http://10.10.10.254:7890      # NAS 无法直连 GitHub 时使用内网代理
-      # - GIFTBOOK_SETUP_TOKEN=change-me                    # 首次设置管理员密码时要求的口令
-      # - GIFTBOOK_TRUST_PROXY=1                            # 位于受信任反向代理后开启
     restart: unless-stopped                                 # 容器策略：开机自启 + 异常重启
     volumes:
       - /volume1/docker/gift-book/data:/data                # 账簿数据持久化
@@ -98,7 +94,7 @@ docker compose up -d
 浏览器打开 `http://<机器IP>:8099`。
 
 - 部署示例统一使用 `latest`，无需手工修改版本号；执行 `docker compose pull && docker compose up -d` 即可拉取并启动最新发布。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
-- 容器内自更新从 GHCR 拉取裸二进制更新包，默认写入 `/config/giftbook`。`GIFTBOOK_AUTO_RESTART=true` 让进程在安装完成后优雅退出，再由 `restart: unless-stopped` 拉起新版本；因此 `/config` 必须持久化。NAS 无法直连 GitHub / GHCR 时，通过 `GIFTBOOK_UPDATE_PROXY` 设置 HTTP 代理，也可以在网页「本机与关于 → 程序更新」里填写并保存。
+- 容器内自更新会始终显示当前版本、发布状态，以及检查、下载、安装和重启进度。更新包从 GHCR 拉取并写入 `/config/giftbook`；镜像默认在安装完成后优雅退出，并由 `restart: unless-stopped` 拉起新版本，因此 `/config` 必须持久化。NAS 无法直连 GitHub / GHCR 时，可在网页「本机与关于 → 程序更新」里填写并保存 HTTP 代理，无需修改 Compose 环境变量。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
@@ -115,8 +111,6 @@ docker run -d --name gift-book \
   -v "$(pwd)/data:/data" \
   -v "$(pwd)/config:/config" \
   -e TZ=Asia/Shanghai \
-  -e GIFTBOOK_AUTO_RESTART=true \
-  -e GIFTBOOK_UPDATE_PROXY=http://10.10.10.254:7890 \
   --restart unless-stopped \
   ghcr.io/1316195118/gift-book:latest
 ```

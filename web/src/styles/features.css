@@ -1749,8 +1749,60 @@
 
 /* 程序更新面板 */
 .update-panel { display: flex; flex-direction: column; gap: 12px; }
-.update-current { color: var(--muted); font-size: var(--fs-sm); }
-.update-current b { color: var(--ink); }
+.update-version-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(150px, .95fr);
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: var(--r-md);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface-sunken));
+}
+.update-version-block,
+.update-version-status { min-width: 0; }
+.update-version-block > span,
+.update-version-status > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.update-version-block > b {
+  display: block;
+  color: var(--ink);
+  font-size: clamp(20px, 4.2vw, 26px);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.update-version-block > small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.update-version-status {
+  align-self: center;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.update-version-status > b {
+  display: block;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.update-version-status.is-available > b { color: var(--accent); }
+.update-version-status.is-latest > b { color: var(--success, #1D9E75); }
+.update-version-status.is-error > b { color: var(--danger); }
+.update-version-status.is-checking > b {
+  color: var(--ink-2);
+  animation: update-version-pulse 1.25s ease-in-out infinite;
+}
 .update-new { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); }
 .update-meta { margin-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
 .update-ok { color: var(--success, #1D9E75); font-weight: 600; margin: 0; }
@@ -1812,6 +1864,9 @@
   from { transform: translateX(-110%); }
   to { transform: translateX(250%); }
 }
+@keyframes update-version-pulse {
+  50% { opacity: .48; }
+}
 
 /* 更新代理设置 */
 .update-proxy { display: flex; flex-direction: column; gap: 6px; }
@@ -1865,6 +1920,17 @@
 @media (prefers-reduced-motion: reduce) {
   .update-progress > span { transition: none; }
   .update-feedback.is-indeterminate .update-progress > span { animation: none; }
+  .update-version-status.is-checking > b { animation: none; }
+}
+
+@media (max-width: 520px) {
+  .update-version-card { grid-template-columns: 1fr; gap: 10px; }
+  .update-version-status {
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
 }
 
 /* ==========================================================================

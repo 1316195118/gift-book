@@ -13,18 +13,30 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function check(force = false) {
   if (!force && cached && Date.now() - lastCheck < 60_000) return cached
-  try {
-    // 顺带取一次代理设置，弹窗里要回显；失败不影响检查结果。
-    const [checkRes, statusRes] = await Promise.all([
-      apiRequest('/api/update/check'),
-      apiRequest('/api/update/status').catch(() => null),
-    ])
-    cached = { ...(checkRes?.data || {}), proxy: statusRes?.data?.proxy || '' }
-    lastCheck = Date.now()
-    return cached
-  } catch (err) {
-    return { available: false, error: err?.message || '检查失败', proxy: '' }
+  // 状态接口读取本地进程信息，速度稳定；即使远程检查失败，也能继续显示当前版本。
+  const [checkResult, statusResult] = await Promise.allSettled([
+    apiRequest('/api/update/check'),
+    apiRequest('/api/update/status'),
+  ])
+  const status = statusResult.status === 'fulfilled' ? statusResult.value?.data || {} : {}
+  if (checkResult.status === 'rejected') {
+    return {
+      available: false,
+      error: checkResult.reason?.message || '检查失败',
+      current: status.version || APP_VERSION,
+      build: status.build || '',
+      proxy: status.proxy || '',
+    }
   }
+  const data = checkResult.value?.data || {}
+  cached = {
+    ...data,
+    current: data.current || status.version || APP_VERSION,
+    build: status.build || '',
+    proxy: status.proxy || '',
+  }
+  lastCheck = Date.now()
+  return cached
 }
 
 async function readProgress() {
@@ -59,6 +71,47 @@ function percentOf(job) {
 
 export function updateVersionLabel(raw) {
   return String(raw || '').trim().replace(/^v/i, '')
+}
+
+export function updateVersionMarkup(info) {
+  const current = escapeHtml(updateVersionLabel(info?.current || info?.job?.current || APP_VERSION))
+  const latest = escapeHtml(updateVersionLabel(info?.version || info?.job?.version))
+  const job = info?.job
+  let state = '等待检查'
+  let tone = ''
+  if (info?.checking) {
+    state = '正在检查最新版本…'
+    tone = 'is-checking'
+  } else if (job?.state === 'running') {
+    state = latest ? `正在更新到 v${latest}` : '正在更新'
+    tone = 'is-available'
+  } else if (job?.state === 'succeeded') {
+    state = latest ? `已安装 v${latest}` : '更新已安装'
+    tone = 'is-latest'
+  } else if (job?.state === 'failed' || info?.error) {
+    state = '暂时无法检查'
+    tone = 'is-error'
+  } else if (info?.available && latest) {
+    state = `可更新至 v${latest}`
+    tone = 'is-available'
+  } else if (info?.available === false) {
+    state = '已是最新版本'
+    tone = 'is-latest'
+  } else if (info?.reason === 'unsupported') {
+    state = '当前部署不支持自更新'
+  }
+  const build = escapeHtml(String(info?.build || '').trim())
+  return `<div class="update-version-card" aria-label="程序版本">
+    <div class="update-version-block">
+      <span>当前版本</span>
+      <b>v${current}</b>
+      ${build ? `<small>构建 ${build}</small>` : ''}
+    </div>
+    <div class="update-version-status ${tone}">
+      <span>发布状态</span>
+      <b>${state}</b>
+    </div>
+  </div>`
 }
 
 function progressMarkup(info) {
@@ -124,18 +177,15 @@ function conclusionMarkup(info) {
 }
 
 function panelHtml(info) {
-  const current = escapeHtml(updateVersionLabel(info?.current || info?.job?.current || APP_VERSION))
   const job = info?.job
   const running = job?.state === 'running' || info?.checking
   const finished = job?.state === 'succeeded'
   const failed = job?.state === 'failed'
   const showProgress = info?.checking || running || finished
   let body = `<div class="update-panel">`
+  body += updateVersionMarkup(info)
   body += conclusionMarkup(info)
   if (showProgress) body += progressMarkup(info)
-  if (info?.available && !running && !finished && !failed) {
-    body += `<div class="update-current">当前版本 <b>v${current}</b></div>`
-  }
   if (!running && !finished) {
     body += `<div class="update-proxy">
       <label for="update-proxy-input">代理地址（可选）</label>

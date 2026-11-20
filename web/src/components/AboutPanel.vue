@@ -23,7 +23,7 @@
       </button>
       <button type="button" class="gb-settings-item" id="about-app-update" @click="appUpdate">
         <b>程序更新</b>
-        <small>检查并安装容器内自更新</small>
+        <small>当前 v{{ st.version || '—' }} · 检查并安装容器内自更新</small>
       </button>
       <button type="button" class="gb-settings-item" @click="license">
         <b>开源许可</b>

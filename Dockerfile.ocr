@@ -22,7 +22,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"%s","version":"2.4.43"}\n' "$BUILD_ID" > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.44"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
@@ -48,6 +48,7 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY --from=ocrbuild /opt/ocr /usr/local/bin/ocr
 ENV TZ=Asia/Shanghai \
+    GIFTBOOK_AUTO_RESTART=true \
     GIFTBOOK_OCR_PYTHON=/usr/local/bin/ocr/venv/bin/python \
     GIFTBOOK_OCR_SCRIPT=/usr/local/bin/ocr/recognize.py
 VOLUME ["/data", "/config"]

@@ -41,6 +41,49 @@ jobs:
             --build-arg BUILD_ID="$GITHUB_RUN_ID" \
             -t "$IMAGE:ocr-${{ matrix.arch }}-$REF" --push .
 
+  default-image:
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN || github.token }}
+      - name: Build default linux/${{ matrix.arch }}
+        run: |
+          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
+          docker buildx build --platform linux/${{ matrix.arch }} -f Dockerfile \
+            --build-arg BUILD_ID="$GITHUB_RUN_ID" \
+            -t "$IMAGE:default-${{ matrix.arch }}-$REF" --push .
+
+  default-manifest:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: default-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN || github.token }}
+      - name: Merge and publish latest
+        run: |
+          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
+          docker buildx imagetools create -t "$IMAGE:latest" \
+            "$IMAGE:default-amd64-$REF" "$IMAGE:default-arm64-$REF"
+          docker buildx imagetools inspect "$IMAGE:latest"
+
   manifest:
     needs: build
     runs-on: ubuntu-latest

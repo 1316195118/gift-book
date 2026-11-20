@@ -10,6 +10,7 @@ RUN npm run build
 
 # ---------- 2. 编译 Go 二进制 ----------
 FROM golang:1.24-alpine AS builder
+ARG BUILD_ID=docker
 WORKDIR /src
 COPY go.mod ./
 COPY cmd/ ./cmd/
@@ -17,14 +18,15 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"docker","version":"2.4.43"}\n' > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.44"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
 # ---------- 3. 运行镜像 ----------
 FROM alpine:3.20
 RUN apk add --no-cache tzdata ca-certificates
-ENV TZ=Asia/Shanghai
+ENV TZ=Asia/Shanghai \
+    GIFTBOOK_AUTO_RESTART=true
 COPY --from=builder /out/giftbook /usr/local/bin/giftbook
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
