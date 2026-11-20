@@ -48,7 +48,12 @@ func main() {
 		os.Exit(1)
 	}
 	client := &http.Client{Timeout: 5 * time.Minute}
-	if err := push(client, *repo, *tag, tok, data); err != nil {
+	bearer, err := exchangeToken(client, *repo, tok)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "换取写入 token 失败:", err)
+		os.Exit(1)
+	}
+	if err := push(client, *repo, *tag, bearer, data); err != nil {
 		fmt.Fprintln(os.Stderr, "推送失败:", err)
 		os.Exit(1)
 	}
@@ -58,6 +63,42 @@ func main() {
 func digest(data []byte) string {
 	sum := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// exchangeToken 把 GitHub PAT / GITHUB_TOKEN 换成 registry 的 Bearer token。
+// 直接把 PAT 当 Bearer 用会被 GHCR 拒绝（403），必须先走 token 端点。
+func exchangeToken(client *http.Client, repo, pat string) (string, error) {
+	q := url.Values{}
+	q.Set("scope", "repository:"+repo+":pull,push")
+	q.Set("service", "ghcr.io")
+	req, err := http.NewRequest(http.MethodGet, registry+"/token?"+q.Encode(), nil)
+	if err != nil {
+		return "", err
+	}
+	owner := repo
+	if i := strings.Index(repo, "/"); i > 0 {
+		owner = repo[:i]
+	}
+	req.SetBasicAuth(owner, pat)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return "", fmt.Errorf("换 token 返回 %d: %s", resp.StatusCode, msg)
+	}
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out.Token == "" {
+		return "", fmt.Errorf("换到的 token 为空")
+	}
+	return out.Token, nil
 }
 
 func put(client *http.Client, repo, path, contentType string, body []byte, tok string) error {
