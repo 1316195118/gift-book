@@ -34,6 +34,28 @@ func New(repo string) *Client {
 	}
 }
 
+// SetProxy 让所有请求走指定 HTTP 代理；传空串表示直连。
+// 代理地址必须是 http:// 或 https:// 开头，否则返回错误。
+func (c *Client) SetProxy(raw string) error {
+	raw = strings.TrimSpace(raw)
+	transport := &http.Transport{
+		Proxy:                 nil,
+		MaxIdleConns:          4,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+	}
+	if raw != "" {
+		u, err := url.Parse(raw)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("代理地址需形如 http://10.10.10.254:7890")
+		}
+		transport.Proxy = http.ProxyURL(u)
+	}
+	c.http = &http.Client{Timeout: 5 * time.Minute, Transport: transport}
+	return nil
+}
+
 func (c *Client) setRegistryForTest(reg string) { c.registry = strings.TrimRight(reg, "/") }
 
 // NewFromRegistryForTest 供上层模块注入本地 registry 做集成测试。

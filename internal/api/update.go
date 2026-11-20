@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"giftbook/internal/update"
 )
 
 // handleUpdateCheck 检查是否有新版本。只读操作，任何已登录用户都能看，
@@ -102,6 +104,55 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if mgr := s.updateManager(); mgr != nil {
 		data["target"] = mgr.TargetPath()
+		data["proxy"] = mgr.Proxy()
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: data})
+}
+
+// handleUpdateSettings 读取当前代理设置（仅管理员）。
+func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	if !s.isSiteAdmin(r) {
+		failCode(w, http.StatusForbidden, "admin_required", "仅站点管理员可以修改更新设置")
+		return
+	}
+	mgr := s.updateManager()
+	if mgr == nil {
+		fail(w, http.StatusNotImplemented, "当前环境不支持自更新")
+		return
+	}
+	cfg, err := mgr.LoadConfig()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
+		"proxy": mgr.Proxy(),
+		"auto":  cfg.Proxy,
+	}})
+}
+
+// handleUpdateSettingsSave 保存代理设置并立即生效（仅管理员）。
+func (s *Server) handleUpdateSettingsSave(w http.ResponseWriter, r *http.Request) {
+	if !s.isSiteAdmin(r) {
+		failCode(w, http.StatusForbidden, "admin_required", "仅站点管理员可以修改更新设置")
+		return
+	}
+	mgr := s.updateManager()
+	if mgr == nil {
+		fail(w, http.StatusNotImplemented, "当前环境不支持自更新")
+		return
+	}
+	var body struct {
+		Proxy string `json:"proxy"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<14)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "请求格式错误")
+		return
+	}
+	if err := mgr.SaveConfig(update.Config{Proxy: body.Proxy}); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	s.audit(r, "修改更新代理", "", body.Proxy)
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{"proxy": mgr.Proxy()}})
 }

@@ -9,6 +9,7 @@
 package update
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"giftbook/internal/oci"
@@ -83,16 +85,90 @@ type Manager struct {
 	currentVer string
 	arch       string
 	now        func() time.Time
+	mu         sync.Mutex
+	proxy      string
 }
 
 func New(configDir, currentVersion string) *Manager {
-	return &Manager{
+	m := &Manager{
 		client:     oci.New(repo),
 		configDir:  configDir,
 		currentVer: currentVersion,
 		arch:       runtime.GOARCH,
 		now:        time.Now,
 	}
+	if cfg, err := m.LoadConfig(); err == nil && cfg.Proxy != "" {
+		_ = m.SetProxy(cfg.Proxy)
+	}
+	if envProxy := strings.TrimSpace(os.Getenv("GIFTBOOK_UPDATE_PROXY")); envProxy != "" {
+		_ = m.SetProxy(envProxy)
+		m.proxy = envProxy
+	}
+	return m
+}
+
+// Config 是自更新的可配置项，存在 config 目录下的 update-config.json。
+type Config struct {
+	// Proxy 形如 http://10.10.10.254:7890；空串表示直连。
+	Proxy string `json:"proxy"`
+}
+
+func (m *Manager) configPath() string {
+	return filepath.Join(m.configDir, "update-config.json")
+}
+
+// LoadConfig 读取本地配置；文件不存在时返回零值。
+func (m *Manager) LoadConfig() (Config, error) {
+	var cfg Config
+	data, err := os.ReadFile(m.configPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+// SetProxy 设置并记住代理；传空串表示直连。
+func (m *Manager) SetProxy(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if err := m.client.SetProxy(raw); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.proxy = raw
+	m.mu.Unlock()
+	return nil
+}
+
+// SaveConfig 把代理设置写入磁盘。
+func (m *Manager) SaveConfig(cfg Config) error {
+	if err := m.SetProxy(cfg.Proxy); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(m.configDir, 0o775); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := m.configPath() + ".tmp"
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, m.configPath())
+}
+
+// Proxy 返回当前生效的代理地址。
+func (m *Manager) Proxy() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.proxy
 }
 
 // SetClientForTest 允许测试注入本地 registry，生产代码不要调用。

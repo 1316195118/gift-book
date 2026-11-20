@@ -1757,3 +1757,20 @@
 .update-error, .update-hint { color: var(--muted); font-size: var(--fs-sm); }
 .update-error { color: var(--danger); }
 .update-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+/* 更新代理设置 */
+.update-proxy { display: flex; flex-direction: column; gap: 6px; }
+.update-proxy label { font-size: var(--fs-sm); color: var(--ink-2); }
+.update-proxy-row { display: flex; gap: 8px; }
+.update-proxy-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.update-proxy-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

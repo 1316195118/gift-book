@@ -11,12 +11,16 @@ let cached = null
 async function check(force = false) {
   if (!force && cached && Date.now() - lastCheck < 60_000) return cached
   try {
-    const res = await apiRequest('/api/update/check')
-    cached = res?.data || null
+    // 顺带取一次代理设置，弹窗里要回显；失败不影响检查结果。
+    const [checkRes, statusRes] = await Promise.all([
+      apiRequest('/api/update/check'),
+      apiRequest('/api/update/status').catch(() => null),
+    ])
+    cached = { ...(checkRes?.data || {}), proxy: statusRes?.data?.proxy || '' }
     lastCheck = Date.now()
     return cached
   } catch (err) {
-    return { available: false, error: err?.message || '检查失败' }
+    return { available: false, error: err?.message || '检查失败', proxy: '' }
   }
 }
 
@@ -48,6 +52,14 @@ function panelHtml(info) {
   } else {
     body += `<p class="update-hint">点「检查更新」查看是否有新版本。</p>`
   }
+  body += `<div class="update-proxy">
+    <label for="update-proxy-input">代理地址（可选）</label>
+    <div class="update-proxy-row">
+      <input id="update-proxy-input" type="text" inputmode="url" placeholder="http://10.10.10.254:7890" value="${escapeHtml(String(info?.proxy || ''))}" />
+      <button type="button" id="update-proxy-save" class="modal-btn-ghost">保存</button>
+    </div>
+    <p class="update-hint">仅更新检查与下载走此代理；留空表示直连。</p>
+  </div>`
   body += `<div class="update-actions">
     <button type="button" id="update-check-btn" class="modal-btn-ghost">检查更新</button>`
   if (info?.available) {
@@ -66,6 +78,21 @@ export async function showAppUpdate() {
     document.getElementById('update-check-btn')?.addEventListener('click', async () => {
       info = await check(true)
       render()
+    })
+    document.getElementById('update-proxy-save')?.addEventListener('click', async () => {
+      const input = document.getElementById('update-proxy-input')
+      const proxy = String(input?.value || '').trim()
+      const btn = document.getElementById('update-proxy-save')
+      if (btn) { btn.disabled = true; btn.textContent = '保存中…' }
+      try {
+        const res = await apiRequest('/api/update/settings', 'PUT', { proxy })
+        info = { ...(info || {}), proxy: res?.data?.proxy || '' }
+        cached = null
+        render()
+      } catch (err) {
+        info = { ...(info || {}), error: err?.message || '代理保存失败' }
+        render()
+      }
     })
     document.getElementById('update-apply-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('update-apply-btn')

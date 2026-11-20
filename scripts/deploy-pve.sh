@@ -43,7 +43,7 @@ rm -rf webapp/dist/*
 mkdir -p webapp/dist
 cp -r web/dist/. webapp/dist/
 touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.4.38"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+printf '{"build":"%s","version":"2.4.39"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"
