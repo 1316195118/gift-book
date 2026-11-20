@@ -278,6 +278,40 @@
     return wordsToBytes(t);
   }
 
+  /**
+   * 分片版 PBKDF2：每 2 万次让出一次主线程，让「正在准备密钥」和进度能刷新。
+   * 总时长不变，但界面不会冻住——31 万次在内网 http 下要数秒，冻结会像卡死。
+   */
+  async function pbkdf2Sha256Async(password, salt, iterations, onProgress) {
+    const { inner, outer } = hmacStates(password);
+    const first = new Uint8Array(salt.length + 4);
+    first.set(salt);
+    first[salt.length + 3] = 1;
+    let u = sha256Raw(sha256Raw(first, inner, 64), outer, 64);
+    const t = new Uint32Array(8), uw = new Uint32Array(8);
+    const dv = new DataView(u.buffer);
+    for (let i = 0; i < 8; i += 1) { uw[i] = dv.getUint32(i * 4, false); t[i] = uw[i]; }
+    const block = new Uint32Array(16);
+    const st = new Uint32Array(8);
+    const CHUNK = 20000;
+    for (let n = 1; n < iterations; n += 1) {
+      for (let i = 0; i < 8; i += 1) block[i] = uw[i];
+      block[8] = 0x80000000; for (let i = 9; i < 15; i += 1) block[i] = 0; block[15] = 768;
+      st.set(inner); compress(st, block);
+      for (let i = 0; i < 8; i += 1) block[i] = st[i];
+      block[8] = 0x80000000; for (let i = 9; i < 15; i += 1) block[i] = 0; block[15] = 768;
+      st.set(outer); compress(st, block);
+      for (let i = 0; i < 8; i += 1) { uw[i] = st[i]; t[i] ^= st[i]; }
+      if (n % CHUNK === 0) {
+        if (onProgress) onProgress(n / iterations);
+        // 让出一个宏任务：浏览器借机重绘进度，输入也不会被吞。
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    if (onProgress) onProgress(1);
+    return wordsToBytes(t);
+  }
+
   /* ---------------- AES-256（纯 JS，CBC + PKCS#7） ---------------- */
 
   function gmul(a, b) {
@@ -516,6 +550,53 @@
     };
   }
 
+  /**
+   * 用 WebCrypto 派生 master key；只在安全上下文（https / localhost）可用。
+   * 原生实现比纯 JS 快一个数量级，内网 http 访问时退回 pbkdf2Sha256。
+   */
+  async function deriveMasterKey(passphrase, salt, iter, onProgress) {
+    const subtle = globalThis.crypto?.subtle
+    if (subtle && typeof subtle.importKey === "function" && globalThis.isSecureContext) {
+      try {
+        const baseKey = await subtle.importKey(
+          "raw",
+          utf8Encode(passphrase == null ? "" : passphrase),
+          "PBKDF2",
+          false,
+          ["deriveBits"],
+        )
+        const bits = await subtle.deriveBits(
+          { name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+          baseKey,
+          256,
+        )
+        return new Uint8Array(bits)
+      } catch (err) {
+        // 浏览器不支持就静默退回纯 JS，不影响功能。
+        console.warn("WebCrypto 派生失败，改用纯 JS", err)
+      }
+    }
+    return pbkdf2Sha256Async(utf8Encode(passphrase == null ? "" : passphrase), salt, iter, onProgress)
+  }
+
+  /**
+   * 同 deriveKeys 的异步版本：优先 WebCrypto，必要时退回纯 JS。
+   * 纯 JS 在 31 万次迭代下要数秒，放主线程会冻结界面，调用方应自行让出渲染。
+   */
+  async function deriveKeysAsync(passphrase, params, onProgress) {
+    if (!params || params.v !== 2 || params.alg !== "pbkdf2-sha256") throw new Error("不支持的密钥参数");
+    const salt = base64ToBytes(params.salt);
+    const iter = Number(params.iter);
+    if (salt.length !== 16 || !Number.isInteger(iter) || iter < 100000 || iter > 5000000) throw new Error("密钥参数无效");
+    const master = await deriveMasterKey(passphrase, salt, iter, onProgress);
+    return {
+      v: 2,
+      password: passphrase,
+      enc: hmacSha256(master, utf8Encode("giftbook-v2-enc")),
+      mac: hmacSha256(master, utf8Encode("giftbook-v2-mac")),
+    };
+  }
+
   function isV2(cipherText) {
     try {
       const head = base64ToBytes(String(cipherText).slice(0, 8));
@@ -575,6 +656,7 @@
     decrypt,
     newKdfParams,
     deriveKeys,
+    deriveKeysAsync,
     isV2,
     hmacSha256Hex: (key, msg) => Array.from(hmacSha256(utf8Encode(key), utf8Encode(msg))).map((b) => b.toString(16).padStart(2, "0")).join(""),
     // 用派生出的原始密钥字节做 HMAC：离线校验凭据用，不可反推出密码

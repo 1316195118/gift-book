@@ -2,6 +2,7 @@
 import { state as st } from '../store.js'
 import { readLocked, writeLocked } from './prefs.js'
 import { verifyLedgerPassword } from './actions.js'
+import { clearCipherCache } from '../bootstrap.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 
 export function restoreLocked() {
@@ -12,6 +13,8 @@ export async function toggleLedgerLock() {
   if (!st.locked) {
     st.locked = true
     writeLocked(st.currentEvent.id, true)
+    // 锁定同时丢掉会话密钥缓存，否则「锁定」只剩界面效果。
+    clearCipherCache(st.currentEvent.id)
     return
   }
   if (!st.currentEvent.hasPassword) {

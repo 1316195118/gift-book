@@ -341,6 +341,54 @@ export function setSyncStatus(message, isError = false) {
 let currentCipher = null
 let cipherPending = null
 
+// 密钥会话缓存：纯 JS PBKDF2 在 31 万次迭代下要数秒到十几秒（手机上更久），
+// 同一标签页内切账簿、刷新页面不该每次都重算。只按「账簿 + 密码指纹」存密钥本体，
+// 换密码或换账簿自然失效；关掉页面即清空（sessionStorage）。
+const CIPHER_CACHE_PREFIX = 'gb-cipher-'
+
+// 只存密码的 sha256 指纹用于比对，缓存里不放明文密码。
+const cipherFingerprint = (password) => LedgerCrypto.sha256(String(password ?? ''))
+
+function readCipherCache(eventId, password) {
+  try {
+    const raw = sessionStorage.getItem(CIPHER_CACHE_PREFIX + eventId)
+    if (!raw) return null
+    const entry = JSON.parse(raw)
+    if (entry.fp !== cipherFingerprint(password)) return null
+    if (!entry.enc || !entry.mac) return null
+    return {
+      v: 2,
+      password,
+      enc: Uint8Array.from(atob(entry.enc), (c) => c.charCodeAt(0)),
+      mac: Uint8Array.from(atob(entry.mac), (c) => c.charCodeAt(0)),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeCipherCache(eventId, password, keys) {
+  try {
+    const b64 = (bytes) => btoa(String.fromCharCode(...bytes))
+    sessionStorage.setItem(CIPHER_CACHE_PREFIX + eventId, JSON.stringify({
+      fp: cipherFingerprint(password),
+      enc: b64(keys.enc),
+      mac: b64(keys.mac),
+    }))
+  } catch {
+    // 隐私模式或配额满：忽略，退化为每次重新派生。
+  }
+}
+
+export function clearCipherCache(eventId) {
+  try {
+    if (eventId) sessionStorage.removeItem(CIPHER_CACHE_PREFIX + eventId)
+    else Object.keys(sessionStorage).filter((k) => k.startsWith(CIPHER_CACHE_PREFIX)).forEach((k) => sessionStorage.removeItem(k))
+  } catch {
+    // ignore
+  }
+}
+
 export function resetCipher() {
   currentCipher = null
   cipherPending = null
@@ -389,16 +437,28 @@ export async function ensureCipher() {
       if (st.currentEvent && st.currentEvent.id === event.id) st.currentEvent.kdf = params
       updateSessionEvent(event)
     }
-    setSyncStatus('正在准备加密密钥…', false)
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    let keys
-    try {
-      keys = LedgerCrypto.deriveKeys(password, params)
-    } catch (error) {
-      console.error('密钥派生失败', error)
-      return null
-    } finally {
-      setSyncStatus('')
+    // 先查会话缓存：命中就跳过 PBKDF2，切换账簿基本瞬时。
+    let keys = readCipherCache(event.id, password)
+    if (!keys) {
+      setSyncStatus('正在准备加密密钥…', false)
+      // 让浏览器先把「正在准备」画出来，再进入可能持续数秒的派生计算。
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      try {
+        // 纯 JS 派生要数秒到十几秒，把进度显示出来，避免用户以为卡死。
+        let lastShown = -10
+        keys = await LedgerCrypto.deriveKeysAsync(password, params, (ratio) => {
+          const pct = Math.min(99, Math.round(ratio * 100))
+          if (pct - lastShown < 10) return
+          lastShown = pct
+          setSyncStatus(`正在准备加密密钥 ${pct}%…`, false)
+        })
+      } catch (error) {
+        console.error('密钥派生失败', error)
+        return null
+      } finally {
+        setSyncStatus('')
+      }
+      writeCipherCache(event.id, password, keys)
     }
     if (!st.currentEvent || st.currentEvent.id !== event.id || st.currentPassword !== password) return null
     currentCipher = { eventId: event.id, password, keys }
