@@ -89,3 +89,29 @@ func TestTags(t *testing.T) {
 		t.Fatalf("标签数量不对: %v", tags)
 	}
 }
+
+// registry 分页时必须顺着 Link 头取完，否则排在后面的更新包标签会被漏掉。
+func TestTagsFollowsPagination(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/token") {
+			json.NewEncoder(w).Encode(map[string]string{"token": "t"})
+			return
+		}
+		if r.URL.Query().Get("last") == "" {
+			w.Header().Set("Link", `</v2/test/repo/tags/list?last=page1&n=100>; rel="next"`)
+			json.NewEncoder(w).Encode(map[string]any{"tags": []string{"old-1", "old-2"}})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"tags": []string{"update-v2.4.34-amd64"}})
+	}))
+	defer srv.Close()
+	c := New("test/repo")
+	c.setRegistryForTest(srv.URL)
+	tags, err := c.Tags()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tags) != 3 || tags[2] != "update-v2.4.34-amd64" {
+		t.Fatalf("应取到第二页标签，实际 %v", tags)
+	}
+}

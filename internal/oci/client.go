@@ -85,22 +85,54 @@ func (c *Client) get(path string) (*http.Response, error) {
 }
 
 // Tags 列出仓库里的全部标签。
+// registry 会分页（GHCR 每页 100 个），必须顺着 Link 头取完，
+// 否则更新包标签排在后面时会被漏掉，导致永远检测不到新版本。
 func (c *Client) Tags() ([]string, error) {
-	resp, err := c.get("/v2/" + c.repo + "/tags/list")
-	if err != nil {
-		return nil, err
+	var all []string
+	path := "/v2/" + c.repo + "/tags/list"
+	for page := 0; page < 20; page += 1 {
+		resp, err := c.get(path)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			return nil, fmt.Errorf("列标签返回 %d", resp.StatusCode)
+		}
+		var result struct {
+			Tags []string `json:"tags"`
+		}
+		err = json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&result)
+		next := nextLink(resp.Header.Get("Link"))
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("解析标签失败: %w", err)
+		}
+		all = append(all, result.Tags...)
+		if next == "" {
+			return all, nil
+		}
+		path = next
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("列标签返回 %d", resp.StatusCode)
+	return all, nil
+}
+
+// nextLink 从 Link 头里取 rel="next" 的地址，没有则返回空。
+func nextLink(header string) string {
+	if header == "" {
+		return ""
 	}
-	var result struct {
-		Tags []string `json:"tags"`
+	for _, part := range strings.Split(header, ",") {
+		if !strings.Contains(part, `rel="next"`) {
+			continue
+		}
+		start := strings.Index(part, "<")
+		end := strings.Index(part, ">")
+		if start >= 0 && end > start {
+			return part[start+1 : end]
+		}
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&result); err != nil {
-		return nil, fmt.Errorf("解析标签失败: %w", err)
-	}
-	return result.Tags, nil
+	return ""
 }
 
 type descriptor struct {
