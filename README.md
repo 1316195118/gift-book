@@ -93,7 +93,7 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 部署示例统一使用 `latest`，无需手工修改版本号；执行 `docker compose pull && docker compose up -d` 即可拉取并启动最新发布。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
+- 部署只有一个入口：`ghcr.io/1316195118/gift-book:latest`。它是同时支持 amd64 / arm64、并统一包含 OCR 的多架构镜像，无需选择其他标签或修改版本号；执行 `docker compose pull && docker compose up -d` 即可拉取并启动最新发布。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 容器内自更新会始终显示当前版本、发布状态，以及检查、下载、安装和重启进度。更新包从 GHCR 拉取并写入 `/config/giftbook`；镜像默认在安装完成后优雅退出，并由 `restart: unless-stopped` 拉起新版本，因此 `/config` 必须持久化。NAS 无法直连 GitHub / GHCR 时，可在网页「本机与关于 → 程序更新」里填写并保存 HTTP 代理，无需修改 Compose 环境变量。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
@@ -256,7 +256,7 @@ ocr/
 
 ### 镜像选择与按需加载
 
-- 默认 `Dockerfile` 产出精简的 Alpine 镜像（无 Python、无 OCR）；需要 OCR 时用 `Dockerfile.ocr` 构建带引擎的镜像。CI 会按 amd64 / arm64 分别构建并合并为多架构标签 `ghcr.io/1316195118/gift-book:ocr`，可用 `docker buildx imagetools inspect` 查看支持的架构。
+- 正式发布使用 `Dockerfile.ocr` 构建单一多架构镜像，并只更新 `ghcr.io/1316195118/gift-book:latest`；该镜像同时支持 amd64 / arm64，并包含 OCR 引擎。可用 `docker buildx imagetools inspect ghcr.io/1316195118/gift-book:latest` 查看架构。
 - **按需加载**：OCR 不作为常驻服务。收到识别请求时 Go 才拉起一个短生命周期的 Python 进程，`engine.py` 此时校验三个模型的 SHA256 并加载；进程结束即释放内存。模型缺失或校验失败时直接失败关闭，运行时不会联网下载。
 - 前端按 `/api/capabilities` 的 `ocr` 字段决定是否显示入口；没有引擎的部署不会露出不可用的按钮。
 

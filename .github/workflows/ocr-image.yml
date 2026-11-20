@@ -1,7 +1,8 @@
-name: OCR image (multi-arch)
+name: Release image
 
-# 带 OCR 的镜像按 amd64 + arm64 分别构建，再合并成一个多架构 manifest。
-# 默认 Dockerfile（Alpine，无 OCR）不受影响，OCR 镜像单独打 ocr 标签。
+# 用户部署只有 ghcr.io/1316195118/gift-book:latest 一个入口。
+# latest 是 amd64 + arm64 多架构镜像，并统一包含 OCR。
+# update-vX.Y.Z-<arch> 仅供程序内部自更新，不作为部署标签。
 on:
   workflow_dispatch:
   push:
@@ -15,92 +16,23 @@ env:
   IMAGE: ghcr.io/1316195118/gift-book
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
-      - name: Build linux/${{ matrix.arch }}
-        run: |
-          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
-          docker buildx build --platform linux/${{ matrix.arch }} -f Dockerfile.ocr \
-            --build-arg TARGETOS=linux --build-arg TARGETARCH=${{ matrix.arch }} \
-            --build-arg BUILD_ID="$GITHUB_RUN_ID" \
-            -t "$IMAGE:ocr-${{ matrix.arch }}-$REF" --push .
-
-  default-image:
-    if: startsWith(github.ref, 'refs/tags/v')
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
-      - name: Build default linux/${{ matrix.arch }}
-        run: |
-          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
-          docker buildx build --platform linux/${{ matrix.arch }} -f Dockerfile \
-            --build-arg BUILD_ID="$GITHUB_RUN_ID" \
-            -t "$IMAGE:default-${{ matrix.arch }}-$REF" --push .
-
-  default-manifest:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: default-image
+  image:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_TOKEN || github.token }}
-      - name: Merge and publish latest
+      - name: Build and publish multi-arch latest
         run: |
-          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
-          docker buildx imagetools create -t "$IMAGE:latest" \
-            "$IMAGE:default-amd64-$REF" "$IMAGE:default-arm64-$REF"
+          docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.ocr \
+            --build-arg BUILD_ID="$GITHUB_RUN_ID" \
+            -t "$IMAGE:latest" --push .
           docker buildx imagetools inspect "$IMAGE:latest"
-
-  manifest:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
-      - name: Merge manifests
-        run: |
-          REF="${GITHUB_REF_NAME//[^A-Za-z0-9_.-]/-}"
-          docker buildx imagetools create -t "$IMAGE:ocr-$REF" \
-            "$IMAGE:ocr-amd64-$REF" "$IMAGE:ocr-arm64-$REF"
-          docker buildx imagetools create -t "$IMAGE:ocr" \
-            "$IMAGE:ocr-amd64-$REF" "$IMAGE:ocr-arm64-$REF"
-          docker buildx imagetools inspect "$IMAGE:ocr"
 
   # 容器内自更新的二进制包：把裸二进制推成 OCI artifact，标签 update-vX.Y.Z-<arch>。
   # 不依赖外部工具，用仓库内的 cmd/oci-push（纯标准库）上传。
@@ -126,6 +58,15 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: Resolve release version
+        id: release
+        run: |
+          VERSION="$(node -p "require('./web/package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "tag $GITHUB_REF_NAME does not match project version v$VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build frontend
         working-directory: web
         run: npm ci && npm run build
@@ -133,7 +74,7 @@ jobs:
         run: |
           mkdir -p webapp/dist
           cp -r web/dist/. webapp/dist/
-          printf '{"build":"%s","version":"%s"}\n' "$GITHUB_RUN_ID" "${GITHUB_REF_NAME#v}" > webapp/dist/build.json
+          printf '{"build":"%s","version":"%s"}\n' "$GITHUB_RUN_ID" "${{ steps.release.outputs.version }}" > webapp/dist/build.json
       - name: Build binary
         env:
           GOOS: linux
@@ -144,9 +85,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
-          REF="${GITHUB_REF_NAME#v}"
           go run ./cmd/oci-push \
             -file "/tmp/giftbook-${{ matrix.arch }}" \
-            -tag "update-v${REF}-${{ matrix.arch }}" \
+            -tag "update-v${{ steps.release.outputs.version }}-${{ matrix.arch }}" \
             -repo "1316195118/gift-book" \
             -token "$GITHUB_TOKEN"
