@@ -43,7 +43,7 @@ rm -rf webapp/dist/*
 mkdir -p webapp/dist
 cp -r web/dist/. webapp/dist/
 touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.4.36"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+printf '{"build":"%s","version":"2.4.37"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"
@@ -64,8 +64,10 @@ if pct exec "$CT_ID" -- docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q
   # 这样网页上的自更新才能落地）。这里把新二进制直接推进宿主机的
   # /config 挂载点，然后重启容器即可，不再需要 down/up。
   echo "▸ Docker 容器部署（写入 /config 挂载卷）"
-  pct push "$CT_ID" /tmp/giftbook.new "$CT_CONFIG/giftbook" --perms 0755
-  pct exec "$CT_ID" -- sh -c "docker restart '$CONTAINER' >/dev/null && sleep 3"
+  # 正在执行的二进制不能直接覆盖（Text file busy），先写临时文件再原子 mv。
+  pct push "$CT_ID" /tmp/giftbook.new "$CT_CONFIG/giftbook.new" --perms 0755
+  pct exec "$CT_ID" -- sh -c "mv -f '$CT_CONFIG/giftbook.new' '$CT_CONFIG/giftbook'"
+  pct exec "$CT_ID" -- sh -c "docker restart '$CONTAINER' >/dev/null && sleep 4"
   pct exec "$CT_ID" -- sh -c "docker inspect '$CONTAINER' --format '{{.State.Status}} {{.State.Health.Status}}'"
 else
   echo "▸ systemd 部署（旧方式）"
