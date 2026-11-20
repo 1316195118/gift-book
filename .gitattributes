@@ -2,3 +2,8 @@
 # 导致本机 `gofmt -l` 误报（仓库里存的其实已是规范 LF）。
 # 强制 Go 源码在工作区也保持 LF，让格式检查在任何平台结果一致。
 *.go text eol=lf
+
+# Shell 脚本与容器入口必须保持 LF：CRLF 的 shebang 会让容器报
+# "no such file or directory"，这是最难排查的启动失败之一。
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
