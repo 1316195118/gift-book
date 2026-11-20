@@ -25,7 +25,7 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.32"
+const appVersion = "2.4.33"
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
@@ -113,6 +113,7 @@ func main() {
 		OCR:          ocr,
 		ConfigDir:    configDir,
 		StrictOrigin: envBool("GIFTBOOK_STRICT_ORIGIN"),
+		AutoRestart:  envBool("GIFTBOOK_AUTO_RESTART"),
 	})
 	handler.StartAutoBackup()
 
@@ -139,12 +140,8 @@ func main() {
 	}
 
 	stopped := make(chan struct{})
-	go func() {
-		defer close(stopped)
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-		<-ch
-		log.Println("正在停止…")
+	shutdown := func(reason string) {
+		log.Printf("正在停止（%s）…", reason)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
@@ -152,6 +149,17 @@ func main() {
 		}
 		// 等后台定时备份收尾，避免进程退出时留下半个 zip。
 		handler.StopAutoBackup()
+	}
+	go func() {
+		defer close(stopped)
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-ch:
+			shutdown("signal")
+		case <-handler.RestartChannel():
+			shutdown("self-update")
+		}
 	}()
 
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

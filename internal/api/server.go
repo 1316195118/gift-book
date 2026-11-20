@@ -9,6 +9,7 @@ import (
 
 	"giftbook/internal/auth"
 	"giftbook/internal/store"
+	"giftbook/internal/update"
 )
 
 // Server 汇总所有依赖。
@@ -35,6 +36,11 @@ type Server struct {
 
 	familySecretOnce     sync.Once
 	familySecretKeyBytes []byte
+
+	updater     *update.Manager
+	autoRestart bool
+	restartOnce sync.Once
+	restartCh   chan struct{}
 }
 
 // Options 是构造 Server 的参数。
@@ -49,6 +55,8 @@ type Options struct {
 	// StrictOrigin 为 true 时，写请求要求 Origin 的 host:port 与 Host 完全一致。
 	// 默认只比主机名，保持与旧版（含开发代理、同机不同端口前端）的兼容。
 	StrictOrigin bool
+	// AutoRestart 表示更新完成后是否请求进程退出（容器里由 restart 策略拉起）。
+	AutoRestart bool
 }
 
 // New 创建 HTTP 服务。
@@ -64,6 +72,11 @@ func New(opts Options) *Server {
 		strictOrigin:   opts.StrictOrigin,
 		stream:         newStreamHub(),
 		stopAutoBackup: make(chan struct{}),
+		restartCh:      make(chan struct{}),
+		autoRestart:    opts.AutoRestart,
+	}
+	if opts.ConfigDir != "" {
+		s.updater = update.New(opts.ConfigDir, opts.Version)
 	}
 	// 升级兼容：没有 families.json 时创建默认家庭，并把旧账簿归入默认家庭。
 	s.initFamilies()
@@ -77,6 +90,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/ping", s.handlePing)
 	mux.HandleFunc("GET /api/build", s.handleBuild)
 	mux.HandleFunc("GET /api/capabilities", s.handleCapabilities)
+	mux.HandleFunc("GET /api/update/status", s.open(s.handleUpdateStatus))
+	mux.HandleFunc("GET /api/update/check", s.open(s.handleUpdateCheck))
+	mux.HandleFunc("POST /api/update/apply", s.open(s.handleUpdateApply))
 	mux.HandleFunc("GET /api/health", s.open(s.handleHealth))
 	mux.HandleFunc("GET /api/auth", s.handleAuthState)
 	mux.HandleFunc("POST /api/auth", s.handleLogin)
@@ -304,6 +320,18 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) buildLabel() string { return s.build }
+
+func (s *Server) updateManager() *update.Manager { return s.updater }
+
+// RestartChannel 返回一个在更新完成被触发时关闭的通道，供 main 做优雅退出。
+func (s *Server) RestartChannel() <-chan struct{} { return s.restartCh }
+
+func (s *Server) requestRestart() {
+	s.restartOnce.Do(func() { close(s.restartCh) })
+}
+
+// IsAutoRestart 供状态展示。
+func (s *Server) IsAutoRestart() bool { return s.autoRestart }
 
 // 内容安全策略：脚本只允许同源构建产物；样式保留 inline（骨架屏与动态条形宽度）；
 // 图片允许 data:/blob:（封面、二维码、PDF 栅格化），媒体与 Worker 允许 blob:。

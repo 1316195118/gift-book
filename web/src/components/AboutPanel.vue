@@ -21,6 +21,10 @@
         <b>更新说明</b>
         <small>查看每个版本新增与修复了什么</small>
       </button>
+      <button type="button" class="gb-settings-item" id="about-app-update" @click="appUpdate">
+        <b>程序更新</b>
+        <small>检查并安装容器内自更新</small>
+      </button>
       <button type="button" class="gb-settings-item" @click="license">
         <b>开源许可</b>
         <small>MIT License 与第三方组件说明</small>
@@ -37,6 +41,7 @@ import { ref } from 'vue'
 import { state as st } from '../store.js'
 import { closeModal } from '../lib/modal.js'
 import { showNetworkDetails, showChangelog, showLicense, toggleLargeText } from '../lib/actions.js'
+import { showAppUpdate } from '../lib/app-update.js'
 import { netState as net } from '../lib/network.js'
 import { soundEnabled, setSoundEnabled } from '../lib/prefs.js'
 import { playTap } from '../lib/sound.js'
@@ -51,6 +56,11 @@ function network() {
 function changelog() {
   closeModal()
   showChangelog()
+}
+
+function appUpdate() {
+  closeModal()
+  showAppUpdate()
 }
 
 function license() {

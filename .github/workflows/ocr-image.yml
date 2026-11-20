@@ -58,3 +58,47 @@ jobs:
           docker buildx imagetools create -t "$IMAGE:ocr" \
             "$IMAGE:ocr-amd64-$REF" "$IMAGE:ocr-arm64-$REF"
           docker buildx imagetools inspect "$IMAGE:ocr"
+
+  # 容器内自更新的二进制包：把裸二进制推成 OCI artifact，标签 update-vX.Y.Z-<arch>。
+  # 不依赖外部工具，用仓库内的 cmd/oci-push（纯标准库）上传。
+  update-package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+          - arch: arm64
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Build frontend
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Prepare embed dist
+        run: |
+          mkdir -p webapp/dist
+          cp -r web/dist/. webapp/dist/
+          printf '{"build":"%s","version":"%s"}\n' "$GITHUB_RUN_ID" "${GITHUB_REF_NAME#v}" > webapp/dist/build.json
+      - name: Build binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags "-s -w" -o /tmp/giftbook-${{ matrix.arch }} ./cmd/giftbook
+      - name: Push OCI update package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+        run: |
+          REF="${GITHUB_REF_NAME#v}"
+          go run ./cmd/oci-push \
+            -file "/tmp/giftbook-${{ matrix.arch }}" \
+            -tag "update-v${REF}-${{ matrix.arch }}" \
+            -repo "1316195118/gift-book" \
+            -token "$GITHUB_TOKEN"

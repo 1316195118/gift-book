@@ -22,7 +22,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"%s","version":"2.4.32"}\n' "$BUILD_ID" > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.33"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
@@ -44,11 +44,13 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /data /config
 COPY --from=builder /out/giftbook /usr/local/bin/giftbook
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY --from=ocrbuild /opt/ocr /usr/local/bin/ocr
 ENV TZ=Asia/Shanghai \
     GIFTBOOK_OCR_PYTHON=/usr/local/bin/ocr/venv/bin/python \
     GIFTBOOK_OCR_SCRIPT=/usr/local/bin/ocr/recognize.py
 VOLUME ["/data", "/config"]
 EXPOSE 8099
-ENTRYPOINT ["/usr/local/bin/giftbook"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["-addr", "0.0.0.0", "-port", "8099", "-data", "/data", "-config", "/config"]

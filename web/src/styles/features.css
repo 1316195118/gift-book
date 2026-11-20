@@ -1746,3 +1746,14 @@
   text-align: center;
   margin: 0;
 }
+
+/* 程序更新面板 */
+.update-panel { display: flex; flex-direction: column; gap: 12px; }
+.update-current { color: var(--muted); font-size: var(--fs-sm); }
+.update-current b { color: var(--ink); }
+.update-new { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); }
+.update-meta { margin-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
+.update-ok { color: var(--muted); }
+.update-error, .update-hint { color: var(--muted); font-size: var(--fs-sm); }
+.update-error { color: var(--danger); }
+.update-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

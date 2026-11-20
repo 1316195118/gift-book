@@ -17,7 +17,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"docker","version":"2.4.32"}\n' > webapp/dist/build.json \
+RUN printf '{"build":"docker","version":"2.4.33"}\n' > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
@@ -26,8 +26,10 @@ FROM alpine:3.20
 RUN apk add --no-cache tzdata ca-certificates
 ENV TZ=Asia/Shanghai
 COPY --from=builder /out/giftbook /usr/local/bin/giftbook
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 RUN mkdir -p /data /config
 VOLUME ["/data", "/config"]
 EXPOSE 8099
-ENTRYPOINT ["/usr/local/bin/giftbook"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["-addr", "0.0.0.0", "-port", "8099", "-data", "/data", "-config", "/config"]
