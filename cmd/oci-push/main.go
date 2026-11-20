@@ -181,7 +181,7 @@ func push(client *http.Client, repo, tag, tok string, binary []byte) error {
 	// 2. 空 config blob（OCI artifact 惯例）
 	cfg := []byte("{}")
 	cfgDigest := digest(cfg)
-	if err := uploadBlob(client, repo, "application/vnd.oci.empty.v1+json", cfg, tok); err != nil {
+	if err := uploadBlob(client, repo, "application/vnd.oci.image.config.v1+json", cfg, tok); err != nil {
 		return fmt.Errorf("上传 config: %w", err)
 	}
 
@@ -190,7 +190,7 @@ func push(client *http.Client, repo, tag, tok string, binary []byte) error {
 		"schemaVersion": 2,
 		"mediaType":     "application/vnd.oci.image.manifest.v1+json",
 		"config": map[string]any{
-			"mediaType": "application/vnd.oci.empty.v1+json",
+			"mediaType": "application/vnd.oci.image.config.v1+json",
 			"digest":    cfgDigest,
 			"size":      len(cfg),
 		},
