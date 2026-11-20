@@ -43,7 +43,7 @@ rm -rf webapp/dist/*
 mkdir -p webapp/dist
 cp -r web/dist/. webapp/dist/
 touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.4.35"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+printf '{"build":"%s","version":"2.4.36"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"
@@ -57,7 +57,7 @@ scp "${SSH_OPTS[@]}" build/giftbook-linux-amd64 "$PVE_USER@$PVE_HOST:/tmp/giftbo
 #    容器里二进制正在执行，直接覆盖会报 Text file busy，必须先 compose down。
 echo "▸ 部署到 CT $CT_ID"
 ssh "${SSH_OPTS[@]}" "$PVE_USER@$PVE_HOST" \
-  "CT_ID='$CT_ID' DOCKER_DIR='$DOCKER_DIR' CONTAINER='$CONTAINER' REMOTE_BIN='$REMOTE_BIN' SERVICE='$SERVICE' bash -s" <<'REMOTE'
+  "CT_ID='$CT_ID' DOCKER_DIR='$DOCKER_DIR' CONTAINER='$CONTAINER' CT_CONFIG='$CT_CONFIG' REMOTE_BIN='$REMOTE_BIN' SERVICE='$SERVICE' bash -s" <<'REMOTE'
 set -e
 if pct exec "$CT_ID" -- docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
   # v2.4.33 起二进制改由 /config 挂载卷承载（容器内入口脚本优先执行它，
