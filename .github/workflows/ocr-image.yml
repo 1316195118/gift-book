@@ -31,8 +31,17 @@ jobs:
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.ocr \
             --build-arg BUILD_ID="$GITHUB_RUN_ID" \
+            --cache-from type=gha --cache-to type=gha,mode=max \
             -t "$IMAGE:latest" --push .
-          docker buildx imagetools inspect "$IMAGE:latest"
+          # GHCR 在接收 manifest 后偶尔有几秒读取延迟，校验需要短重试。
+          for i in $(seq 1 10); do
+            if docker buildx imagetools inspect "$IMAGE:latest"; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "latest manifest is still unavailable after retries" >&2
+          exit 1
 
   # 容器内自更新的二进制包：把裸二进制推成 OCI artifact，标签 update-vX.Y.Z-<arch>。
   # 不依赖外部工具，用仓库内的 cmd/oci-push（纯标准库）上传。
