@@ -15,6 +15,8 @@ REMOTE_BIN="${REMOTE_BIN:-/opt/giftbook-go/giftbook}"
 SERVICE="${SERVICE:-giftbook}"
 # 容器化部署（优先）：compose 目录与容器名
 DOCKER_DIR="${DOCKER_DIR:-/opt/gift-book-docker}"
+# 容器 /config 对应的宿主机目录（自更新二进制的落地点）
+CT_CONFIG="${CT_CONFIG:-/opt/ugreen-test-config}"
 CONTAINER="${CONTAINER:-gift-book}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,7 +43,7 @@ rm -rf webapp/dist/*
 mkdir -p webapp/dist
 cp -r web/dist/. webapp/dist/
 touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.4.33"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+printf '{"build":"%s","version":"2.4.34"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"
@@ -58,11 +60,13 @@ ssh "${SSH_OPTS[@]}" "$PVE_USER@$PVE_HOST" \
   "CT_ID='$CT_ID' DOCKER_DIR='$DOCKER_DIR' CONTAINER='$CONTAINER' REMOTE_BIN='$REMOTE_BIN' SERVICE='$SERVICE' bash -s" <<'REMOTE'
 set -e
 if pct exec "$CT_ID" -- docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
-  echo "▸ Docker 容器部署（先停容器，避免 Text file busy）"
-  pct exec "$CT_ID" -- sh -c "cd '$DOCKER_DIR' && docker compose down"
-  pct push "$CT_ID" /tmp/giftbook.new "$DOCKER_DIR/giftbook" --perms 0755
-  pct exec "$CT_ID" -- sh -c "cd '$DOCKER_DIR' && docker compose up -d"
-  pct exec "$CT_ID" -- sh -c "docker inspect '$CONTAINER' --format '{{.State.Status}}'"
+  # v2.4.33 起二进制改由 /config 挂载卷承载（容器内入口脚本优先执行它，
+  # 这样网页上的自更新才能落地）。这里把新二进制直接推进宿主机的
+  # /config 挂载点，然后重启容器即可，不再需要 down/up。
+  echo "▸ Docker 容器部署（写入 /config 挂载卷）"
+  pct push "$CT_ID" /tmp/giftbook.new "$CT_CONFIG/giftbook" --perms 0755
+  pct exec "$CT_ID" -- sh -c "docker restart '$CONTAINER' >/dev/null && sleep 3"
+  pct exec "$CT_ID" -- sh -c "docker inspect '$CONTAINER' --format '{{.State.Status}} {{.State.Health.Status}}'"
 else
   echo "▸ systemd 部署（旧方式）"
   pct push "$CT_ID" /tmp/giftbook.new "$REMOTE_BIN.new" --perms 0755
