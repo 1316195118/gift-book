@@ -1759,6 +1759,59 @@
 .update-error, .update-hint { color: var(--muted); font-size: var(--fs-sm); }
 .update-error { color: var(--danger); }
 .update-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+.update-feedback {
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+.update-feedback-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+.update-feedback-head b {
+  flex: none;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.update-progress {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 72%, transparent);
+}
+.update-progress > span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 62%, var(--warn, #d18a25)));
+  transition: width 240ms ease;
+}
+.update-feedback.is-indeterminate .update-progress > span {
+  width: 42% !important;
+  animation: update-progress-scan 1.2s ease-in-out infinite;
+}
+.update-feedback-meta {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.update-actions button:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+@keyframes update-progress-scan {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(250%); }
+}
 
 /* 更新代理设置 */
 .update-proxy { display: flex; flex-direction: column; gap: 6px; }
@@ -1808,3 +1861,8 @@
 /* 「+ 添加页段」是次级动作，不该用主色红抢注意力。 */
 #gb-add-page-rule { color: var(--muted); }
 #gb-add-page-rule:hover { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-progress > span { transition: none; }
+  .update-feedback.is-indeterminate .update-progress > span { animation: none; }
+}

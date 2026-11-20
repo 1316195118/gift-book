@@ -231,13 +231,28 @@ type Result struct {
 	Rejected string `json:"rejected,omitempty"`
 }
 
+// Progress 是一次安装的可展示阶段与字节进度。
+type Progress struct {
+	Stage      string `json:"stage"`
+	Message    string `json:"message"`
+	Percent    int    `json:"percent"`
+	Downloaded int64  `json:"downloaded"`
+	Total      int64  `json:"total"`
+}
+
 // Apply 下载并安装指定标签的更新包。
 // 写入临时文件 → 校验 → chmod → rename，全程在 configDir 下完成。
 func (m *Manager) Apply(a *Available) (*Result, error) {
+	return m.ApplyWithProgress(a, nil)
+}
+
+// ApplyWithProgress 与 Apply 相同，并在关键阶段和下载过程中回报进度。
+// 进度只用于展示；安装是否成功仍由返回值与文件校验决定。
+func (m *Manager) ApplyWithProgress(a *Available, onProgress func(Progress)) (*Result, error) {
 	if a == nil || a.Tag == "" {
 		return nil, errors.New("没有可安装的更新")
 	}
-	if !m.allowedTag(a.Tag) {
+	if !m.AllowedTag(a.Tag) {
 		return nil, errors.New("更新包标签不合法")
 	}
 	if m.configDir == "" {
@@ -246,6 +261,26 @@ func (m *Manager) Apply(a *Available) (*Result, error) {
 	if a.Size > maxBinarySize {
 		return nil, errors.New("更新包体积异常")
 	}
+	report := func(stage, message string, percent int, downloaded, total int64) {
+		if onProgress == nil {
+			return
+		}
+		if percent < 0 {
+			percent = 0
+		}
+		if percent > 100 {
+			percent = 100
+		}
+		onProgress(Progress{
+			Stage:      stage,
+			Message:    message,
+			Percent:    percent,
+			Downloaded: downloaded,
+			Total:      total,
+		})
+	}
+
+	report("preparing", "正在读取更新包信息…", 4, 0, a.Size)
 
 	digest, size, err := m.client.LayerDigest(a.Tag)
 	if err != nil {
@@ -254,10 +289,21 @@ func (m *Manager) Apply(a *Available) (*Result, error) {
 	if size > maxBinarySize {
 		return nil, errors.New("更新包体积异常")
 	}
-	data, err := m.client.DownloadLayer(digest, maxBinarySize)
+	report("downloading", "正在下载更新包…", 10, 0, size)
+	data, err := m.client.DownloadLayerWithProgress(digest, maxBinarySize, func(downloaded, total int64) {
+		if total <= 0 {
+			total = size
+		}
+		percent := 10
+		if total > 0 {
+			percent += int(float64(downloaded) / float64(total) * 70)
+		}
+		report("downloading", "正在下载更新包…", percent, downloaded, total)
+	})
 	if err != nil {
 		return nil, err
 	}
+	report("installing", "下载完成，正在校验并写入…", 84, size, size)
 
 	if err := os.MkdirAll(m.configDir, 0o775); err != nil {
 		return nil, err
@@ -293,11 +339,12 @@ func (m *Manager) Apply(a *Available) (*Result, error) {
 	if err := os.Rename(tmpPath, target); err != nil {
 		return nil, err
 	}
+	report("complete", "更新已安装", 100, size, size)
 	return &Result{Version: a.Version, Path: target}, nil
 }
 
-// allowedTag 严格校验标签格式，防止路径注入或非本架构的包。
-func (m *Manager) allowedTag(tag string) bool {
+// AllowedTag 严格校验标签格式，防止路径注入或非本架构的包。
+func (m *Manager) AllowedTag(tag string) bool {
 	mm := versionTag.FindStringSubmatch(tag)
 	return mm != nil && mm[4] == m.arch
 }

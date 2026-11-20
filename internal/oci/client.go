@@ -6,6 +6,7 @@
 package oci
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -194,6 +195,12 @@ func (c *Client) LayerDigest(tag string) (digest string, size int64, err error) 
 // 网络不稳时（实测某些 NAS 到 GHCR 存储会中途断开）重试三次，
 // 每次失败都重新校验，截断或损坏的响应不会被接受。
 func (c *Client) DownloadLayer(digest string, maxBytes int64) ([]byte, error) {
+	return c.DownloadLayerWithProgress(digest, maxBytes, nil)
+}
+
+// DownloadLayerWithProgress 与 DownloadLayer 相同，但会把已下载字节数报告给调用方。
+// 重试会从头开始，调用方应按最后一次进度覆盖旧值。
+func (c *Client) DownloadLayerWithProgress(digest string, maxBytes int64, onProgress func(downloaded, total int64)) ([]byte, error) {
 	if !strings.HasPrefix(digest, "sha256:") {
 		return nil, fmt.Errorf("不支持的 digest 格式")
 	}
@@ -206,7 +213,7 @@ func (c *Client) DownloadLayer(digest string, maxBytes int64) ([]byte, error) {
 		if attempt > 0 {
 			time.Sleep(time.Duration(attempt) * 2 * time.Second)
 		}
-		data, err := c.downloadOnce(digest, want, maxBytes)
+		data, err := c.downloadOnce(digest, want, maxBytes, onProgress)
 		if err == nil {
 			return data, nil
 		}
@@ -215,7 +222,7 @@ func (c *Client) DownloadLayer(digest string, maxBytes int64) ([]byte, error) {
 	return nil, lastErr
 }
 
-func (c *Client) downloadOnce(digest, want string, maxBytes int64) ([]byte, error) {
+func (c *Client) downloadOnce(digest, want string, maxBytes int64, onProgress func(downloaded, total int64)) ([]byte, error) {
 	resp, err := c.get("/v2/" + c.repo + "/blobs/" + url.PathEscape(digest))
 	if err != nil {
 		return nil, err
@@ -224,18 +231,45 @@ func (c *Client) downloadOnce(digest, want string, maxBytes int64) ([]byte, erro
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("下载 blob 返回 %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("下载中断: %w", err)
+	total := resp.ContentLength
+	if onProgress != nil {
+		onProgress(0, total)
 	}
-	if int64(len(data)) > maxBytes {
-		return nil, fmt.Errorf("blob 超过大小上限")
+	var data bytes.Buffer
+	if total > 0 && total <= maxBytes {
+		data.Grow(int(total))
 	}
-	sum := sha256.Sum256(data)
+	chunk := make([]byte, 32<<10)
+	var downloaded, reported int64
+	for {
+		n, readErr := resp.Body.Read(chunk)
+		if n > 0 {
+			downloaded += int64(n)
+			if downloaded > maxBytes {
+				return nil, fmt.Errorf("blob 超过大小上限")
+			}
+			_, _ = data.Write(chunk[:n])
+			if onProgress != nil && downloaded-reported >= 256<<10 {
+				onProgress(downloaded, total)
+				reported = downloaded
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return nil, fmt.Errorf("下载中断: %w", readErr)
+		}
+	}
+	if onProgress != nil {
+		onProgress(downloaded, total)
+	}
+	raw := data.Bytes()
+	sum := sha256.Sum256(raw)
 	if got := hex.EncodeToString(sum[:]); got != want {
-		return nil, fmt.Errorf("blob 校验失败（可能下载不完整）: 得到 %d 字节", len(data))
+		return nil, fmt.Errorf("blob 校验失败（可能下载不完整）: 得到 %d 字节", len(raw))
 	}
-	return data, nil
+	return raw, nil
 }
 
 func isHex(s string) bool {

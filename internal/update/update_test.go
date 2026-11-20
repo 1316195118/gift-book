@@ -109,6 +109,40 @@ func TestApplyWritesExecutableBinary(t *testing.T) {
 	}
 }
 
+func TestApplyReportsDownloadProgress(t *testing.T) {
+	blob := []byte(strings.Repeat("x", 600<<10))
+	srv := registryForTest(t, []string{"update-v2.4.33-amd64"}, blob)
+	defer srv.Close()
+	m := New(t.TempDir(), "2.4.32")
+	m.SetClientForTest(oci.NewFromRegistryForTest(srv.URL, "1316195118/gift-book"))
+	avail, err := m.Check()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []Progress
+	if _, err := m.ApplyWithProgress(avail, func(progress Progress) {
+		got = append(got, progress)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 3 {
+		t.Fatalf("进度回调太少: %+v", got)
+	}
+	downloaded := false
+	for _, progress := range got {
+		if progress.Stage == "downloading" && progress.Downloaded == int64(len(blob)) && progress.Percent > 10 {
+			downloaded = true
+		}
+	}
+	if !downloaded {
+		t.Fatalf("缺少完整下载进度: %+v", got)
+	}
+	last := got[len(got)-1]
+	if last.Stage != "complete" || last.Percent != 100 || last.Total != int64(len(blob)) {
+		t.Fatalf("结束进度不对: %+v", last)
+	}
+}
+
 func TestApplyRejectsWrongArchTag(t *testing.T) {
 	m := New(t.TempDir(), "2.4.32")
 	avail := &Available{Version: "v2.4.33", Tag: "update-v2.4.33-arm64"}

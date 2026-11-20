@@ -16,6 +16,24 @@ import (
 	"giftbook/internal/update"
 )
 
+func waitUpdateJob(t *testing.T, env *testEnv, wantState string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		res, payload := env.do(t, "GET", "/api/update/progress", nil, nil)
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("progress 失败: %d %v", res.StatusCode, payload)
+		}
+		job, _ := payload["data"].(map[string]any)
+		if job["state"] == wantState {
+			return job
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("等待更新任务进入 %s 超时", wantState)
+	return nil
+}
+
 // 端到端：假 registry 提供更新包 → 检查发现新版 → 下载替换 → 触发重启信号。
 func TestUpdateFullChain(t *testing.T) {
 	// 造一个"新版本二进制"内容
@@ -61,8 +79,12 @@ func TestUpdateFullChain(t *testing.T) {
 
 	// 2. 安装更新
 	res, payload = env.do(t, "POST", "/api/update/apply", map[string]any{"tag": "update-v2.4.33-amd64"}, nil)
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusAccepted {
 		t.Fatalf("apply 失败: %d %v", res.StatusCode, payload)
+	}
+	job := waitUpdateJob(t, env, "succeeded")
+	if job["percent"] != float64(100) || job["restart"] != true {
+		t.Fatalf("更新完成状态不对: %v", job)
 	}
 
 	// 3. 二进制落盘且内容正确
@@ -105,8 +127,12 @@ func TestUpdateApplyRejectsStaleTag(t *testing.T) {
 	mgr.SetClientForTest(oci.NewFromRegistryForTest(reg.URL, "1316195118/gift-book"))
 	env.api.updater = mgr
 
-	res, _ := env.do(t, "POST", "/api/update/apply", map[string]any{"tag": "update-v9.9.9-amd64"}, nil)
-	if res.StatusCode != http.StatusBadRequest {
-		t.Fatalf("伪造标签应被拒: %d", res.StatusCode)
+	res, payload := env.do(t, "POST", "/api/update/apply", map[string]any{"tag": "update-v9.9.9-amd64"}, nil)
+	if res.StatusCode != http.StatusAccepted {
+		t.Fatalf("安装任务应被接受: %d %v", res.StatusCode, payload)
+	}
+	job := waitUpdateJob(t, env, "failed")
+	if !strings.Contains(job["error"].(string), "不一致") {
+		t.Fatalf("伪造标签应在后台被拒: %v", job)
 	}
 }

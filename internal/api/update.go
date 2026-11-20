@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"giftbook/internal/update"
 )
@@ -37,8 +36,8 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	}})
 }
 
-// handleUpdateApply 安装更新：仅站点管理员可用。安装成功后延迟退出进程，
-// 由容器 restart 策略拉起新二进制；非容器环境只落盘、不自动退出。
+// handleUpdateApply 启动后台安装任务，仅站点管理员可用。
+// 下载可能持续几十秒，接口立即返回 202，由 /api/update/progress 提供阶段与字节进度。
 func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	if !s.isSiteAdmin(r) {
 		failCode(w, http.StatusForbidden, "admin_required", "仅站点管理员可以更新程序")
@@ -57,41 +56,31 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "请求格式错误")
 		return
 	}
-	// 重新检查一遍，防止客户端传一个旧的或伪造的版本号。
-	avail, err := mgr.Check()
-	if err != nil {
-		fail(w, http.StatusBadGateway, "检查更新失败："+err.Error())
+	if body.Tag == "" || !mgr.AllowedTag(body.Tag) {
+		fail(w, http.StatusBadRequest, "更新包标签不合法")
 		return
 	}
-	if avail == nil {
-		fail(w, http.StatusConflict, "已是最新版本")
+	job, started := s.beginUpdateJob(body.Version, body.Tag)
+	if !started {
+		writeJSON(w, http.StatusConflict, response{
+			Success: false,
+			Message: "已有更新正在进行",
+			Data:    job,
+		})
 		return
 	}
-	if body.Tag != "" && body.Tag != avail.Tag {
-		fail(w, http.StatusBadRequest, "更新包与最新版本不一致，请刷新后重试")
-		return
+	s.audit(r, "开始更新程序", "", body.Tag)
+	go s.runUpdateJob(job.ID, mgr, body.Tag)
+	writeJSON(w, http.StatusAccepted, response{Success: true, Data: job})
+}
+
+// handleUpdateProgress 返回当前安装任务；无任务或服务刚重启时返回 idle。
+func (s *Server) handleUpdateProgress(w http.ResponseWriter, r *http.Request) {
+	job := s.currentUpdateJob()
+	if job == nil {
+		job = &updateJob{State: "idle", Current: s.version}
 	}
-	result, err := mgr.Apply(avail)
-	if err != nil {
-		s.audit(r, "更新程序失败", "", err.Error())
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	s.audit(r, "更新程序", "", result.Version)
-	data := map[string]any{
-		"version": result.Version,
-		"path":    result.Path,
-		"restart": s.autoRestart,
-		"ok":      true,
-	}
-	writeJSON(w, http.StatusOK, response{Success: true, Data: data})
-	if s.autoRestart {
-		// 给响应留出 flush 的时间，再退出让容器重启。
-		go func() {
-			time.Sleep(600 * time.Millisecond)
-			s.requestRestart()
-		}()
-	}
+	writeJSON(w, http.StatusOK, response{Success: true, Data: job})
 }
 
 // handleUpdateStatus 返回当前版本与自动更新配置，供设置页展示。

@@ -41,6 +41,8 @@ type Server struct {
 	autoRestart bool
 	restartOnce sync.Once
 	restartCh   chan struct{}
+	updateJobMu sync.Mutex
+	updateJob   *updateJob
 }
 
 // Options 是构造 Server 的参数。
@@ -93,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/update/status", s.open(s.handleUpdateStatus))
 	mux.HandleFunc("GET /api/update/check", s.open(s.handleUpdateCheck))
 	mux.HandleFunc("POST /api/update/apply", s.open(s.handleUpdateApply))
+	mux.HandleFunc("GET /api/update/progress", s.open(s.handleUpdateProgress))
 	mux.HandleFunc("GET /api/update/settings", s.open(s.handleUpdateSettings))
 	mux.HandleFunc("PUT /api/update/settings", s.open(s.handleUpdateSettingsSave))
 	mux.HandleFunc("GET /api/health", s.open(s.handleHealth))
