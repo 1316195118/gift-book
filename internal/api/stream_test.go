@@ -89,3 +89,64 @@ func TestStreamFamilyIsolation(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 }
+
+func TestStreamBroadcastReachesAllFamilyClients(t *testing.T) {
+	h := newStreamHub()
+	const clients = 32
+	channels := make([]chan []byte, 0, clients)
+	for i := 0; i < clients; i++ {
+		ch := h.add("fam_busy")
+		channels = append(channels, ch)
+		defer h.remove(ch)
+	}
+
+	h.broadcast("fam_busy", map[string]any{"type": "gift", "eventId": "ev-1"})
+	for i, ch := range channels {
+		select {
+		case raw := <-ch:
+			var payload map[string]any
+			if err := json.Unmarshal(raw, &payload); err != nil {
+				t.Fatalf("客户端 %d 收到非法事件: %v", i, err)
+			}
+			if payload["eventId"] != "ev-1" {
+				t.Fatalf("客户端 %d 收到错误事件: %v", i, payload)
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatalf("客户端 %d 没收到广播", i)
+		}
+	}
+}
+
+func TestStreamSlowClientDoesNotBlockOthers(t *testing.T) {
+	h := newStreamHub()
+	slow := h.add("fam_busy")
+	fast := h.add("fam_busy")
+	defer h.remove(slow)
+	defer h.remove(fast)
+	for i := 0; i < cap(slow); i++ {
+		slow <- []byte(`{"queued":true}`)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		h.broadcast("fam_busy", map[string]any{"type": "gift", "eventId": "ev-fast"})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("慢客户端阻塞了广播")
+	}
+	select {
+	case raw := <-fast:
+		var payload map[string]any
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["eventId"] != "ev-fast" {
+			t.Fatalf("正常客户端收到错误事件: %v", payload)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("正常客户端被慢客户端拖住")
+	}
+}

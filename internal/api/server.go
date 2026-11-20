@@ -300,13 +300,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	lastErr := s.lastBackupErr
 	s.lastBackupMu.Unlock()
 	data := map[string]any{
-		"build":       s.build,
-		"version":     s.version,
-		"ocr":         s.ocr.Enabled(),
-		"events":      eventCount,
-		"gifts":       giftCount,
-		"lastBackup":  "",
-		"backupError": lastErr,
+		"build":               s.build,
+		"version":             s.version,
+		"ocr":                 s.ocr.Enabled(),
+		"events":              eventCount,
+		"gifts":               giftCount,
+		"realtimeConnections": s.stream.count(),
+		"lastBackup":          "",
+		"backupError":         lastErr,
 	}
 	if !lastAt.IsZero() {
 		data["lastBackup"] = lastAt.Format(time.RFC3339)

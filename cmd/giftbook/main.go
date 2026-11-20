@@ -25,7 +25,7 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.44"
+const appVersion = "2.4.45"
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
@@ -125,6 +125,7 @@ func main() {
 		ReadTimeout:       120 * time.Second,
 		WriteTimeout:      180 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	url := fmt.Sprintf("http://127.0.0.1:%d/", *flagPort)

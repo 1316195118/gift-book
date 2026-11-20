@@ -79,6 +79,10 @@ services:
         limits:
           cpus: "2"                                         # CPU 核数上限
           memory: 512M                                      # 内存上限
+    ulimits:
+      nofile:
+        soft: 65536                                         # 多人访问与 SSE 长连接
+        hard: 65536
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/api/ping"]
       interval: 30s
@@ -95,6 +99,7 @@ docker compose up -d
 
 - 部署只有一个入口：`ghcr.io/1316195118/gift-book:latest`。它是同时支持 amd64 / arm64、并统一包含 OCR 的多架构镜像，无需选择其他标签或修改版本号；执行 `docker compose pull && docker compose up -d` 即可拉取并启动最新发布。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
 - 容器内自更新会始终显示当前版本、发布状态，以及检查、下载、安装和重启进度。更新包从 GHCR 拉取并写入 `/config/giftbook`；镜像默认在安装完成后优雅退出，并由 `restart: unless-stopped` 拉起新版本，因此 `/config` 必须持久化。NAS 无法直连 GitHub / GHCR 时，可在网页「本机与关于 → 程序更新」里填写并保存 HTTP 代理，无需修改 Compose 环境变量。
+- 服务默认不限制 HTTP 并发连接，适合多人同时访问；礼金列表读取使用共享读锁，可并行响应，写入仍串行保证 JSON 原子性。Compose 将文件描述符上限提高到 65536，健康信息会返回当前实时同步连接数。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 

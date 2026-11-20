@@ -2,9 +2,12 @@ package store
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 )
 
 func newStore(t *testing.T) *Store {
@@ -93,6 +96,203 @@ func TestTxWritesBothFiles(t *testing.T) {
 	events, _ := s.ReadEvents()
 	if _, ok := events["e1"]; !ok {
 		t.Fatal("event not written")
+	}
+}
+
+func TestViewTxReleasesReadLockBeforeCallback(t *testing.T) {
+	s := newStore(t)
+	if err := s.Tx("e1", true, func(events, gifts map[string]Record) (bool, bool, error) {
+		events["e1"] = Record{"id": "e1"}
+		gifts["g1"] = Record{"id": "g1"}
+		return true, true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.ViewTx("e1", func(events, gifts map[string]Record) error {
+			if _, ok := events["e1"]; !ok {
+				return fmt.Errorf("账簿快照缺失")
+			}
+			if _, ok := gifts["g1"]; !ok {
+				return fmt.Errorf("礼金快照缺失")
+			}
+			// 回调开始时读锁必须已释放，否则这里会等待同一个存储锁。
+			return s.WithEvents(func(latest map[string]Record) (bool, error) {
+				latest["e1"]["checked"] = true
+				return true, nil
+			})
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ViewTx 在回调期间仍持有读锁")
+	}
+	events, err := s.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if events["e1"]["checked"] != true {
+		t.Fatalf("回调内的后续写入没有生效: %v", events)
+	}
+}
+
+func TestViewTxConcurrentReaders(t *testing.T) {
+	s := newStore(t)
+	if err := s.Tx("e1", true, func(events, gifts map[string]Record) (bool, bool, error) {
+		events["e1"] = Record{"id": "e1"}
+		for i := 0; i < 20; i++ {
+			id := fmt.Sprintf("g%02d", i)
+			gifts[id] = Record{"id": id, "eventId": "e1"}
+		}
+		return true, true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	const readers = 64
+	start := make(chan struct{})
+	errs := make(chan error, readers)
+	var wg sync.WaitGroup
+	wg.Add(readers)
+	for i := 0; i < readers; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- s.ViewTx("e1", func(events, gifts map[string]Record) error {
+				if _, ok := events["e1"]; !ok {
+					return fmt.Errorf("账簿快照缺失")
+				}
+				if len(gifts) != 20 {
+					return fmt.Errorf("礼金快照应为 20 条，得到 %d", len(gifts))
+				}
+				return nil
+			})
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestConcurrentViewTxAndWritesRemainConsistent(t *testing.T) {
+	s := newStore(t)
+	if err := s.Tx("e1", true, func(events, gifts map[string]Record) (bool, bool, error) {
+		events["e1"] = Record{"id": "e1"}
+		return true, false, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	const writers = 24
+	const readers = 24
+	start := make(chan struct{})
+	errs := make(chan error, writers+readers)
+	var wg sync.WaitGroup
+	wg.Add(writers + readers)
+	for i := 0; i < writers; i++ {
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			id := fmt.Sprintf("g%02d", i)
+			errs <- s.Tx("e1", true, func(events, gifts map[string]Record) (bool, bool, error) {
+				if _, ok := events["e1"]; !ok {
+					return false, false, fmt.Errorf("写入时账簿缺失")
+				}
+				gifts[id] = Record{"id": id, "eventId": "e1"}
+				return false, true, nil
+			})
+		}(i)
+	}
+	for i := 0; i < readers; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < 20; j++ {
+				err := s.ViewTx("e1", func(events, gifts map[string]Record) error {
+					if _, ok := events["e1"]; !ok {
+						return fmt.Errorf("读取时账簿缺失")
+					}
+					for id := range gifts {
+						if id == "" {
+							return fmt.Errorf("读到空礼金编号")
+						}
+					}
+					return nil
+				})
+				if err != nil {
+					errs <- err
+					return
+				}
+			}
+			errs <- nil
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	gifts, err := s.ReadGifts("e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gifts) != writers {
+		t.Fatalf("并发写入后应保留 %d 条礼金，实际 %d", writers, len(gifts))
+	}
+}
+
+func TestDeleteEventIsAtomicAndArchivesGifts(t *testing.T) {
+	s := newStore(t)
+	if err := s.Tx("e1", true, func(events, gifts map[string]Record) (bool, bool, error) {
+		events["e1"] = Record{"id": "e1", "name": "待删除"}
+		gifts["g1"] = Record{"id": "g1", "eventId": "e1"}
+		return true, true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := s.DeleteEvent("e1", func(event Record) error {
+		if event["name"] != "待删除" {
+			return fmt.Errorf("校验回调收到错误账簿")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "event.json")); err != nil {
+		t.Fatal("回收站缺少账簿快照")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "gifts.json")); err != nil {
+		t.Fatal("回收站缺少礼金快照")
+	}
+	events, err := s.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := events["e1"]; ok {
+		t.Fatal("删除后账簿仍在主清单")
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir(), "gifts_e1.json")); !os.IsNotExist(err) {
+		t.Fatal("删除后礼金文件仍在主目录")
+	}
+	if _, err := s.DeleteEvent("e1", nil); err != ErrNotFound {
+		t.Fatalf("重复删除应返回 ErrNotFound，实际 %v", err)
 	}
 }
 

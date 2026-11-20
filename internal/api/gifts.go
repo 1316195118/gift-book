@@ -59,9 +59,9 @@ func isArchived(event map[string]any) bool {
 	return value
 }
 
-// 礼金接口全部通过 store.Tx 在一次读-改-写里完成：
-// 父账簿存在性检查、账簿钥匙校验与礼金落盘共享同一把锁，
-// 不会出现「账簿刚被删除还写入礼金」，也不会在同一把锁内重复加锁。
+// 礼金读取先在共享读锁内复制快照，解锁后再执行钥匙校验和数据转换。
+// 礼金写入通过 store.Tx 在一次读-改-写里完成；密码校验的节流和等待在事务外，
+// 事务内只用无等待摘要复核权限，避免一次输错密码阻塞其他家庭成员。
 
 func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 	family, familyOK := s.requireFamily(w, r)
@@ -76,22 +76,24 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 	var out map[string]map[string]any
 	var status int
 	var message string
-	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
+	var needsMigration bool
+	err := s.store.ViewTx(eventID, func(events map[string]store.Record, gifts map[string]store.Record) error {
 		event, ok := events[eventID]
 		if !ok || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
-			return false, false, errors.New(message)
+			return errors.New(message)
 		}
 		if !s.requireLedgerKey(w, r, event) {
 			status = -1
-			return false, false, errors.New("rejected")
+			return errors.New("rejected")
 		}
 		migrated, valid := ledger.Migrate(event)
+		needsMigration = migrated && valid
 		out = make(map[string]map[string]any, len(gifts))
 		for id, gift := range gifts {
 			out[id] = publicGift(gift)
 		}
-		return migrated && valid, false, nil
+		return nil
 	})
 	if err != nil {
 		if status == -1 {
@@ -102,6 +104,17 @@ func (s *Server) handleGetGifts(w http.ResponseWriter, r *http.Request) {
 		}
 		fail(w, status, message)
 		return
+	}
+	// 只读请求不占用写锁；仅旧格式账簿第一次被读取时补一次迁移落盘。
+	if needsMigration {
+		_ = s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
+			event, ok := events[eventID]
+			if !ok || !eventBelongsTo(event, family.ID) {
+				return false, nil
+			}
+			changed, valid := ledger.Migrate(event)
+			return changed && valid, nil
+		})
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: out})
 }
@@ -153,26 +166,28 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if _, ok := s.preflightLedgerAccess(w, r, eventID, family.ID); !ok {
+		return
+	}
 
 	var created map[string]any
 	var duplicate map[string]any
 	var warning string
 	var status int
-	var message string
+	var message, code string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, exists := events[eventID]
 		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		if !s.requireLedgerKey(w, r, event) {
-			status = -1
-			return false, false, errors.New("rejected")
+		if !ledgerRequestStillMatches(r, event) {
+			status, message = http.StatusConflict, "账簿权限已变更，请刷新后重试"
+			return false, false, errors.New(message)
 		}
 		if isArchived(event) {
-			failCode(w, http.StatusForbidden, "archived", archivedMessage)
-			status = -1
-			return false, false, errors.New("rejected")
+			status, code, message = http.StatusForbidden, "archived", archivedMessage
+			return false, false, errors.New(message)
 		}
 		migrated, valid := ledger.Migrate(event)
 		if requestID != "" {
@@ -224,11 +239,12 @@ func (s *Server) handleCreateGift(w http.ResponseWriter, r *http.Request) {
 		return migrated && valid, true, nil
 	})
 	if err != nil {
-		if status == -1 {
-			return
-		}
 		if status == 0 {
 			status, message = http.StatusInternalServerError, "保存失败"
+		}
+		if code != "" {
+			failCode(w, status, code, message)
+			return
 		}
 		fail(w, status, message)
 		return
@@ -267,6 +283,9 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if _, ok := s.preflightLedgerAccess(w, r, eventID, family.ID); !ok {
+		return
+	}
 	ifMatch, _ := body["ifMatch"].(string)
 
 	var updated map[string]any
@@ -278,14 +297,13 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		if !s.requireLedgerKey(w, r, event) {
-			status = -1
-			return false, false, errors.New("rejected")
+		if !ledgerRequestStillMatches(r, event) {
+			status, message = http.StatusConflict, "账簿权限已变更，请刷新后重试"
+			return false, false, errors.New(message)
 		}
 		if isArchived(event) {
-			failCode(w, http.StatusForbidden, "archived", archivedMessage)
-			status = -1
-			return false, false, errors.New("rejected")
+			status, code, message = http.StatusForbidden, "archived", archivedMessage
+			return false, false, errors.New(message)
 		}
 		migrated, valid := ledger.Migrate(event)
 		gift, ok := gifts[giftID]
@@ -312,9 +330,6 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 		return migrated && valid, true, nil
 	})
 	if err != nil {
-		if status == -1 {
-			return
-		}
 		if status == 0 {
 			status, message = http.StatusInternalServerError, "保存失败"
 		}
@@ -341,22 +356,24 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 		fail(w, http.StatusBadRequest, "缺少事件ID")
 		return
 	}
+	if _, ok := s.preflightLedgerAccess(w, r, eventID, family.ID); !ok {
+		return
+	}
 	var status int
-	var message string
+	var message, code string
 	err := s.store.Tx(eventID, true, func(events map[string]store.Record, gifts map[string]store.Record) (bool, bool, error) {
 		event, exists := events[eventID]
 		if !exists || !eventBelongsTo(event, family.ID) {
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, false, errors.New(message)
 		}
-		if !s.requireLedgerKey(w, r, event) {
-			status = -1
-			return false, false, errors.New("rejected")
+		if !ledgerRequestStillMatches(r, event) {
+			status, message = http.StatusConflict, "账簿权限已变更，请刷新后重试"
+			return false, false, errors.New(message)
 		}
 		if isArchived(event) {
-			failCode(w, http.StatusForbidden, "archived", archivedMessage)
-			status = -1
-			return false, false, errors.New("rejected")
+			status, code, message = http.StatusForbidden, "archived", archivedMessage
+			return false, false, errors.New(message)
 		}
 		migrated, valid := ledger.Migrate(event)
 		if _, ok := gifts[giftID]; !ok {
@@ -367,11 +384,12 @@ func (s *Server) handleDeleteGift(w http.ResponseWriter, r *http.Request, giftID
 		return migrated && valid, true, nil
 	})
 	if err != nil {
-		if status == -1 {
-			return
-		}
 		if status == 0 {
 			status, message = http.StatusInternalServerError, "删除失败"
+		}
+		if code != "" {
+			failCode(w, status, code, message)
+			return
 		}
 		fail(w, status, message)
 		return

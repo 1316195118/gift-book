@@ -86,6 +86,25 @@ func (s *Store) ReadGifts(eventID string) (map[string]Record, error) {
 	return readMap(s.giftsPath(eventID))
 }
 
+// ViewTx 在同一把共享读锁内复制账簿与礼金快照，解锁后再执行查询回调。
+// 多个读取请求可以同时进入；写请求仍与快照读取互斥，保证不会读到半写入文件。
+// 回调不得假设自己持有存储锁，也可以安全地发起后续读取。
+func (s *Store) ViewTx(eventID string, fn func(events map[string]Record, gifts map[string]Record) error) error {
+	s.mu.RLock()
+	events, err := readMap(s.eventsPath())
+	if err == nil {
+		var gifts map[string]Record
+		gifts, err = readMap(s.giftsPath(eventID))
+		s.mu.RUnlock()
+		if err != nil {
+			return err
+		}
+		return fn(events, gifts)
+	}
+	s.mu.RUnlock()
+	return err
+}
+
 // WithGifts 在写锁内读取并修改礼金表，语义同 WithEvents。
 func (s *Store) WithGifts(eventID string, fn func(gifts map[string]Record) (bool, error)) error {
 	s.mu.Lock()
@@ -150,8 +169,14 @@ func (s *Store) CountGifts(eventID string) int {
 }
 
 // TrashEvent 把账簿信息与礼金文件移到 .trash/<时间>-<id>/，返回备份目录。
-// 只移动礼金文件，不会删除；调用方随后负责从 events.json 中移除条目。
+// 只移动礼金文件，不会删除 events.json 中的条目。
 func (s *Store) TrashEvent(eventID string, event Record) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.trashEventLocked(eventID, event)
+}
+
+func (s *Store) trashEventLocked(eventID string, event Record) (string, error) {
 	safe := SanitizeID(eventID)
 	dir := filepath.Join(s.dir, ".trash", time.Now().Format("20060102-150405")+"-"+safe)
 	if err := os.MkdirAll(dir, 0o770); err != nil {
@@ -172,8 +197,44 @@ func (s *Store) TrashEvent(eventID string, event Record) (string, error) {
 	return dir, nil
 }
 
+// DeleteEvent 在一次写锁事务里完成校验、归档礼金和移除账簿，避免在删除流程中
+// 再次进入存储而等待同一个锁。失败时会把已移动的礼金恢复到原位。
+func (s *Store) DeleteEvent(eventID string, validate func(event Record) error) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	events, err := readMap(s.eventsPath())
+	if err != nil {
+		return "", err
+	}
+	event, ok := events[eventID]
+	if !ok {
+		return "", ErrNotFound
+	}
+	if validate != nil {
+		if err := validate(event); err != nil {
+			return "", err
+		}
+	}
+	dir, err := s.trashEventLocked(eventID, event)
+	if err != nil {
+		return "", err
+	}
+	delete(events, eventID)
+	if err := writeJSON(s.eventsPath(), events); err != nil {
+		s.restoreTrashedGiftsLocked(eventID, dir)
+		return "", err
+	}
+	return dir, nil
+}
+
 // RestoreTrashedGifts 在 events.json 写入失败时把礼金文件放回原位。
 func (s *Store) RestoreTrashedGifts(eventID, trashDir string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restoreTrashedGiftsLocked(eventID, trashDir)
+}
+
+func (s *Store) restoreTrashedGiftsLocked(eventID, trashDir string) {
 	src := filepath.Join(trashDir, "gifts.json")
 	if _, err := os.Stat(src); err == nil {
 		_ = os.Rename(src, s.giftsPath(eventID))

@@ -18,6 +18,10 @@ services:
         limits:
           cpus: "2"                                 # CPU 核数上限
           memory: 512M                              # 内存上限
+    ulimits:
+      nofile:
+        soft: 65536                                 # 多人同时访问与实时连接的文件描述符上限
+        hard: 65536
     # 健康检查：镜像已内置 busybox wget，可直接使用
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/api/ping"]

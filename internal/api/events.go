@@ -320,6 +320,9 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 		fail(w, http.StatusBadRequest, "无效的请求数据")
 		return
 	}
+	if _, ok := s.preflightLedgerAccess(w, r, id, family.ID); !ok {
+		return
+	}
 	var updated map[string]any
 	var status int
 	var message string
@@ -329,9 +332,9 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request, id st
 			status, message = http.StatusNotFound, "事件不存在"
 			return false, errors.New(message)
 		}
-		if !s.requireLedgerKey(w, r, event) {
-			status = -1 // 已写出响应
-			return false, errors.New("ledger key rejected")
+		if !ledgerRequestStillMatches(r, event) {
+			status, message = http.StatusConflict, "账簿权限已变更，请刷新后重试"
+			return false, errors.New(message)
 		}
 		delete(body, "passwordHash")
 		delete(body, "familyId")
@@ -454,22 +457,17 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 	if !ok {
 		return
 	}
-	var trashDir string
-	err := s.store.WithEvents(func(events map[string]store.Record) (bool, error) {
-		event, exists := events[id]
-		if !exists || !eventBelongsTo(event, family.ID) {
-			return false, inputError{http.StatusNotFound, "事件不存在"}
+	if _, ok := s.preflightLedgerAccess(w, r, id, family.ID); !ok {
+		return
+	}
+	_, err := s.store.DeleteEvent(id, func(event store.Record) error {
+		if !eventBelongsTo(event, family.ID) {
+			return inputError{http.StatusNotFound, "事件不存在"}
 		}
-		if !s.requireLedgerKey(w, r, event) {
-			return false, rejectedError{}
+		if !ledgerRequestStillMatches(r, event) {
+			return inputError{http.StatusConflict, "账簿权限已变更，请刷新后重试"}
 		}
-		dir, err := s.store.TrashEvent(id, event)
-		if err != nil {
-			return false, inputError{http.StatusInternalServerError, "删除失败：" + err.Error()}
-		}
-		trashDir = dir
-		delete(events, id)
-		return true, nil
+		return nil
 	})
 	if err != nil {
 		var input inputError
@@ -477,12 +475,9 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 			fail(w, input.status, input.message)
 			return
 		}
-		var rejected rejectedError
-		if errors.As(err, &rejected) {
+		if errors.Is(err, store.ErrNotFound) {
+			fail(w, http.StatusNotFound, "事件不存在")
 			return
-		}
-		if trashDir != "" {
-			s.store.RestoreTrashedGifts(id, trashDir)
 		}
 		fail(w, http.StatusInternalServerError, "删除失败")
 		return
@@ -523,9 +518,33 @@ type inputError struct {
 
 func (e inputError) Error() string { return e.message }
 
-type rejectedError struct{}
+// preflightLedgerAccess 在进入写事务前完成账簿存在性、家庭归属和密码校验。
+// 密码校验包含节流与错误等待，不能放在存储写锁内，否则一次输错密码会阻塞
+// 其他人的读取和录入。事务内只做无等待的摘要复核，防止校验后权限恰好变更。
+func (s *Server) preflightLedgerAccess(w http.ResponseWriter, r *http.Request, eventID, familyID string) (store.Record, bool) {
+	events, err := s.store.ReadEvents()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "账簿读取失败")
+		return nil, false
+	}
+	event, exists := events[eventID]
+	if !exists || !eventBelongsTo(event, familyID) {
+		fail(w, http.StatusNotFound, "事件不存在")
+		return nil, false
+	}
+	if !s.requireLedgerKey(w, r, event) {
+		return nil, false
+	}
+	return event, true
+}
 
-func (rejectedError) Error() string { return "rejected" }
+func ledgerRequestStillMatches(r *http.Request, event map[string]any) bool {
+	key := r.Header.Get("X-Ledger-Key")
+	if !ledger.ValidKey(key) {
+		key = ""
+	}
+	return ledger.Matches(event, key)
+}
 
 // requireLedgerKey 校验 X-Ledger-Key；失败时已写出 403/429，返回 false。
 // 错误次数与访问保护共用同一套 IP 防爆破记录（前缀 ledger: 区分用途）。

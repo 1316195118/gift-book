@@ -11,7 +11,7 @@ import (
 )
 
 type streamHub struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	clients map[chan []byte]string // 信道 -> 家庭 ID
 }
 
@@ -20,7 +20,7 @@ func newStreamHub() *streamHub {
 }
 
 func (h *streamHub) add(familyID string) chan []byte {
-	ch := make(chan []byte, 16)
+	ch := make(chan []byte, 64)
 	h.mu.Lock()
 	h.clients[ch] = familyID
 	h.mu.Unlock()
@@ -37,8 +37,8 @@ func (h *streamHub) remove(ch chan []byte) {
 }
 
 func (h *streamHub) count() int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	return len(h.clients)
 }
 
@@ -48,8 +48,8 @@ func (h *streamHub) broadcast(familyID string, payload map[string]any) {
 	if err != nil {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	for ch, clientFamily := range h.clients {
 		if clientFamily != familyID {
 			continue
@@ -67,8 +67,8 @@ func (h *streamHub) broadcastAll(payload map[string]any) {
 	if err != nil {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	for ch := range h.clients {
 		select {
 		case ch <- msg:
