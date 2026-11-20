@@ -15,8 +15,14 @@ func TestPushUploadsBlobConfigManifest(t *testing.T) {
 	var manifest map[string]any
 	old := registry
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		paths = append(paths, r.URL.Path)
+		paths = append(paths, r.Method+" "+r.URL.Path)
 		body, _ := io.ReadAll(r.Body)
+		// 两步上传：POST 开始会话并返回 Location，随后 PUT 提交内容。
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/blobs/uploads/") {
+			w.Header().Set("Location", "/v2/test/repo/blobs/uploads/sess-1")
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
 		if strings.Contains(r.URL.Path, "/manifests/") {
 			json.Unmarshal(body, &manifest)
 		}
@@ -30,11 +36,12 @@ func TestPushUploadsBlobConfigManifest(t *testing.T) {
 	if err := push(&http.Client{Timeout: time.Second}, "test/repo", "update-v9.9.9-amd64", "tok", binary); err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) != 3 {
-		t.Fatalf("应有三次上传(blob/config/manifest)，实际 %v", paths)
+	// POST+PUT ×2（二进制、config）+ PUT manifest = 5 次请求
+	if len(paths) != 5 {
+		t.Fatalf("请求次数不对，实际 %v", paths)
 	}
-	if !strings.Contains(paths[2], "/manifests/update-v9.9.9-amd64") {
-		t.Fatalf("manifest 路径不对: %s", paths[2])
+	if !strings.Contains(paths[4], "/manifests/update-v9.9.9-amd64") {
+		t.Fatalf("manifest 路径不对: %s", paths[4])
 	}
 	layers := manifest["layers"].([]any)
 	layer := layers[0].(map[string]any)

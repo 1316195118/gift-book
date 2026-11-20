@@ -80,23 +80,67 @@ func put(client *http.Client, repo, path, contentType string, body []byte, tok s
 	return nil
 }
 
-func push(client *http.Client, repo, tag, tok string, binary []byte) error {
-	binDigest := digest(binary)
+// uploadBlob 走 registry 标准的两步上传：先 POST 拿 upload 地址，
+// 再把内容和 digest 一起 PUT 过去。GHCR 不接受单步 PUT（会返回 405）。
+func uploadBlob(client *http.Client, repo, contentType string, data []byte, tok string) error {
+	dg := digest(data)
+	req, err := http.NewRequest(http.MethodPost, registry+"/v2/"+repo+"/blobs/uploads/", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("开始上传返回 %d", resp.StatusCode)
+	}
+	location := resp.Header.Get("Location")
+	if location == "" {
+		return fmt.Errorf("上传响应缺少 Location")
+	}
+	if strings.HasPrefix(location, "/") {
+		location = registry + location
+	} else if !strings.HasPrefix(location, "http") {
+		location = registry + "/" + location
+	}
+	sep := "?"
+	if strings.Contains(location, "?") {
+		sep = "&"
+	}
+	uploadURL := location + sep + "digest=" + url.QueryEscape(dg)
 
-	// 1. 上传二进制 blob（monolithic：一次 PUT 带 digest 参数）
-	q := url.Values{}
-	q.Set("digest", binDigest)
-	blobPath := "/blobs/uploads/?" + q.Encode()
-	if err := put(client, repo, blobPath, "application/octet-stream", binary, tok); err != nil {
+	putReq, err := http.NewRequest(http.MethodPut, uploadURL, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	putReq.Header.Set("Authorization", "Bearer "+tok)
+	putReq.Header.Set("Content-Type", contentType)
+	putResp, err := client.Do(putReq)
+	if err != nil {
+		return err
+	}
+	defer putResp.Body.Close()
+	if putResp.StatusCode < 200 || putResp.StatusCode >= 300 {
+		msg, _ := io.ReadAll(io.LimitReader(putResp.Body, 512))
+		return fmt.Errorf("上传 blob 返回 %d: %s", putResp.StatusCode, msg)
+	}
+	return nil
+}
+
+func push(client *http.Client, repo, tag, tok string, binary []byte) error {
+	// 1. 上传二进制 blob
+	if err := uploadBlob(client, repo, "application/octet-stream", binary, tok); err != nil {
 		return fmt.Errorf("上传二进制: %w", err)
 	}
 
 	// 2. 空 config blob（OCI artifact 惯例）
 	cfg := []byte("{}")
 	cfgDigest := digest(cfg)
-	q = url.Values{}
-	q.Set("digest", cfgDigest)
-	if err := put(client, repo, "/blobs/uploads/?"+q.Encode(), "application/vnd.oci.empty.v1+json", cfg, tok); err != nil {
+	if err := uploadBlob(client, repo, "application/vnd.oci.empty.v1+json", cfg, tok); err != nil {
 		return fmt.Errorf("上传 config: %w", err)
 	}
 
@@ -111,7 +155,7 @@ func push(client *http.Client, repo, tag, tok string, binary []byte) error {
 		},
 		"layers": []map[string]any{{
 			"mediaType": "application/octet-stream",
-			"digest":    binDigest,
+			"digest":    digest(binary),
 			"size":      len(binary),
 			"annotations": map[string]string{
 				"org.opencontainers.image.title": strings.TrimPrefix(tag, "update-"),
