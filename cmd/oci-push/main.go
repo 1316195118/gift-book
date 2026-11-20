@@ -159,7 +159,10 @@ func uploadBlob(client *http.Client, repo, contentType string, data []byte, tok 
 		return err
 	}
 	putReq.Header.Set("Authorization", "Bearer "+tok)
-	putReq.Header.Set("Content-Type", contentType)
+	// GHCR 只接受 octet-stream 作为 blob 上传的 Content-Type；
+	// media type 由 manifest 描述，不在这里声明。
+	_ = contentType
+	putReq.Header.Set("Content-Type", "application/octet-stream")
 	putResp, err := client.Do(putReq)
 	if err != nil {
 		return err
