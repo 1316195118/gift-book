@@ -1,13 +1,11 @@
 <template>
   <div id="app-shell">
+    <ActivityBar />
     <GuestScreen v-if="st.guestToken" />
     <template v-else>
     <FamilyGate v-if="st.familyGate" />
     <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
-    <HomeScreen v-if="st.route === 'home'" />
-    <TemplateScreen v-else-if="st.route === 'template'" />
-    <SetupScreen v-else-if="st.route === 'setup'" />
-    <MainScreen v-else-if="st.route === 'main'" />
+    <component :is="currentView" :key="st.route" />
     <AppModal />
     <OfflineToast />
     <QrFloat />
@@ -17,21 +15,50 @@
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import { state as st, setBodyTheme } from './store.js'
 import { eventTheme } from './lib/content.js'
+import ActivityBar from './components/ActivityBar.vue'
 import AuthGate from './components/AuthGate.vue'
 import FamilyGate from './components/FamilyGate.vue'
-import GuestScreen from './views/GuestScreen.vue'
 import HomeScreen from './views/HomeScreen.vue'
-import TemplateScreen from './views/TemplateScreen.vue'
-import SetupScreen from './views/SetupScreen.vue'
-import MainScreen from './views/MainScreen.vue'
 import AppModal from './components/AppModal.vue'
 import OfflineToast from './components/OfflineToast.vue'
 import QrFloat from './components/QrFloat.vue'
 import ToastStack from './components/ToastStack.vue'
+import ViewLoading from './components/ViewLoading.vue'
 import { bootstrap } from './bootstrap.js'
+
+const viewLoaders = {
+  guest: () => import('./views/GuestScreen.vue'),
+  template: () => import('./views/TemplateScreen.vue'),
+  setup: () => import('./views/SetupScreen.vue'),
+  main: () => import('./views/MainScreen.vue'),
+}
+
+function asyncView(loader) {
+  return defineAsyncComponent({
+    loader,
+    delay: 160,
+    timeout: 15000,
+    loadingComponent: ViewLoading,
+    errorComponent: ViewLoading,
+  })
+}
+
+const GuestScreen = asyncView(viewLoaders.guest)
+const TemplateScreen = asyncView(viewLoaders.template)
+const SetupScreen = asyncView(viewLoaders.setup)
+const MainScreen = asyncView(viewLoaders.main)
+
+const currentView = computed(() => (
+  st.guestToken ? GuestScreen : ({
+    home: HomeScreen,
+    template: TemplateScreen,
+    setup: SetupScreen,
+    main: MainScreen,
+  }[st.route] || HomeScreen)
+))
 
 // 主题跟着「当前这本账簿」走：进入白事账簿就是素色，回到首页回到所选分类。
 watch(
@@ -52,7 +79,24 @@ onMounted(() => {
   }
   bootstrap()
   window.__giftbookOnAuthSuccess = () => bootstrap({ skipAuth: true })
+  scheduleViewPrefetch()
 })
+
+let prefetchStarted = false
+function scheduleViewPrefetch() {
+  if (prefetchStarted) return
+  prefetchStarted = true
+  const prefetch = (loaders) => {
+    const run = () => loaders.forEach((loader) => loader().catch(() => {}))
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2600 })
+    else window.setTimeout(run, 700)
+  }
+  // 先让首页数据和首屏绘制稳定，再分两批预取。主账簿代码较大，最后加载。
+  window.setTimeout(() => {
+    prefetch([viewLoaders.template, viewLoaders.setup, viewLoaders.guest])
+    window.setTimeout(() => prefetch([viewLoaders.main]), 900)
+  }, 900)
+}
 
 const onAuthSuccess = () => {
   st.authGate = false

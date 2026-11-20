@@ -9,7 +9,7 @@ import { cacheEventList, readCache, queueFor, cacheLedgerGifts, cacheLedgerVerif
 import { categoryForEvent, eventTheme, isSolemnEvent } from './lib/content.js'
 import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeText } from './lib/prefs.js'
 import { ledgerKeyForEvent } from './store.js'
-import { refreshNetwork, startNetworkMonitor } from './lib/network.js'
+import { startNetworkMonitor } from './lib/network.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './lib/modal.js'
 import { compareGiftsByRegistration } from './lib/gift-order.js'
 import { itemsPerPage } from './lib/page-size.js'
@@ -43,8 +43,14 @@ export async function bootstrap({ skipAuth = false } = {}) {
   }
   booted = true
   saveLargeText(isLargeText())
+  // 认证/家庭校验完成前先占住列表区域，避免首页短暂闪出「还没有账簿」。
+  if (!st.eventsLoaded) st.eventsLoading = true
   startNetworkMonitor()
   refreshBuildInfo()
+  // 认证状态与家庭会话互不依赖：同时发出，只按界面需要的顺序应用结果。
+  const familyRequest = api.familyMe()
+    .then((me) => ({ me }))
+    .catch((error) => ({ error }))
   if (!skipAuth) {
     const auth = await api.authState()
     st.authEnabled = Boolean(auth.enabled)
@@ -57,11 +63,19 @@ export async function bootstrap({ skipAuth = false } = {}) {
   st.authGate = false
   // 家庭门：没有合法家庭会话时停在这里，输入访问码后再继续加载账簿。
   try {
-    const me = await api.familyMe()
+    const result = await familyRequest
+    if (result.error) throw result.error
+    const me = result.me
     st.family = me.data || null
     st.familyGate = false
     // 离线缓存与待补传队列按家庭分键，避免换家庭后读到上一家的数据。
     setCacheFamily(st.family?.id)
+    // 有本机列表时先秒开首页，再让网络请求在后台刷新。
+    const cachedEvents = readCache().events || {}
+    if (Object.keys(cachedEvents).length) {
+      st.cachedEvents = cachedEvents
+      st.eventsLoaded = true
+    }
   } catch (error) {
     if (error instanceof ApiError && error.code === 'FAMILY_REQUIRED') {
       st.familyGate = true
@@ -72,13 +86,23 @@ export async function bootstrap({ skipAuth = false } = {}) {
   }
   if (!restoreSession()) {
     await loadEvents()
-    showHome()
+    showHome({ reload: false })
+  } else {
+    st.eventsLoading = false
   }
 }
 
 export async function refreshBuildInfo() {
   // 版本与能力是两件事：build.json 命中只说明拿到了构建号，
   // 不能因此跳过 /api/capabilities，否则 OCR 这类按能力隐藏的入口会一直按默认值显示。
+  // build.json 与能力接口并行，较慢的一项不再额外叠加网络往返。
+  const capsRequest = api.capabilities()
+    .then((caps) => {
+      if (typeof caps.data?.ocr === 'boolean') st.ocrAvailable = caps.data.ocr
+    })
+    .catch(() => {
+      /* 忽略：能力探测失败时保留默认值，避免误藏可用功能 */
+    })
   let gotBuild = false
   try {
     const res = await fetch('build.json', { cache: 'no-store' }).catch(() => null)
@@ -100,17 +124,12 @@ export async function refreshBuildInfo() {
       /* 忽略 */
     }
   }
-  try {
-    const caps = await api.capabilities()
-    if (typeof caps.data?.ocr === 'boolean') st.ocrAvailable = caps.data.ocr
-  } catch {
-    /* 忽略：能力探测失败时保留默认值，避免误藏可用功能 */
-  }
+  await capsRequest
 }
 
 // ---- 页面切换 ----
 
-export function showHome() {
+export function showHome({ reload = true } = {}) {
   document.body.classList.remove('ledger-closed', 'ledger-closed-solemn')
   clearSession()
   st.currentEvent = null
@@ -120,7 +139,7 @@ export function showHome() {
   setHomeCategoryState(getHomeCategory())
   setRoute('home')
   setBodyTheme(getHomeCategory() === 'white' ? 'theme-solemn' : 'theme-festive')
-  loadEvents()
+  if (reload) loadEvents()
 }
 
 export function showTemplates(category) {
@@ -145,26 +164,41 @@ export function showSetup({ template = null } = {}) {
 
 // ---- 账簿列表 ----
 
-export async function loadEvents() {
-  try {
-    const result = await api.listEvents()
-    st.cachedEvents = result.data || {}
-    cacheEventList(st.cachedEvents)
-    st.offlineMode = false
-    return st.cachedEvents
-  } catch (error) {
-    const cached = readCache().events || {}
-    if (error instanceof ApiError && error.code === 'NETWORK' && Object.keys(cached).length) {
-      st.cachedEvents = cached
-      st.offlineMode = true
-      st.syncMessage = '当前连不上服务器，显示的是本机缓存的账簿；新录入会暂存，联网后自动补传。'
-      st.syncIsError = true
-      return cached
+let eventsRequest = null
+
+export function loadEvents() {
+  // 分类切换、返回首页和启动流程可能同一时刻触刷新；合并成一个请求。
+  if (eventsRequest) return eventsRequest
+  st.eventsLoading = true
+  eventsRequest = (async () => {
+    try {
+      const result = await api.listEvents()
+      st.cachedEvents = result.data || {}
+      cacheEventList(st.cachedEvents)
+      st.offlineMode = false
+      st.eventsLoaded = true
+      return st.cachedEvents
+    } catch (error) {
+      const cached = readCache().events || {}
+      if (error instanceof ApiError && error.code === 'NETWORK' && Object.keys(cached).length) {
+        st.cachedEvents = cached
+        st.offlineMode = true
+        st.syncMessage = '当前连不上服务器，显示的是本机缓存的账簿；新录入会暂存，联网后自动补传。'
+        st.syncIsError = true
+        st.eventsLoaded = true
+        return cached
+      }
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return {}
+      showAlert('错误', '无法加载事项列表。')
+      return {}
+    } finally {
+      st.eventsLoading = false
+      st.eventsLoaded = true
     }
-    if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return {}
-    showAlert('错误', '无法加载事项列表。')
-    return {}
-  }
+  })()
+  return eventsRequest.finally(() => {
+    eventsRequest = null
+  })
 }
 
 export function isClosedEvent(ev) {

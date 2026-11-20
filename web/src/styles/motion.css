@@ -164,7 +164,7 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
 /* 手机上贴顶居中，避开右上工具条与底部录入按钮。 */
 @media (max-width: 640px) {
   .gb-toast-stack {
-    top: calc(env(safe-area-inset-top) + 8px);
+    top: calc(env(safe-area-inset-top) + 44px);
     left: 12px;
     right: 12px;
     width: auto;
@@ -238,7 +238,25 @@ body[data-occasion="white"] .gb-celebrate { display: none !important; }
   box-shadow: var(--shadow-2);
   pointer-events: auto;
   overflow: hidden;
-  animation: gb-toast-in 300ms var(--ease-out) both;
+  will-change: transform, opacity;
+}
+
+.gb-toast-stack-move,
+.gb-toast-stack-enter-active,
+.gb-toast-stack-leave-active {
+  transition:
+    opacity 240ms var(--ease),
+    transform 240ms var(--ease-out);
+}
+
+.gb-toast-stack-enter-from,
+.gb-toast-stack-leave-to {
+  opacity: 0;
+  transform: translateX(18px) scale(.985);
+}
+
+.gb-toast-stack-leave-active {
+  pointer-events: none;
 }
 
 body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
@@ -293,10 +311,6 @@ body.theme-solemn .gb-toast { border-left-color: var(--ink-2); }
 }
 .gb-toast.is-paused .gb-toast-progress { animation-play-state: paused; }
 
-@keyframes gb-toast-in {
-  from { opacity: 0; transform: translateX(16px) scale(.98); }
-  to { opacity: 1; transform: none; }
-}
 @keyframes gb-toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 /* --------------------------------------------------------------------------

@@ -49,7 +49,7 @@
             <div class="choice-kicker">{{ catText.kicker }}</div>
             <div class="choice-title">{{ catText.cardTitle }}</div>
             <div class="choice-desc">{{ catText.cardDesc }}</div>
-            <div class="choice-count">{{ homeCount }} 本账簿</div>
+            <div class="choice-count">{{ st.eventsLoading && !st.eventsLoaded ? '正在读取' : `${homeCount} 本账簿` }}</div>
           </div>
           <div class="choice-go">{{ catText.go }}</div>
         </div>
@@ -77,8 +77,15 @@
         </div>
       </div>
 
-      <div ref="recentEl" id="recent-events" class="recent-list">
-        <div v-if="!recentEvents.length" class="recent-empty">还没有{{ isSolemn ? '白事' : '红事' }}账簿，点击「创建新账簿」开始第一本。</div>
+      <div ref="recentEl" id="recent-events" class="recent-list" :aria-busy="st.eventsLoading && !st.eventsLoaded">
+        <div v-if="st.eventsLoading && !st.eventsLoaded" class="recent-skeleton-group" aria-label="正在加载最近账簿">
+          <div v-for="n in 3" :key="n" class="recent-skeleton" aria-hidden="true">
+            <span class="sk-line w60"></span>
+            <span class="sk-line w40"></span>
+            <span class="sk-line w80"></span>
+          </div>
+        </div>
+        <div v-else-if="!recentEvents.length" class="recent-empty">还没有{{ isSolemn ? '白事' : '红事' }}账簿，点击「创建新账簿」开始第一本。</div>
         <div
           v-for="ev in recentEvents"
           :key="ev.id"

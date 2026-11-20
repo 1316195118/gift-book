@@ -1,6 +1,7 @@
 // 版本哨兵：部署新版本后旧页面不会自动换代码，懒加载的 chunk 会 404。
 // 回到页面时对比 /build.json，发现变化就提示刷新，避免用户继续在旧页面上操作。
 import { notify } from './notify.js'
+import { state as st } from '../store.js'
 
 let loadedBuild = ''
 
@@ -16,7 +17,11 @@ async function readBuild() {
 }
 
 export async function initVersionWatch() {
-  loadedBuild = await readBuild()
+  // 启动信息探测已经会读取 build.json。等它落进全局状态，避免同一构建重复请求。
+  for (let i = 0; i < 12 && !st.build; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  loadedBuild = st.build || await readBuild()
   if (!loadedBuild) return
 
   const check = async () => {

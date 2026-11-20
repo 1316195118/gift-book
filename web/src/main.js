@@ -74,16 +74,24 @@ window.setTimeout(() => {
   try { sessionStorage.removeItem('gb-stale-chunk-reloaded') } catch { /* 隐私模式下忽略 */ }
 }, 15000)
 
-// 首屏空闲时预取体积较大的按需模块：点击导出/打印/扫码/更新说明时不再等 chunk 下载。
+// 首屏稳定后再分批预取体积较大的按需模块，避免和首页数据请求抢带宽。
 function prefetchHeavyModules() {
-  const run = () => {
-    import('./lib/changelog.js').catch(() => {})
-    import('./lib/exports.js').catch(() => {})
-    import('./lib/printing.js').catch(() => {})
-    import('./lib/ocr-entry.js').catch(() => {})
+  const idle = (run) => {
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2800 })
+    else window.setTimeout(run, 900)
   }
-  if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2500 })
-  else window.setTimeout(run, 1500)
+  window.setTimeout(() => {
+    idle(() => {
+      import('./lib/exports.js').catch(() => {})
+      import('./lib/printing.js').catch(() => {})
+    })
+    window.setTimeout(() => {
+      idle(() => {
+        import('./lib/changelog.js').catch(() => {})
+        import('./lib/ocr-entry.js').catch(() => {})
+      })
+    }, 1400)
+  }, 2200)
 }
 
 prefetchHeavyModules()

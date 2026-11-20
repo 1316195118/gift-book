@@ -14,7 +14,8 @@ export const netState = reactive({
 })
 
 const samples = new Map()
-let timer = null
+let refreshing = null
+let monitorStarted = false
 
 async function probe(target) {
   const started = performance.now()
@@ -55,16 +56,24 @@ export function computeHealth() {
 }
 
 export async function refreshNetwork() {
-  for (const target of TARGETS) {
-    const result = await probe(target)
-    const list = samples.get(target.key) || []
-    list.push(result)
-    if (list.length > 12) list.shift()
-    samples.set(target.key, list)
+  if (refreshing) return refreshing
+  refreshing = (async () => {
+    await Promise.all(TARGETS.map(async (target) => {
+      const result = await probe(target)
+      const list = samples.get(target.key) || []
+      list.push(result)
+      if (list.length > 12) list.shift()
+      samples.set(target.key, list)
+    }))
+    netState.health = computeHealth()
+    netState.lastCheck = Date.now()
+    return netState.health
+  })()
+  try {
+    return await refreshing
+  } finally {
+    refreshing = null
   }
-  netState.health = computeHealth()
-  netState.lastCheck = Date.now()
-  return netState.health
 }
 
 export async function probeAllLinks() {
@@ -77,15 +86,18 @@ export async function probeAllLinks() {
     return { target, result }
   }))
   netState.health = computeHealth()
+  netState.lastCheck = Date.now()
   return results
 }
 
 export function startNetworkMonitor() {
-  setTimeout(refreshNetwork, 700)
-  if (timer) clearInterval(timer)
-  timer = setInterval(() => {
+  if (monitorStarted) return
+  monitorStarted = true
+  // 首次探测放到首屏接口之后，避免登录/列表还没回来就抢占连接。
+  setTimeout(refreshNetwork, 1400)
+  setInterval(() => {
     if (!document.hidden) refreshNetwork()
-  }, 15000)
+  }, 30000)
   window.addEventListener('online', () => {
     netState.health = computeHealth()
   })

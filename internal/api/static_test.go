@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 )
@@ -109,4 +110,27 @@ func TestStaticGzipAndVary(t *testing.T) {
 			t.Fatalf("未知路径未回退到 index.html：code=%d body=%q", w.Code, w.Body.String())
 		}
 	})
+}
+
+func TestStaticAssetReusedFromMemory(t *testing.T) {
+	original := []byte(strings.Repeat("cached static payload\n", 100))
+	assets := fstest.MapFS{"assets/app.js": {Data: original}}
+	var cache sync.Map
+
+	first, err := loadStaticAsset(assets, "assets/app.js", &cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 模拟磁盘内容已不可读；若仍能从缓存取到，说明请求路径没有重复读文件和压缩。
+	assets["assets/app.js"] = &fstest.MapFile{Data: []byte("changed")}
+	second, err := loadStaticAsset(assets, "assets/app.js", &cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatal("第二次请求没有复用内存中的静态资源")
+	}
+	if !bytes.Equal(second.data, original) || second.gzipped == nil {
+		t.Fatal("缓存的原文件或预压缩内容不正确")
+	}
 }

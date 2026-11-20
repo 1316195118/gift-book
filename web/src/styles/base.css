@@ -13,6 +13,10 @@ html {
   text-size-adjust: 100%;
   background: var(--paper);
   color-scheme: light;
+  /* 页面切换动画会短暂横向位移；根层裁掉这 18px，避免出现横向滚动条。
+     礼簿/最近账簿自己的横向滚动仍由内部滚动容器负责。 */
+  overflow-x: hidden;
+  overflow-x: clip;
   /* 滚动条槽位常驻：弹窗锁定滚动时页面宽度不变，关闭后内容不会左右跳动。 */
   scrollbar-gutter: stable;
 }
@@ -20,6 +24,8 @@ html {
 body {
   margin: 0;
   min-height: 100svh;
+  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);

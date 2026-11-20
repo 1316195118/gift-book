@@ -14,6 +14,8 @@ export const state = reactive({
   giftsLoaded: false,
   currentPage: 1,
   cachedEvents: {},
+  eventsLoaded: false,
+  eventsLoading: false,
   ledgerKeys: new Map(),
 
   // 界面

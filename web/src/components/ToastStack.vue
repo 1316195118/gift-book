@@ -1,5 +1,13 @@
 <template>
-  <div id="gb-toast-stack" class="gb-toast-stack" role="status" aria-live="polite">
+  <TransitionGroup
+    id="gb-toast-stack"
+    name="gb-toast-stack"
+    tag="div"
+    class="gb-toast-stack"
+    role="status"
+    aria-live="polite"
+    aria-atomic="false"
+  >
     <div
       v-for="item in items"
       :key="item.id"
@@ -17,7 +25,7 @@
       <button type="button" class="gb-toast-close gb-no-ripple" aria-label="关闭提示" @click="dismiss(item.id)">×</button>
       <i class="gb-toast-progress" :style="{ animationDuration: item.duration + 'ms' }" aria-hidden="true"></i>
     </div>
-  </div>
+  </TransitionGroup>
 </template>
 
 <script setup>

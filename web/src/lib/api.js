@@ -3,6 +3,7 @@
 // 失败抛 ApiError（携带 code/status/data），调用方按 code 决定重试或丢弃。
 // 敏感字段（口令、账簿钥匙）只通过调用方注入的解析器附加到请求头，不落日志。
 import { clientId } from './client-id.js'
+import { activityLabelFor, beginActivity, endActivity } from './activity.js'
 
 let authGateHandler = () => {}
 let familyGateHandler = () => {}
@@ -53,6 +54,8 @@ async function fetchWithTimeout(url, init) {
 }
 
 export async function apiRequest(url, method = 'GET', data = null, options = {}) {
+  const activityId = beginActivity(activityLabelFor(url, method))
+  let activityFailed = false
   try {
     const headers = { 'Content-Type': 'application/json', 'X-Client-Id': clientId(), ...(options.headers || {}) }
     const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
@@ -117,13 +120,20 @@ export async function apiRequest(url, method = 'GET', data = null, options = {})
     }
     return result
   } catch (error) {
-    if (error instanceof ApiError) throw error
+    if (error instanceof ApiError) {
+      activityFailed = error.code === 'NETWORK' || error.status >= 500
+      throw error
+    }
     const message = String(error?.message || '')
     const timedOut = error?.name === 'AbortError'
     if (timedOut || error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(message)) {
+      activityFailed = true
       throw new ApiError(timedOut ? '请求超时，请检查网络后重试' : '网络连接失败', { code: 'NETWORK' })
     }
+    activityFailed = true
     throw new ApiError(message || '请求失败', { code: 'NETWORK' })
+  } finally {
+    endActivity(activityId, { failed: activityFailed })
   }
 }
 
@@ -134,10 +144,17 @@ export const api = {
 
   capabilities: () => apiRequest('/api/capabilities'),
 
-  authState: () =>
-    fetch('/api/auth', { credentials: 'same-origin', cache: 'no-store' })
-      .then((r) => r.json())
-      .catch(() => ({ enabled: false, authenticated: true })),
+  authState: async () => {
+    const activityId = beginActivity('正在检查访问状态')
+    try {
+      const response = await fetchWithTimeout('/api/auth', { credentials: 'same-origin', cache: 'no-store' })
+      return await response.json()
+    } catch {
+      return { enabled: false, authenticated: true }
+    } finally {
+      endActivity(activityId)
+    }
+  },
 
   login: (password) => apiRequest('/api/auth', 'POST', { password }, { skipAuthRedirect: true }),
 

@@ -798,7 +798,8 @@ body.theme-solemn #modal-container {
   flex: none;
   padding: var(--sp-5) var(--sp-6) var(--sp-4);
   border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 42%, var(--surface)), var(--surface) 86%);
 }
 
 #modal-title {
@@ -869,6 +870,16 @@ body.theme-solemn #modal-container {
   font-size: var(--fs-base);
   line-height: 1.75;
   overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+
+#modal-content > * {
+  animation: modal-content-in 220ms var(--ease-out) both;
+}
+
+@keyframes modal-content-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 #modal-actions {
@@ -879,7 +890,7 @@ body.theme-solemn #modal-container {
   flex: none;
   padding: var(--sp-3) var(--sp-5) var(--sp-4);
   border-top: 1px solid var(--line);
-  background: var(--surface);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--accent-soft) 30%, var(--surface)), var(--surface) 88%);
 }
 
 #modal-actions:empty {

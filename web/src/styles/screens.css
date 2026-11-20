@@ -645,6 +645,25 @@ body.theme-solemn .hero-book-art .book {
   padding-top: var(--sp-4);
 }
 
+.recent-skeleton-group {
+  display: contents;
+}
+
+.recent-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 150px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.recent-skeleton .sk-line {
+  height: 13px;
+}
+
 /* 桌面端：整组横向滚动，卡片固定三列宽度，箭头才有意义 */
 @media (min-width: 901px) {
   .recent-list {
@@ -688,6 +707,44 @@ body.theme-solemn .hero-book-art .book {
   transition: border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease),
     transform var(--dur) var(--ease);
+  animation: gb-recent-enter 360ms var(--ease-out) backwards;
+}
+
+.recent-item:nth-child(2) { animation-delay: 36ms; }
+.recent-item:nth-child(3) { animation-delay: 72ms; }
+.recent-item:nth-child(4) { animation-delay: 108ms; }
+.recent-item:nth-child(5) { animation-delay: 144ms; }
+.recent-item:nth-child(6) { animation-delay: 180ms; }
+
+.recent-item::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    112deg,
+    transparent 34%,
+    color-mix(in srgb, var(--accent) 10%, transparent) 49%,
+    transparent 64%
+  );
+  transform: translateX(-125%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.recent-item:hover::after {
+  opacity: 1;
+  animation: gb-recent-sheen 680ms var(--ease-out);
+}
+
+@keyframes gb-recent-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes gb-recent-sheen {
+  from { transform: translateX(-125%); }
+  to { transform: translateX(125%); }
 }
 
 .recent-item:hover {
@@ -844,6 +901,17 @@ body.theme-solemn .hero-book-art .book {
 
 .recent-empty {
   grid-column: 1 / -1;
+}
+
+.sync-status.sync-error {
+  animation: gb-error-nudge 300ms var(--ease-out);
+}
+
+@keyframes gb-error-nudge {
+  0%, 100% { transform: translateX(0); }
+  28% { transform: translateX(-3px); }
+  58% { transform: translateX(2px); }
+  82% { transform: translateX(-1px); }
 }
 
 /* ---- 页脚 ---- */
