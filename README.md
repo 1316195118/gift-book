@@ -63,19 +63,21 @@ name: gift-book
 
 services:
   gift-book:
-    image: ghcr.io/1316195118/gift-book:latest            # 公开镜像，免登录直接拉取
+    image: ghcr.io/1316195118/gift-book:ocr-v2.4.43        # 多架构 OCR 镜像（amd64 / arm64）
     container_name: gift-book                               # 容器名
     user: "1000:10"                                         # 权限：以 UID:GID 运行（绿联 UGOS Pro 首用户为 1000:10）
     ports:
       - "8099:8099"                                         # 宿主机:容器 端口映射
     environment:
       - TZ=Asia/Shanghai                                    # 时区
+      - GIFTBOOK_AUTO_RESTART=true                          # 自更新完成后由重启策略拉起新版本
+      - GIFTBOOK_UPDATE_PROXY=http://10.10.10.254:7890      # NAS 无法直连 GitHub 时使用内网代理
       # - GIFTBOOK_SETUP_TOKEN=change-me                    # 首次设置管理员密码时要求的口令
       # - GIFTBOOK_TRUST_PROXY=1                            # 位于受信任反向代理后开启
     restart: unless-stopped                                 # 容器策略：开机自启 + 异常重启
     volumes:
       - /volume1/docker/gift-book/data:/data                # 账簿数据持久化
-      - /volume1/docker/gift-book/config:/config            # 认证状态、自动备份包等持久化
+      - /volume1/docker/gift-book/config:/config            # 认证、备份与自更新二进制持久化
     deploy:
       resources:
         limits:
@@ -95,14 +97,15 @@ docker compose up -d
 
 浏览器打开 `http://<机器IP>:8099`。
 
-- 镜像使用 `latest` 标签（带 shell 与 `wget` 的 Alpine 精简镜像，健康检查开箱即用）；如需锁定版本：带 OCR 的多架构镜像用 `ocr-v2.4.32`（v2.4.32），无 OCR 的旧版用 `vue3-20261117-0348`（v2.4.16）。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。需要 OCR 时改用多架构标签 `ocr`（同时提供 linux/amd64 与 linux/arm64），它带 Python 与本地模型，体积约 594MB；无 OCR 的精简镜像约 366MB。
+- 示例固定使用 `ocr-v2.4.43` 多架构标签（linux/amd64 与 linux/arm64），带 Python、本地 OCR 模型及自更新入口；`ocr` 跟随最新发布，`latest` 是不带 OCR 的精简镜像。镜像已内置默认启动参数（`-addr 0.0.0.0 -port 8099 -data /data -config /config`），compose 里无需再写 `command`。
+- 容器内自更新从 GHCR 拉取裸二进制更新包，默认写入 `/config/giftbook`。`GIFTBOOK_AUTO_RESTART=true` 让进程在安装完成后优雅退出，再由 `restart: unless-stopped` 拉起新版本；因此 `/config` 必须持久化。NAS 无法直连 GitHub / GHCR 时，通过 `GIFTBOOK_UPDATE_PROXY` 设置 HTTP 代理，也可以在网页「本机与关于 → 程序更新」里填写并保存。
 - 普通 Linux / Windows / 其他 NAS：把 `volumes` 两行改成 `./data:/data`、`./config:/config`，删掉 `user` 行，`deploy` 一段可整体删除。
 - 账簿数据与其余文件分别持久化在两个目录，升级容器不会丢数据：
 
 | 容器目录 | 宿主机目录 | 用途 |
 | --- | --- | --- |
 | `/data` | `/volume1/docker/gift-book/data` | 账簿数据（`events.json`、`gifts_*.json`、`.trash/`） |
-| `/config` | `/volume1/docker/gift-book/config` | 认证状态、自动备份设置与备份包、其余非数据文件 |
+| `/config` | `/volume1/docker/gift-book/config` | 认证状态、自动备份、自更新二进制与代理配置、其余非数据文件 |
 
 也可以直接用 `docker run`：
 
@@ -112,8 +115,10 @@ docker run -d --name gift-book \
   -v "$(pwd)/data:/data" \
   -v "$(pwd)/config:/config" \
   -e TZ=Asia/Shanghai \
+  -e GIFTBOOK_AUTO_RESTART=true \
+  -e GIFTBOOK_UPDATE_PROXY=http://10.10.10.254:7890 \
   --restart unless-stopped \
-  ghcr.io/1316195118/gift-book:latest
+  ghcr.io/1316195118/gift-book:ocr-v2.4.43
 ```
 
 如需自行构建镜像（需要 Docker；Dockerfile 为 Node / Go / Alpine 三阶段，分别构建 Vue 前端、编译 Go、产出运行镜像）：
