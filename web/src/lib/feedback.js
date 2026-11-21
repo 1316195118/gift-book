@@ -9,6 +9,15 @@ import {
 
 export { motionPreference, setMotionPreference, toggleMotionPreference, prefersReducedMotion }
 
+/** 等当前点击的菜单/弹窗先完成关闭和绘制，再启动不关键的动画或音频。 */
+export function afterPaint(callback) {
+  if (typeof window === 'undefined') return
+  const run = typeof window.requestAnimationFrame === 'function'
+    ? () => window.requestAnimationFrame(() => window.requestAnimationFrame(callback))
+    : () => window.setTimeout(callback, 0)
+  run()
+}
+
 /** 红事专属：一枚喜字 + 8 个金点向外散开。白事、失败、减动效一律不生成。 */
 export function celebrate(glyph = '囍', { host = document.body } = {}) {
   if (prefersReducedMotion()) return
@@ -59,11 +68,27 @@ const RIPPLE_TARGETS = [
   '.recent-item', '.cover-style-item', '.export-option', '[role="button"]',
 ].join(',')
 
+let ripplePending = null
+
 function onPointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return
   const el = event.target.closest && event.target.closest(RIPPLE_TARGETS)
   if (!el || el.disabled || el.classList.contains('gb-no-ripple')) return
   if (el.closest('#qr-float')) return
+  ripplePending = { el, x: event.clientX, y: event.clientY }
+}
+
+function onPointerUp() {
+  const pending = ripplePending
+  ripplePending = null
+  if (!pending) return
+  // pointerup 后浏览器会同步派发 click。把涟漪和音频排到当前任务之后，
+  // 菜单、抽屉和弹窗能先关闭，点击手感不会再被 getComputedStyle / DOM 插入拖慢。
+  window.setTimeout(() => paintRipple(pending), 0)
+}
+
+function paintRipple({ el, x, y }) {
+  if (!el?.isConnected || el.disabled) return
   playTap()
   if (prefersReducedMotion()) return
   const rect = el.getBoundingClientRect()
@@ -82,8 +107,8 @@ function onPointerDown(event) {
   dot.style.width = `${size}px`
   dot.style.height = `${size}px`
   // 0 是合法坐标（视口左上角），用 ?? 而不是 ||，否则会误判成缺省并回退到按钮中心。
-  dot.style.left = `${(event.clientX ?? rect.left + rect.width / 2) - rect.left - size / 2}px`
-  dot.style.top = `${(event.clientY ?? rect.top + rect.height / 2) - rect.top - size / 2}px`
+  dot.style.left = `${(x ?? rect.left + rect.width / 2) - rect.left - size / 2}px`
+  dot.style.top = `${(y ?? rect.top + rect.height / 2) - rect.top - size / 2}px`
   layer.appendChild(dot)
   document.body.appendChild(layer)
   const drop = () => layer.remove()
@@ -93,6 +118,8 @@ function onPointerDown(event) {
 
 export function initRipple() {
   document.addEventListener('pointerdown', onPointerDown, { passive: true })
+  document.addEventListener('pointerup', onPointerUp, { passive: true })
+  document.addEventListener('pointercancel', () => { ripplePending = null }, { passive: true })
 }
 
 export function initFeedback() {

@@ -147,12 +147,10 @@ import { switchCategory } from '../lib/actions.js'
 import { api } from '../lib/api.js'
 import { showHomeSettings } from '../lib/home-settings.js'
 import { queueFor } from '../lib/offline.js'
-import { playTheme } from '../lib/sound.js'
 
 const recentEl = ref(null)
 function onSwitchCategory(cat) {
   if (cat === st.homeCategory) return
-  playTheme(cat === 'white')
   switchCategory(cat)
 }
 // 默认展示金额与人数；点眼睛才遮起来，隐私由用户自己控制

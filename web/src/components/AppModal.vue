@@ -29,7 +29,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { modal, closeModal } from '../lib/modal.js'
+import { modal, closeModal, runModalAction } from '../lib/modal.js'
 import ModalContent from './ModalContent.vue'
 
 const view = ModalContent
@@ -61,9 +61,11 @@ function onBackdropClick(event) {
 }
 
 async function runAction(action) {
-  const keepOpen = action.keepOpen
-  if (action.handler) await action.handler()
-  if (!keepOpen) closeModal()
+  try {
+    await runModalAction(action)
+  } catch (error) {
+    console.error('弹窗动作执行失败', error)
+  }
 }
 
 function focusables() {

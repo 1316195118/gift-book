@@ -250,7 +250,7 @@ import { writeLocked } from '../lib/prefs.js'
 import { startRealtime, stopRealtime } from '../lib/realtime.js'
 import { netState as net } from '../lib/network.js'
 import { queueFor, clearAllLedgerCaches } from '../lib/offline.js'
-import { pulse } from '../lib/feedback.js'
+import { pulse, afterPaint } from '../lib/feedback.js'
 import { playPage } from '../lib/sound.js'
 import {
   PAYMENT_OPTIONS, RELATION_OPTIONS, entry, resetEntry, bookMarkup, computeStats, pageItems,
@@ -408,7 +408,7 @@ function pageBy(direction) {
       el.classList.add(cls)
       pageTimer = window.setTimeout(() => el.classList.remove(cls), 320)
     }
-    playPage(direction)
+    afterPaint(() => playPage(direction))
   }
 }
 
@@ -532,8 +532,9 @@ function jumpPage(target) {
   pageEditing.value = false
   const value = Math.min(Math.max(1, Number(target) || 1), pages.value)
   if (value !== st.currentPage) {
-    playPage(value > st.currentPage ? 1 : -1)
+    const direction = value > st.currentPage ? 1 : -1
     st.currentPage = value
+    afterPaint(() => playPage(direction))
   }
   pageInput.value = value
 }
@@ -583,6 +584,7 @@ let remotePage = 1
 // 并发时只保留一次补拉，避免同一批变更把请求打满。
 let giftRefreshing = false
 let giftRefreshPending = false
+let screenUnmounted = false
 
 async function refreshGiftsFromRemote() {
   if (st.locked) return
@@ -593,9 +595,12 @@ async function refreshGiftsFromRemote() {
   giftRefreshing = true
   const wasAtEnd = remoteWasAtEnd
   const page = remotePage
+  const eventId = st.currentEvent?.id
   try {
     await loadGiftsForCurrentEvent()
-    if (st.gifts.length) st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
+    if (!screenUnmounted && st.currentEvent?.id === eventId && st.gifts.length) {
+      st.currentPage = wasAtEnd ? totalPages() : Math.min(page, totalPages())
+    }
   } catch {
     /* 网络暂时不可用：恢复后由重连/网络状态回调补拉 */
   } finally {
@@ -615,7 +620,7 @@ async function syncEventSettings(eventId) {
   eventSyncing = true
   try {
     const result = await api.getEvent(eventId)
-    if (result?.data) {
+    if (!screenUnmounted && result?.data && st.currentEvent?.id === eventId) {
       st.currentEvent = { ...st.currentEvent, ...result.data }
       updateSessionEvent(st.currentEvent)
       st.currentPage = Math.min(st.currentPage, totalPages())
@@ -658,20 +663,21 @@ function onRemoteChange(payload) {
   void refreshGiftsFromRemote()
 }
 
-onMounted(() => {
-  document.addEventListener('click', onDocClick)
-  document.addEventListener('keydown', onKeydown)
-  // 手机浏览器会冻结后台页面、断掉 SSE：切回前台时主动补一次同步，
-  // 不用用户手动刷新才能看到别的设备新记的礼金或改过的每页行数。
-  const resyncCurrent = async () => {
-    if (!st.currentEvent) return
-    const page = st.currentPage
-    const wasAtEnd = page >= totalPages()
+let resyncRequest = null
+let stopNetworkWatch = null
+
+function resyncCurrent() {
+  if (resyncRequest || screenUnmounted || !st.currentEvent) return resyncRequest
+  const eventId = st.currentEvent.id
+  const page = st.currentPage
+  const wasAtEnd = page >= totalPages()
+  const request = (async () => {
     try {
       const [event, loaded] = await Promise.all([
-        api.getEvent(st.currentEvent.id).catch(() => null),
+        api.getEvent(eventId).catch(() => null),
         loadGiftsForCurrentEvent().then(() => true).catch(() => false),
       ])
+      if (screenUnmounted || st.route !== 'main' || st.currentEvent?.id !== eventId) return
       if (event?.data) {
         st.currentEvent = { ...st.currentEvent, ...event.data }
         updateSessionEvent(st.currentEvent)
@@ -682,26 +688,52 @@ onMounted(() => {
     } catch {
       /* 网络还没恢复时保持现状，下一次可见或 SSE 重连会再补 */
     }
+  })()
+  resyncRequest = request
+  request.finally(() => {
+    if (resyncRequest === request) resyncRequest = null
+  })
+  return request
+}
+
+function handleVisible() {
+  if (document.visibilityState === 'visible') {
+    // 关闭菜单先于网络请求：切回前台时不给用户留下一个卡住的旧菜单。
+    dropdownOpen.value = false
+    void resyncCurrent()
   }
-  const handleVisible = () => {
-    if (document.visibilityState === 'visible') resyncCurrent()
-  }
+}
+
+onMounted(() => {
+  screenUnmounted = false
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKeydown)
+  // 手机浏览器会冻结后台页面、断掉 SSE：切回前台时主动补一次同步，
+  // 不用用户手动刷新才能看到别的设备新记的礼金或改过的每页行数。
   document.addEventListener('visibilitychange', handleVisible)
-  onBeforeUnmount(() => document.removeEventListener('visibilitychange', handleVisible))
   // 网络从断开恢复、或 SSE 断线重连成功时，立即补一次当前账簿的变更。
-  watch(
+  stopNetworkWatch = watch(
     () => net.health.level,
     (level, previous) => {
-      if (level === 'good' && previous && previous !== 'good') resyncCurrent()
+      if (level === 'good' && previous && previous !== 'good') void resyncCurrent()
     },
   )
-  startRealtime(onRemoteChange, resyncCurrent)
+  startRealtime(onRemoteChange, () => void resyncCurrent())
 })
 
 onBeforeUnmount(() => {
+  screenUnmounted = true
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('visibilitychange', handleVisible)
+  stopNetworkWatch?.()
+  stopNetworkWatch = null
   stopRealtime()
   clearTimeout(remoteTimer)
+  remoteTimer = 0
+  giftRefreshing = false
+  giftRefreshPending = false
+  eventSyncing = false
+  resyncRequest = null
 })
 </script>

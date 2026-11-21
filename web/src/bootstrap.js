@@ -135,6 +135,7 @@ export function showHome({ reload = true } = {}) {
   st.currentEvent = null
   st.currentPassword = null
   st.gifts = []
+  st.giftsLoaded = false
   st.currentPage = 1
   setHomeCategoryState(getHomeCategory())
   setRoute('home')
@@ -155,6 +156,7 @@ export function showSetup({ template = null } = {}) {
   st.currentEvent = null
   st.currentPassword = null
   st.gifts = []
+  st.giftsLoaded = false
   clearSession()
   st.setupTemplate = template
   setRoute('setup')
@@ -260,6 +262,12 @@ function restoreSession() {
 export function startSession() {
   const event = st.currentEvent
   if (!event) return
+  if (giftsLoadedEventId !== event.id) {
+    // 切到另一本账簿时必须马上撤掉上一本内容；同一本账簿的后台刷新则保留。
+    st.gifts = []
+    st.giftsLoaded = false
+    st.currentPage = 1
+  }
   // 换账簿时清掉上一本的回执与导出勾选，避免把 A 簿的选择带到 B 簿。
   clearRecentEntry()
   resetExportScope()
@@ -279,89 +287,108 @@ export function endSession() {
   st.currentEvent = null
   st.currentPassword = null
   st.gifts = []
+  st.giftsLoaded = false
   st.currentPage = 1
 }
 
 // ---- 礼金加载 ----
 
 let loadGeneration = 0
+let giftsLoadedEventId = ''
+let giftsLoadRequest = null
 
 export async function loadGiftsForCurrentEvent() {
   const event = st.currentEvent
   const password = st.currentPassword
   if (!event || !password) return
   const eventId = event.id
+  const requestKey = `${eventId}\u0000${String(password)}`
+  // 页面恢复、网络恢复、SSE 重连和远端变更可能同时到达。同一本账簿共用
+  // 一个在途 Promise，避免一次用户操作拉起两套相同的礼金请求。
+  if (giftsLoadRequest?.key === requestKey) return giftsLoadRequest.promise
+
   const generation = ++loadGeneration
-  st.giftsLoaded = false
-  const cipher = (await ensureCipher())?.keys || null
-  if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
-  try {
-    let fromCache = false
-    let encryptedGifts
+  if (giftsLoadedEventId !== eventId || !st.giftsLoaded) st.giftsLoaded = false
+
+  const request = { key: requestKey, promise: null }
+  request.promise = (async () => {
+    const cipher = (await ensureCipher())?.keys || null
+    if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
     try {
-      const result = await api.listGifts(eventId)
-      encryptedGifts = Object.values(result.data || {})
-      st.offlineMode = false
+      let fromCache = false
+      let encryptedGifts
+      try {
+        const result = await api.listGifts(eventId)
+        encryptedGifts = Object.values(result.data || {})
+        st.offlineMode = false
+      } catch (error) {
+        const entry = readCache().ledgers?.[eventId]
+        if (!(error instanceof ApiError && error.code === 'NETWORK' && entry && Array.isArray(entry.gifts))) throw error
+        encryptedGifts = entry.gifts
+        fromCache = true
+      }
+      if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
+      const decrypted = []
+      const batchSize = 50
+      for (let i = 0; i < encryptedGifts.length; i += batchSize) {
+        const batch = encryptedGifts.slice(i, i + batchSize)
+        decrypted.push(
+          ...batch
+            .map((g) => {
+              const cacheKey = `${g.id}:${g.updatedAt || g.createdAt || ''}:${String(password || '')}`
+              let data = decryptCache.get(cacheKey)
+              if (data === undefined) {
+                data = decryptData(g.encryptedContent, password, cipher)
+                if (decryptCache.size > 4000) decryptCache.clear()
+                decryptCache.set(cacheKey, data ?? null)
+              }
+              return data ? { ...g, data } : null
+            })
+            .filter((g) => g !== null),
+        )
+        if (i + batchSize < encryptedGifts.length) await new Promise((resolve) => setTimeout(resolve, 0))
+      }
+      if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
+      const pending = queueFor(eventId)
+        .map((item) => ({
+          id: item.qid,
+          eventId,
+          encryptedContent: item.encryptedContent,
+          pending: true,
+          data: decryptData(item.encryptedContent, password, cipher),
+        }))
+        .filter((g) => g.data)
+      // 礼簿按登记先后排，不能按 ID 排：礼金 ID 是随机十六进制，
+      // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
+      // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
+      st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
+      st.giftsLoaded = true
+      giftsLoadedEventId = eventId
+      st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
+      st.queueCount = pending.length
+      const unreadable = encryptedGifts.length - decrypted.length
+      if (unreadable > 0) {
+        setSyncStatus(`有 ${unreadable} 条记录暂时无法解密，未显示也未计入总额；请刷新或重新解锁后再试。`, true)
+      } else if (fromCache) {
+        st.offlineMode = true
+        setSyncStatus(`当前离线，显示的是本机缓存的 ${decrypted.length} 条记录；新录入会暂存，联网后自动补传。`, true)
+      } else {
+        setSyncStatus('')
+        cacheLedgerGifts(eventId, encryptedGifts)
+        syncEventTotal()
+      }
     } catch (error) {
-      const entry = readCache().ledgers?.[eventId]
-      if (!(error instanceof ApiError && error.code === 'NETWORK' && entry && Array.isArray(entry.gifts))) throw error
-      encryptedGifts = entry.gifts
-      fromCache = true
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return
+      if (generation === loadGeneration) setSyncStatus('账簿数据加载失败，请检查网络后重试。', true)
+      // 后台刷新失败时保留已显示内容；只有首次加载才结束骨架状态。
+      if (generation === loadGeneration && st.currentEvent?.id === eventId) st.giftsLoaded = true
     }
-    if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
-    const decrypted = []
-    const decryptedBatch = encryptedGifts.slice(0)
-    const batchSize = 50
-    for (let i = 0; i < encryptedGifts.length; i += batchSize) {
-      const batch = encryptedGifts.slice(i, i + batchSize)
-      decrypted.push(
-        ...batch
-          .map((g) => {
-            const cacheKey = `${g.id}:${g.updatedAt || g.createdAt || ''}:${String(password || '')}`
-            let data = decryptCache.get(cacheKey)
-            if (data === undefined) {
-              data = decryptData(g.encryptedContent, password, cipher)
-              if (decryptCache.size > 4000) decryptCache.clear()
-              decryptCache.set(cacheKey, data ?? null)
-            }
-            return data ? { ...g, data } : null
-          })
-          .filter((g) => g !== null),
-      )
-      if (i + batchSize < encryptedGifts.length) await new Promise((resolve) => setTimeout(resolve, 0))
-    }
-    if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
-    const pending = queueFor(eventId)
-      .map((item) => ({
-        id: item.qid,
-        eventId,
-        encryptedContent: item.encryptedContent,
-        pending: true,
-        data: decryptData(item.encryptedContent, password, cipher),
-      }))
-      .filter((g) => g.data)
-    // 礼簿按登记先后排，不能按 ID 排：礼金 ID 是随机十六进制，
-    // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
-    // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
-    st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
-    st.giftsLoaded = true
-    st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
-    st.queueCount = pending.length
-    const unreadable = encryptedGifts.length - decrypted.length
-    if (unreadable > 0) {
-      setSyncStatus(`有 ${unreadable} 条记录暂时无法解密，未显示也未计入总额；请刷新或重新解锁后再试。`, true)
-    } else if (fromCache) {
-      st.offlineMode = true
-      setSyncStatus(`当前离线，显示的是本机缓存的 ${decrypted.length} 条记录；新录入会暂存，联网后自动补传。`, true)
-    } else {
-      setSyncStatus('')
-      cacheLedgerGifts(eventId, encryptedGifts)
-      syncEventTotal()
-    }
-  } catch (error) {
-    if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return
-    if (generation === loadGeneration) setSyncStatus('账簿数据加载失败，请检查网络后重试。', true)
-    st.giftsLoaded = true
+  })()
+  giftsLoadRequest = request
+  try {
+    return await request.promise
+  } finally {
+    if (giftsLoadRequest === request) giftsLoadRequest = null
   }
 }
 

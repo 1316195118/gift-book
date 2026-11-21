@@ -8,6 +8,8 @@ import { copyOf, isSolemnEvent } from './content.js'
 import { getHomeCategory, setHomeCategory } from './prefs.js'
 import { readCache, cacheLedgerGifts } from './offline.js'
 import { LedgerCrypto } from './crypto.js'
+import { afterPaint } from './feedback.js'
+import { playTheme } from './sound.js'
 
 export { showTemplates, showSetup, showHome }
 
@@ -23,6 +25,7 @@ export function switchCategory(next) {
   showConfirm('切换分类', `确定切换到「${label}」吗？\n切换后首页配色和最近账簿会随之变化。`, async () => {
     setHomeCategory(next)
     st.homeCategory = next
+    afterPaint(() => playTheme(next === 'white'))
     await loadEvents()
   })
 }
@@ -122,15 +125,20 @@ export async function showNetworkDetails() {
   openModal('网络状态', { type: 'component', component: NetworkPanel }, [])
 }
 
+let openEventGeneration = 0
+
 // 打开一本账簿：无密码直接进入，有密码弹解锁窗。
 export async function openEvent(eventOrId) {
   const id = typeof eventOrId === 'string' ? eventOrId : eventOrId?.id
   if (!id) return
+  const generation = ++openEventGeneration
   let event
   try {
     event = (await api.getEvent(id)).data
+    if (generation !== openEventGeneration) return
     st.offlineMode = false
   } catch (error) {
+    if (generation !== openEventGeneration) return
     const cached = readCache().events?.[id]
     if (!(error instanceof ApiError && error.code === 'NETWORK' && cached)) {
       if (error instanceof ApiError && error.code === 'UNAUTHORIZED') return
@@ -140,7 +148,7 @@ export async function openEvent(eventOrId) {
     event = cached
     st.offlineMode = true
   }
-  if (!event) return
+  if (!event || generation !== openEventGeneration) return
   if (!event.hasPassword) {
     st.currentEvent = event
     st.currentPassword = NO_PASSWORD_KEY
@@ -155,6 +163,7 @@ export async function openEvent(eventOrId) {
       eventName: event.name,
       verifier: (password) => verifyLedgerPassword(event.id, password),
       onSuccess: (password) => {
+        if (generation !== openEventGeneration) return
         st.currentEvent = event
         st.currentPassword = password
         startSession()

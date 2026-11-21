@@ -13,6 +13,7 @@ import { newRequestId, NO_PASSWORD_HASH } from './crypto.js'
 import { enqueueGift, removeQueued, queueFor, readQueue, readCache } from './offline.js'
 import { toast } from './toast.js'
 import { notify } from './notify.js'
+import { afterPaint } from './feedback.js'
 import { pageOfIndexFor, pageSizeAt } from './page-size.js'
 import { noteRecentSubmit, findRecentSubmit, findRecentName } from './recent-submits.js'
 import { filterGifts, parseAmountQuery, normalizeName } from './search-filter.js'
@@ -100,16 +101,19 @@ function showConfirmation(name, amount, remarks, relation, nameExists, exactMatc
     body = `<div class="modal-notice modal-notice-late"><strong>提示：</strong>本次已超出账簿设定的起止时间，属于补录；保存后照常计入总额与修改记录。</div>${body}`
   }
   let confirmed = false
+  let finalRemarks = remarks
   openModal(title, { type: 'html', html: body }, [
     { text: '返回修改', class: 'themed-button-secondary border px-4 py-2 rounded' },
     {
       text: '确定',
       class: 'themed-button-primary px-4 py-2 rounded',
-      keepOpen: true,
+      // 动作执行前弹窗会先关闭；确认框里的备注必须在 DOM 还在时同步取走。
+      beforeClose: () => {
+        finalRemarks = document.getElementById('modal-remarks-input')?.value.trim() ?? remarks
+      },
       handler: async () => {
         if (confirmed) return
         confirmed = true
-        const finalRemarks = document.getElementById('modal-remarks-input')?.value.trim() ?? remarks
         await saveGift({ name, amount, type, remarks: finalRemarks, relation }, resetForm)
       },
     },
@@ -166,18 +170,24 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
     if (queued) removeQueued(queued.qid)
     closeModal()
     resetForm?.()
+    // 占位行不算一笔真实礼金：不盖章、不朗读、不出录入回执。
+    const isBlank = giftData.kind === 'blank'
+    const sourceEventId = st.currentEvent?.id
+    const stampGlyph = isBlank ? '' : getCoverTemplate(st.currentEvent, st.homeCategory).glyph
     // 确认弹窗关闭后焦点会离开输入框，Windows 输入法会退回英文。
     // 下一帧把焦点还给姓名框，下一次录入可以直接接着用中文，不用手动切换。
     nextTick(() => {
       const nameInput = document.getElementById('guest-name')
       if (nameInput && !nameInput.disabled) nameInput.focus({ preventScroll: true })
+      if (!isBlank) {
+        // 落印、播报和涟漪都属于非关键反馈：等弹窗退场并完成一帧绘制后再执行。
+        afterPaint(() => {
+          if (st.currentEvent?.id !== sourceEventId) return
+          stampSeal(stampGlyph)
+          speakGift(giftData.name, giftData.amount)
+        })
+      }
     })
-    // 占位行不算一笔真实礼金：不盖章、不朗读、不出录入回执。
-    const isBlank = giftData.kind === 'blank'
-    if (!isBlank) {
-      stampSeal(getCoverTemplate(st.currentEvent, st.homeCategory).glyph)
-      speakGift(giftData.name, giftData.amount)
-    }
     touchSession()
     // 只解密刚写入的这一条并插入，不再每次记账都重拉整本账簿。
     const createdGift = created?.data

@@ -45,6 +45,43 @@ export function closeModal(immediate = false) {
   }
 }
 
+// 弹窗按钮的默认语义是「先离开当前弹窗，再执行动作」。这样慢网络、加密或文件
+// 生成都不会把菜单留在屏幕上；需要保留弹窗显示进度的动作显式设置 keepOpen。
+export async function runModalAction(action) {
+  // 表单类弹窗在关闭前还需要读取用户刚输入的值。beforeClose 必须同步执行，
+  // 否则 DOM 已进入退场或卸载后，读到的备注等字段会变成空值。
+  if (typeof action.beforeClose === 'function') {
+    try {
+      action.beforeClose()
+    } catch (error) {
+      console.error('弹窗关闭前取值失败', error)
+    }
+  }
+  if (!action.keepOpen) {
+    closeModal()
+    // 只有状态改变还不够：动作处理器若同步做重活，浏览器会等它结束后才绘制。
+    // 把非关键动作排到关闭帧之后，确认框和菜单就能先离开屏幕。
+    await afterModalPaint()
+  }
+  if (typeof action.handler === 'function') return action.handler()
+}
+
+function afterModalPaint() {
+  return new Promise((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    // 两次 RAF 保证关闭状态已提交到一帧；后台标签页不派发 RAF 时用定时器兜底。
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(done))
+    }
+    setTimeout(done, 50)
+  })
+}
+
 // 弹窗内容由 Vue 异步挂载；需要操作其中 DOM 的代码用这个助手等它进入文档。
 export function afterModalRender(callback) {
   const run = () => requestAnimationFrame(() => requestAnimationFrame(callback))
