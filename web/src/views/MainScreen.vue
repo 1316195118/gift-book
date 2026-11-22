@@ -386,7 +386,7 @@ onBeforeUnmount(() => cancelAnimationFrame(totalRaf))
 const subtotal = computed(() => items.value.reduce((sum, gift) => sum + (Number(gift.data?.amount) || 0), 0))
 const amountText = computed(() => amountPreview(entry.amount))
 const hasAmount = computed(() => Number(entry.amount) > 0)
-const book = computed(() => bookMarkup())
+const book = computed(() => bookMarkup(items.value))
 const eventSub = computed(() => {
   const ev = st.currentEvent || {}
   const date = formatDate(ev.startDateTime)

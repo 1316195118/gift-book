@@ -1,20 +1,20 @@
 // 扫描礼簿：复用原厂的 OCR 界面（ocr.js），把导入回调接到新版记账流程。
+import '../styles/ocr.css'
 import { state as st } from '../store.js'
 import { alert as showAlert } from './modal.js'
 import { isSolemnEvent } from './content.js'
 import { encryptData, loadGiftsForCurrentEvent } from '../bootstrap.js'
 import { touchSession } from '../store.js'
-import { newRequestId } from './crypto.js'
+import { newRequestId } from './format.js'
 import { enqueueGift, readQueue, writeQueue } from './offline.js'
 import { api, ApiError } from './api.js'
 import { paintQueueCount } from './queue-count.js'
-import '../lib/ocr.js'
 
 const MAX_GIFT_NAME = 20
 const MAX_GIFT_AMOUNT = 1000000
 const MIN_GIFT_AMOUNT = 0.01
 
-export function openOcr() {
+export async function openOcr() {
   const targetId = st.currentEvent?.id
   const ensureWritable = () => {
     if (!targetId || st.currentEvent?.id !== targetId) throw new Error('当前账簿已切换，请重新打开扫描窗口。')
@@ -30,6 +30,13 @@ export function openOcr() {
     lateAtOpen = ensureWritable()
   } catch (error) {
     return showAlert('无法扫描导入', String(error.message))
+  }
+  if (!window.GiftBookOCR) {
+    try {
+      await import('./ocr.js')
+    } catch {
+      return showAlert('扫描功能加载失败', '请检查网络后重试（Ctrl+F5）。')
+    }
   }
   if (!window.GiftBookOCR) return showAlert('扫描功能未加载', '请刷新页面后重试。')
   window.GiftBookOCR.open({

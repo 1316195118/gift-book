@@ -2,6 +2,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,10 +11,26 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 // maxJSONBody 是单个 JSON 请求体的上限。
 const maxJSONBody = 32 << 20
+const minGzipJSONSize = 1024
+
+// jsonCompressionWriter 只给 writeJSON 标记“客户端接受 gzip”，不改变普通响应写入。
+type jsonCompressionWriter struct {
+	http.ResponseWriter
+}
+
+func (w jsonCompressionWriter) wantsJSONCompression() bool { return true }
+
+var jsonGzipPool = sync.Pool{
+	New: func() any {
+		zw, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+		return zw
+	},
+}
 
 // response 与旧版接口保持一致：{success, data, message, code, duplicate}。
 type response struct {
@@ -30,13 +48,36 @@ type response struct {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload response) {
+	var plain bytes.Buffer
+	enc := json.NewEncoder(&plain)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(payload)
+	if err != nil {
+		http.Error(w, "响应生成失败", http.StatusInternalServerError)
+		return
+	}
+	raw := plain.Bytes()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Vary", "Accept-Encoding")
+	if compression, ok := w.(interface{ wantsJSONCompression() bool }); ok &&
+		compression.wantsJSONCompression() && len(raw) >= minGzipJSONSize {
+		var compressed bytes.Buffer
+		compressed.Grow(len(raw) / 4)
+		zw := jsonGzipPool.Get().(*gzip.Writer)
+		zw.Reset(&compressed)
+		_, writeErr := zw.Write(raw)
+		closeErr := zw.Close()
+		zw.Reset(io.Discard)
+		jsonGzipPool.Put(zw)
+		if writeErr == nil && closeErr == nil && compressed.Len() < len(raw) {
+			raw = compressed.Bytes()
+			w.Header().Set("Content-Encoding", "gzip")
+		}
+	}
 	w.WriteHeader(status)
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	_ = enc.Encode(payload)
+	_, _ = w.Write(raw)
 }
 
 func fail(w http.ResponseWriter, status int, message string) {

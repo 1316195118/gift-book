@@ -1,5 +1,6 @@
 // 语音播报与音色下拉：沿用旧版目录与筛选规则。
-import { LedgerVoiceCatalog } from './crypto.js'
+import './voices.js'
+const LedgerVoiceCatalog = globalThis.LedgerVoiceCatalog
 import { getVoiceOptions } from './prefs.js'
 
 const VOICE_CACHE_KEY = 'ledgerVoiceCache.v1'

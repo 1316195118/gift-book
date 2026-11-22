@@ -1,8 +1,13 @@
 import { chromium } from 'playwright-core'
-const BASE = 'http://127.0.0.1:18299'
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:18299'
 const b = await chromium.launch({ channel: 'msedge', headless: true })
 const p = await b.newPage({ viewport: { width: 390, height: 844 } })
 const longTasks = []
+const errors = []
+p.on('pageerror', (error) => errors.push(String(error?.message || error).split('\n')[0]))
+p.on('console', (message) => {
+  if (message.type() === 'error') errors.push(message.text().slice(0, 160))
+})
 await p.addInitScript(() => {
   window.__long = []
   try {
@@ -27,10 +32,15 @@ await p.waitForTimeout(300)
 await p.fill('#guest-name', '性能张三')
 await p.fill('#gift-amount', '100')
 await p.locator('#submit-gift-btn').click()
-await p.waitForTimeout(500)
-const confirm = p.locator('#modal-actions button', { hasText: '确认提交' })
+await p.waitForTimeout(300)
+const confirm = p.locator('#modal-actions button', { hasText: '确定' })
 if (await confirm.count()) await confirm.first().click()
-await p.waitForTimeout(900)
+await p.waitForFunction(
+  () => [...document.querySelectorAll('#gift-book-content .name-cell .name')]
+    .some((node) => node.textContent.includes('性能张三')),
+  null,
+  { timeout: 10000 },
+)
 
 const info = await p.evaluate(async () => {
   const ev = (await (await fetch('/api/events')).json()).data
@@ -74,7 +84,7 @@ if ((await p.locator('.main-tools').count()) === 0) {
   await p.locator('.recent-item').first().click()
 }
 await p.waitForFunction(() => document.querySelector('#gift-book-content')?.innerText.trim().length > 0, null, { timeout: 10000 })
-console.log('进入账簿(ms) =', Date.now() - t0, '| 页码 =', (await p.locator('#page-indicator').innerText().catch(() => '')).replace(/\s+/g, ' '))
+console.log('进入账簿(ms) =', Date.now() - t0, '| 页码 =', (await p.locator('.book-page-label').innerText().catch(() => '')).replace(/\s+/g, ' '))
 await p.waitForTimeout(500)
 
 // 翻页 3 次
@@ -109,4 +119,5 @@ console.log('搜索(ms) =', Date.now() - tq)
 
 const long = await p.evaluate(() => window.__long || [])
 console.log('长任务(>50ms) =', JSON.stringify(long))
+console.log('浏览器错误 =', errors.length ? JSON.stringify(errors) : 'none')
 await b.close()

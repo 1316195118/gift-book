@@ -285,14 +285,17 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	events, _ := s.store.ReadEvents()
 	eventCount, giftCount := 0, 0
+	ids := make([]string, 0, len(events))
 	for id, event := range events {
 		if !eventBelongsTo(event, family.ID) {
 			continue
 		}
 		eventCount++
-		gifts, err := s.store.ReadGifts(id)
-		if err == nil {
-			giftCount += len(gifts)
+		ids = append(ids, id)
+	}
+	if counts := s.store.CountGiftsMany(ids); len(counts) > 0 {
+		for _, count := range counts {
+			giftCount += count
 		}
 	}
 	s.lastBackupMu.Lock()
@@ -354,6 +357,9 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		h.Set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
+			if r.URL.Path != "/api/stream" && strings.Contains(strings.ToLower(r.Header.Get("Accept-Encoding")), "gzip") {
+				w = jsonCompressionWriter{ResponseWriter: w}
+			}
 		}
 		next.ServeHTTP(w, r)
 	})

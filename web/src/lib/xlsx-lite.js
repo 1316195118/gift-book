@@ -312,3 +312,6 @@ ${FONT(13, false, accent)}
 
   globalThis.XlsxLite = { build: buildWorkbook, download, downloadWorkbook, _crc32: crc32 };
 })(typeof window !== "undefined" ? window : globalThis);
+
+// ESM 侧导出，避免格式化层静态连带这个导出模块。
+export const XlsxLite = globalThis.XlsxLite;

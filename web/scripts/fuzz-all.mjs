@@ -89,15 +89,15 @@ const inMain = (await page.locator('.main-tools').count()) > 0
 rec(inMain ? 'PASS' : 'FAIL', '进入含 XSS 名称的账簿', inMain ? '' : '未进入')
 
 if (inMain) {
-  const names = ['<svg/onload=x=1>', '张三🥳🎉', '\u200b\u200c\u200d', '\u202eABC', '𠮷'.repeat(30), 'O\'Brien & "Co"']
+  const names = ['<svg/onload=x=1>', '张三🥳🎉', '\u200b\u200c\u200d', '\u202eABC', '𠮷'.repeat(20), 'O\'Brien & "Co"']
   let savedCount = 0
   for (const name of names) {
     await page.fill('#guest-name', name).catch(() => {})
     await page.fill('#gift-amount', '100').catch(() => {})
     await page.locator('#submit-gift-btn').click().catch(() => {})
     await page.waitForTimeout(500)
-    // 录入是两段式：先弹「请确认录入信息」，再点「确认提交」。
-    const confirm = page.locator('#modal-actions button', { hasText: '确认提交' })
+    // 录入是两段式：先弹「请确认录入信息」，再点「确定」。
+    const confirm = page.locator('#modal-actions button', { hasText: '确定' })
     if (await confirm.count()) await confirm.first().click().catch(() => {})
     await page.waitForTimeout(900)
     const left = await page.inputValue('#guest-name').catch(() => '')
@@ -126,7 +126,7 @@ if (inMain) {
   rec(!xssAfter ? 'PASS' : 'FAIL', '刷新后 XSS 仍未执行')
   await page.locator('.recent-item').first().click().catch(() => {})
   await page.waitForTimeout(1800)
-  const bookText = await page.locator('#gift-book-content').innerText().catch(() => '')
+  const bookText = await page.locator('#gift-book-content').evaluate((node) => node.textContent || '').catch(() => '')
   rec(bookText.includes('张三') ? 'PASS' : 'WARN', '刷新后礼簿仍显示乱字符姓名', bookText.includes('张三') ? 'emoji 姓名可见' : '当前页未显示（分页/账簿不同）')
 }
 

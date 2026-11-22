@@ -224,7 +224,7 @@
   border: 1px solid var(--cover-line);
   border-radius: 1px;
   background: linear-gradient(var(--cover-bg-deep), var(--cover-bg));
-  color: var(--cover-gold);
+  color: color-mix(in srgb, var(--cover-gold) 78%, var(--cover-ink) 22%);
   font-family: var(--font-serif);
   font-size: clamp(7px, 2.9cqi, 10px);
   line-height: 1.5;
@@ -350,7 +350,7 @@
 .cover-blessing {
   max-width: 94%;
   overflow: hidden;
-  color: var(--cover-gold);
+  color: color-mix(in srgb, var(--cover-gold) 78%, var(--cover-ink) 22%);
   font-family: var(--font-kai);
   font-size: clamp(7.5px, 2.9cqi, 10.5px);
   line-height: 1.7;

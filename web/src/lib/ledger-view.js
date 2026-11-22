@@ -108,11 +108,12 @@ function amountCell(gift, index) {
   return `<div class="book-cell amount-cell${newCls(index)}" data-gift-index="${index}"><div class="amount-chinese${cnClass}" style="--amount-chars:${chinese.length}">${chinese}</div><div class="amount-numeric${numClass}">${numeric}</div></div>`
 }
 
-export function bookMarkup() {
+export function bookMarkup(currentItems = null) {
   const copy = copyOf(st.currentEvent, st.homeCategory)
   // 整本簿子还没有任何记录时，不铺满一屏空网格——只留一行提示，等第一笔录入。
   if (!st.gifts.length) return ''
-  const items = pageItems()
+  // MainScreen 已经算过当前页；传入时复用，避免同一帧重复分页和建新数组。
+  const items = currentItems || pageItems()
   const rows = { name: [], type: [], amount: [] }
   const size = pageSizeAt(st.currentPage)
   const offset = pageOffsetFor(st.currentPage, st.gifts.length)

@@ -46,11 +46,19 @@ export function pageSizeAt(page) {
 // 按当前规则把总数切成每页行数序列。
 export function pageSizes(total) {
   const count = Math.max(0, Number(total) || 0)
+  if (!count) return []
   const sizes = []
+  // 一次性读规则和默认行数，避免大数据量时每页重新构造/排序规则数组。
+  const rules = pageRules()
+  const fallback = defaultPerPage()
+  const sizeAt = (page) => {
+    const hit = rules.find((rule) => page >= rule.from && (rule.to === 0 || page <= rule.to))
+    return hit ? hit.perPage : fallback
+  }
   let covered = 0
   let page = 1
   while (covered < count && page <= 9999) {
-    const size = pageSizeAt(page)
+    const size = sizeAt(page)
     sizes.push(size)
     covered += size
     page += 1

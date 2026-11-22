@@ -146,7 +146,7 @@ import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from
 import { switchCategory } from '../lib/actions.js'
 import { api } from '../lib/api.js'
 import { showHomeSettings } from '../lib/home-settings.js'
-import { queueFor } from '../lib/offline.js'
+import { readQueue } from '../lib/offline.js'
 
 const recentEl = ref(null)
 function onSwitchCategory(cat) {
@@ -173,7 +173,19 @@ const recentEvents = computed(() => {
     .slice(0, 12)
 })
 
-const pendingFor = (eventId) => queueFor(eventId).length
+// 最近账簿会渲染多张卡片；一次性读取并分组待同步队列，
+// 避免每张卡片都重新解析一次 localStorage。
+const pendingCounts = computed(() => {
+  // paintQueueCount 更新状态后让这份分组结果失效，避免一直显示旧角标。
+  void st.queueCount
+  const counts = new Map()
+  readQueue().forEach((item) => {
+    const id = String(item.eventId)
+    counts.set(id, (counts.get(id) || 0) + 1)
+  })
+  return counts
+})
+const pendingFor = (eventId) => pendingCounts.value.get(String(eventId)) || 0
 
 const displayIdOf = (ev) => String(ev.displayId || '').padStart(3, '0').slice(-3)
 

@@ -189,10 +189,19 @@ async function main() {
   check('录入确认弹窗', confirmOpen.length > 0, confirmOpen)
   await shot('06-confirm')
 
-  await evaluate(`[...document.querySelectorAll('#modal-actions button')].find(b => b.textContent.includes('确认提交'))?.click()`)
-  await sleep(2000)
+  await evaluate(`[...document.querySelectorAll('#modal-actions button')].find(b => /^(确定|确认提交)$/.test(b.textContent.trim()))?.click()`)
+  // 有密码账簿首次录入要先做一次 PBKDF2；给慢手机/内网 http 留足派生与落盘时间。
+  for (let i = 0; i < 100; i += 1) {
+    if ((await evaluate(`document.querySelectorAll('#gift-book-content .name-cell .name').length`)) > 0) break
+    await sleep(200)
+  }
   const giftCells = await evaluate(`document.querySelectorAll('#gift-book-content .name-cell .name').length`)
   check('礼簿出现记录', giftCells >= 1, String(giftCells))
+  if (!giftCells) {
+    const msg = await evaluate(`document.querySelector('.sync-status')?.textContent || document.querySelector('#modal-content')?.textContent || ''`)
+    check('录入未完成原因', false, msg.slice(0, 120))
+    return
+  }
   const total = await evaluate(`document.querySelector('.ledger-summary .summary-card span:last-child')?.textContent || ''`)
   check('汇总金额已更新', total.includes('888'), total)
   // 姓名格是 flex 容器（横排流），礼簿的竖排由金额列承担

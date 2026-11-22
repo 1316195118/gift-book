@@ -595,7 +595,7 @@ input[type="range"] {
 .field-shell > .field-suffix {
   position: absolute;
   right: 13px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: var(--fs-sm);
   pointer-events: none;
 }

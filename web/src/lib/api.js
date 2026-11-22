@@ -34,6 +34,7 @@ export class ApiError extends Error {
 
 const REQUEST_TIMEOUT = 15000
 const RETRY_DELAY = 400
+const inFlightGets = new Map()
 
 // 只把「连接层面失败」视作可重试；超时（AbortError）不重试，避免用户干等 30s。
 function isNetworkFailure(error) {
@@ -53,12 +54,30 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
-export async function apiRequest(url, method = 'GET', data = null, options = {}) {
+export function apiRequest(url, method = 'GET', data = null, options = {}) {
+  method = String(method || 'GET').toUpperCase()
+  const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
+  // 启动、SSE、网络恢复和多个面板可能同时请求同一份只读数据。
+  // 共用在途 Promise，避免重复读盘与重复传输；不同账簿密钥不会互相复用。
+  if (method !== 'GET' || options.dedupe === false) {
+    return performApiRequest(url, method, data, options, ledgerKey)
+  }
+  const requestKey = `${url}\u0000${ledgerKey}`
+  const running = inFlightGets.get(requestKey)
+  if (running) return running
+  const request = performApiRequest(url, method, data, { ...options, ledgerKey }, ledgerKey)
+    .finally(() => {
+      if (inFlightGets.get(requestKey) === request) inFlightGets.delete(requestKey)
+    })
+  inFlightGets.set(requestKey, request)
+  return request
+}
+
+async function performApiRequest(url, method, data, options, ledgerKey) {
   const activityId = beginActivity(activityLabelFor(url, method))
   let activityFailed = false
   try {
     const headers = { 'Content-Type': 'application/json', 'X-Client-Id': clientId(), ...(options.headers || {}) }
-    const ledgerKey = options.ledgerKey ?? ledgerKeyForRequest(url, data)
     if (ledgerKey) headers['X-Ledger-Key'] = ledgerKey
 
     const init = {

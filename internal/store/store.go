@@ -32,8 +32,10 @@ type Record map[string]any
 
 // Store 是礼簿文件存储。
 type Store struct {
-	dir string
-	mu  sync.RWMutex
+	dir        string
+	mu         sync.RWMutex
+	countMu    sync.RWMutex
+	giftCounts map[string]giftCountEntry
 }
 
 // Open 打开（必要时创建）数据目录。
@@ -41,7 +43,7 @@ func Open(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o775); err != nil {
 		return nil, fmt.Errorf("创建数据目录失败: %w", err)
 	}
-	return &Store{dir: dir}, nil
+	return &Store{dir: dir, giftCounts: make(map[string]giftCountEntry)}, nil
 }
 
 // Dir 返回数据目录的绝对路径。
@@ -157,15 +159,6 @@ func (s *Store) Tx(eventID string, withGiftFile bool, fn func(events map[string]
 		}
 	}
 	return nil
-}
-
-// CountGifts 只统计礼金条数，不解码具体内容（用于账簿列表的人数）。
-func (s *Store) CountGifts(eventID string) int {
-	gifts, err := s.ReadGifts(eventID)
-	if err != nil {
-		return 0
-	}
-	return len(gifts)
 }
 
 // TrashEvent 把账簿信息与礼金文件移到 .trash/<时间>-<id>/，返回备份目录。

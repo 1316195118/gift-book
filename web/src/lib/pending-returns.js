@@ -2,7 +2,8 @@
 // 白事账簿不提供回礼，入口与函数都做了兜底。
 import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender, alert as showAlert } from './modal.js'
-import { escapeHtml, formatCurrency, formatDate, formatDateTime, XlsxLite, safeFileName } from './crypto.js'
+import { escapeHtml, formatCurrency, formatDate, formatDateTime, safeFileName } from './crypto.js'
+import { XlsxLite as XlsxLiteEngine } from './xlsx-lite.js'
 import { copyOf, isSolemnEvent } from './content.js'
 import { appendReturn, hasReturned } from './return-gift.js'
 import { isArchived } from './archive.js'
@@ -276,7 +277,7 @@ export function exportPendingExcel(list) {
   const rowHeights = { 1: 30, 2: 20, 3: 8, 4: 24 }
   for (let r = 5; r <= last; r += 1) rowHeights[r] = 22
   rowHeights[last + 1] = 24
-  XlsxLite.downloadWorkbook(
+  XlsxLiteEngine.downloadWorkbook(
     [
       {
         name: '未回礼名单',

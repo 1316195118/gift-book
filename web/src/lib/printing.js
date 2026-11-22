@@ -1,4 +1,5 @@
 // 打印与 PDF 共用的排版：封面页 + 明细页（每页 12 条）+ 备注附录页。
+import '../styles/print.css'
 import { state as st } from '../store.js'
 import { copyOf } from './content.js'
 import { renderCoverMarkup } from './cover.js'

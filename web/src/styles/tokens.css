@@ -84,7 +84,7 @@ body.theme-festive {
   /* muted 与 faint 都会拿去写正文旁的小字，所以两者都得过 4.5:1。
      之前 faint 只有 2.8:1，提示语在纸底上几乎读不出来。 */
   --muted: #6e604e;
-  --faint: #7f7360;
+  --faint: #6c614d;
   /* 纯装饰用的淡色：描边、图标、占位符，不承载文字信息 */
   --faint-deco: #a69781;
 
@@ -166,7 +166,7 @@ body.theme-solemn {
   --ink: #1a1f21;
   --ink-2: #3c4448;
   --muted: #5f686c;
-  --faint: #6c7579;
+  --faint: #626d72;
   --faint-deco: #99a1a4;
 
   --line: #dde1e1;

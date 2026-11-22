@@ -456,6 +456,7 @@ body.theme-solemn .hero-book-art .book {
   border: 1px solid var(--hero-book-line);
   color: var(--hero-book-ink);
   text-align: center;
+  z-index: 2;
 }
 
 .hero-book-art .book-edition {
@@ -823,7 +824,7 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .rd-dot {
-  color: var(--line-strong);
+  color: var(--muted);
   flex: none;
 }
 

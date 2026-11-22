@@ -4,7 +4,7 @@ import { openModal, closeModal, alert as showAlert, afterModalRender } from './m
 import { copyOf, isSolemnEvent } from './content.js'
 import { amountToChinese, formatCurrency, escapeHtml, formatDate, formatDateTime, safeFileName } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
-import { XlsxLite } from './crypto.js'
+import { XlsxLite } from './xlsx-lite.js'
 import { hasReturned, returnRecordsOf } from './return-gift.js'
 import { openImport } from './import.js'
 import { scopeGifts, scopeInfo, scopeEmptyMessage, resetExportScope, openScopePicker } from './export-scope.js'

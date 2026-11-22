@@ -408,6 +408,73 @@ func TestBackupAndReplaceAll(t *testing.T) {
 	}
 }
 
+func TestCountGiftsManyCachesAndTracksExternalChanges(t *testing.T) {
+	s := newStore(t)
+	_ = s.WithGifts("e1", func(gifts map[string]Record) (bool, error) {
+		for i := 0; i < 3; i++ {
+			id := fmt.Sprintf("g%d", i)
+			gifts[id] = Record{"id": id}
+		}
+		return true, nil
+	})
+	counts := s.CountGiftsMany([]string{"e1", "missing"})
+	if counts["e1"] != 3 || counts["missing"] != 0 {
+		t.Fatalf("计数结果错误: %v", counts)
+	}
+
+	// 缓存命中不会改变结果。
+	if got := s.CountGifts("e1"); got != 3 {
+		t.Fatalf("缓存后计数错误: %d", got)
+	}
+
+	// 外部工具直接替换 JSON 时，靠 size + ModTime 重新计数。
+	path := filepath.Join(s.Dir(), "gifts_e1.json")
+	if err := os.WriteFile(path, []byte(`{"a":{"id":"a"},"b":{"id":"b"}}`), 0o664); err != nil {
+		t.Fatal(err)
+	}
+	counts = s.CountGiftsMany([]string{"e1"})
+	if counts["e1"] != 2 {
+		t.Fatalf("外部替换后计数未刷新: %v", counts)
+	}
+
+	// 写锁与批量计数互斥；并发读写不丢失或覆盖计数结果。
+	errs := make(chan error, 32)
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			id := fmt.Sprintf("g%02d", i)
+			errs <- s.WithGifts("e1", func(gifts map[string]Record) (bool, error) {
+				gifts[id] = Record{"id": id}
+				return true, nil
+			})
+		}(i)
+	}
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counts := s.CountGiftsMany([]string{"e1"})
+			if counts["e1"] < 2 {
+				errs <- fmt.Errorf("并发计数异常: %d", counts["e1"])
+			} else {
+				errs <- nil
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.CountGifts("e1"); got != 18 {
+		t.Fatalf("并发写入后应保留 18 条礼金，实际 %d", got)
+	}
+}
+
 func TestInvalidIDRejected(t *testing.T) {
 	for _, id := range []string{"", "../x", "a/b", "a b", string(make([]byte, 70))} {
 		if ValidID(id) {

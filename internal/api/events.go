@@ -122,10 +122,15 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := make(map[string]map[string]any, len(mine))
+	ids := make([]string, 0, len(mine))
 	for id, event := range mine {
 		public := ledger.Public(event)
-		public["giftCount"] = s.store.CountGifts(id)
+		ids = append(ids, id)
 		out[id] = public
+	}
+	counts := s.store.CountGiftsMany(ids)
+	for id := range out {
+		out[id]["giftCount"] = counts[id]
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: out})
 }
