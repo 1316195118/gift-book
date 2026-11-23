@@ -6,7 +6,6 @@ import { openModal, closeModal, afterModalRender, alert as showAlert } from './m
 import { escapeHtml, newRequestId } from './crypto.js'
 import { encryptData, loadEvents } from '../bootstrap.js'
 import { notify } from './notify.js'
-import QRCode from 'qrcode'
 
 let info = null
 let pending = []
@@ -115,10 +114,12 @@ function show(ev) {
       if (event.target.closest('[data-guest-share]')) {
         try {
           const link = window.location.origin + (info?.url || '')
+          // 二维码库只在用户真正分享时加载，避免拖慢首屏与日常记账。
+          const { default: QRCode } = await import('qrcode')
           const qr = await QRCode.toDataURL(link, { width: 320, margin: 2 })
           openModal('宾客登记二维码', {
             type: 'html',
-            html: `<div class="gb-guest-qr"><img src="${qr}" alt="宾客登记二维码" /><p class="gb-picker-hint">让宾客扫码后填写，登记内容会先进入待确认区。</p></div>`,
+            html: `<div class="gb-guest-qr"><img src="${qr}" alt="宾客登记二维码" width="320" height="320" loading="lazy" decoding="async" /><p class="gb-picker-hint">让宾客扫码后填写，登记内容会先进入待确认区。</p></div>`,
           }, [{ text: '关闭', class: 'modal-btn-primary' }], { dismissable: true })
         } catch (err) {
           showAlert('二维码生成失败', err.message || '请复制页面上的链接')

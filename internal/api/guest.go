@@ -2,9 +2,11 @@ package api
 
 import (
 	"crypto/subtle"
+	"math"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"giftbook/internal/store"
 )
@@ -85,9 +87,8 @@ func (s *Server) handleGuestToggle(w http.ResponseWriter, r *http.Request, id st
 
 // GET /api/guest/{token}（公开：登记页信息，不含任何礼金）
 func (s *Server) handleGuestInfo(w http.ResponseWriter, r *http.Request) {
-	ip := "guest:" + s.auth.ClientIP(r)
-	if s.auth.ThrottleLocked(ip) {
-		fail(w, http.StatusTooManyRequests, "操作太频繁，请稍后再试")
+	if ok, retry := s.guestLimiter.allow(s.guestRateKey(r, "info"), guestInfoLimit, guestInfoWindow); !ok {
+		writeGuestRateLimit(w, retry, "读取登记信息太频繁，请稍后再试")
 		return
 	}
 	id, event, ok := s.findGuestEvent(r.PathValue("token"))
@@ -104,9 +105,12 @@ func (s *Server) handleGuestInfo(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/guest/{token}/gifts（公开：提交一条待确认登记）
 func (s *Server) handleGuestSubmit(w http.ResponseWriter, r *http.Request) {
-	ip := "guest:" + s.auth.ClientIP(r)
-	if s.auth.ThrottleLocked(ip) {
-		fail(w, http.StatusTooManyRequests, "提交太频繁，请稍后再试")
+	if ok, retry := s.guestLimiter.allow(s.guestIPRateKey(r, "submit-ip"), guestIPLimit, guestIPWindow); !ok {
+		writeGuestRateLimit(w, retry, "提交太频繁，请稍后再试")
+		return
+	}
+	if ok, retry := s.guestLimiter.allow(s.guestRateKey(r, "submit"), guestSubmitLimit, guestSubmitWindow); !ok {
+		writeGuestRateLimit(w, retry, "提交太频繁，请稍后再试")
 		return
 	}
 	id, _, ok := s.findGuestEvent(r.PathValue("token"))
@@ -119,6 +123,7 @@ func (s *Server) handleGuestSubmit(w http.ResponseWriter, r *http.Request) {
 		Amount   float64 `json:"amount"`
 		Relation string  `json:"relation"`
 		Note     string  `json:"note"`
+		Website  string  `json:"website"`
 	}
 	if err := decodeJSON(w, r, &body); err != nil {
 		fail(w, http.StatusBadRequest, "无效的请求数据")
@@ -127,11 +132,18 @@ func (s *Server) handleGuestSubmit(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(body.Name)
 	relation := strings.TrimSpace(body.Relation)
 	note := strings.TrimSpace(body.Note)
-	if name == "" || len(name) > 20 || len(relation) > 20 || len(note) > 100 {
+	// 隐藏字段只有自动脚本会填写。返回成功但不落库，避免给爬虫明确的试验信号。
+	if strings.TrimSpace(body.Website) != "" {
+		writeJSON(w, http.StatusOK, response{Success: true, Message: "已登记，等主家确认后入簿"})
+		return
+	}
+	if name == "" || utf8.RuneCountInString(name) > 20 ||
+		utf8.RuneCountInString(relation) > 20 || utf8.RuneCountInString(note) > 100 {
 		fail(w, http.StatusBadRequest, "姓名 1–20 字，关系与备注请短一些")
 		return
 	}
-	if body.Amount < 0.01 || body.Amount > 1000000 || body.Amount != body.Amount {
+	if math.IsNaN(body.Amount) || math.IsInf(body.Amount, 0) ||
+		body.Amount < 0.01 || body.Amount > 1000000 {
 		fail(w, http.StatusBadRequest, "金额请在 0.01 – 1000000 之间")
 		return
 	}
@@ -144,7 +156,6 @@ func (s *Server) handleGuestSubmit(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.auth.ThrottleClear(ip)
 	writeJSON(w, http.StatusOK, response{Success: true, Message: "已登记，等主家确认后入簿"})
 }
 

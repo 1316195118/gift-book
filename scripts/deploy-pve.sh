@@ -30,7 +30,13 @@ if [ -z "${GB_PW:-}" ]; then
 fi
 
 # OpenSSH 的非交互密码入口
-ask="$(mktemp -d)/askpass.sh"
+credential_dir="$(mktemp -d)"
+ask="$credential_dir/askpass.sh"
+cleanup_credentials() {
+  rm -f "$ask"
+  rmdir "$credential_dir" 2>/dev/null || true
+}
+trap cleanup_credentials EXIT
 printf '#!/bin/sh\nprintf "%%s\\n" "$GB_PW"\n' > "$ask"
 chmod +x "$ask"
 export SSH_ASKPASS="$ask" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}"
@@ -43,7 +49,7 @@ rm -rf webapp/dist/*
 mkdir -p webapp/dist
 cp -r web/dist/. webapp/dist/
 touch webapp/dist/.gitkeep
-printf '{"build":"%s","version":"2.4.47"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
+printf '{"build":"%s","version":"2.4.48"}\n' "$(date +%Y%m%d-%H%M)" > webapp/dist/build.json
 
 # 2. Linux 二进制
 echo "▸ 交叉编译 linux/amd64"

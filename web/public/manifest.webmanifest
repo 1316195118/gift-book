@@ -1,15 +1,23 @@
 {
+  "id": "/",
   "name": "电子礼簿",
   "short_name": "礼簿",
-  "description": "红白事礼金记录、统计与导出，数据本地加密。",
+  "description": "红白事礼金记录、统计与加密导出，数据本地保存。",
   "lang": "zh-CN",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f6f1e6",
-  "theme_color": "#b3261e",
+  "background_color": "#faf4e9",
+  "theme_color": "#ab2b21",
+  "categories": ["productivity", "lifestyle"],
   "icons": [
+    {
+      "src": "/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "16x16 32x32 48x48"
+    },
     {
       "src": "/icon.svg",
       "type": "image/svg+xml",
@@ -17,10 +25,28 @@
       "purpose": "any"
     },
     {
-      "src": "/icon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
     }
   ]
 }

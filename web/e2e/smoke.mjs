@@ -31,7 +31,10 @@ const dismiss = async () => {
 try {
   await step('打开首页', async () => { await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await dismiss() })
   await step('创建账簿', async () => {
-    await page.getByText('创建新账簿').last().click(); await page.waitForTimeout(500)
+    await page.locator('.hero-primary-cta').click()
+    await page.locator('.tpl-card').first().waitFor({ state: 'visible' })
+    await page.locator('.tpl-card').first().click()
+    await page.locator('#setup-screen').waitFor({ state: 'visible' })
     await page.locator('#event-name').fill('E2E 冒烟')
     await page.locator('#start-date').fill('2026-11-17')
     await page.locator('#end-date').fill('2026-11-18')

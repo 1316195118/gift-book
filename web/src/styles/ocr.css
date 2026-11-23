@@ -10,7 +10,7 @@
 .paper-ocr button:disabled { opacity: .5; cursor: not-allowed; }
 .paper-ocr :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ocr-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px 28px 18px; background: linear-gradient(110deg, var(--accent-soft), transparent); border-bottom: 1px solid var(--line); flex: none; }
-.ocr-kicker { color: var(--gold, var(--muted)); font-size: 10px; letter-spacing: .18em; }
+.ocr-kicker { color: var(--gold-text, var(--muted)); font-size: 10px; letter-spacing: .18em; }
 .ocr-head h2 { font: 26px/1.5 var(--font-display, serif); margin: 4px 0; color: var(--accent); }
 .ocr-head p { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .ocr-head .ocr-late-notice { color: var(--accent); margin-top: 8px; font-size: 11px; line-height: 1.6; }

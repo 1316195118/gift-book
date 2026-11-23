@@ -278,6 +278,12 @@ func (m *Manager) isHTTPS(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
+// IsHTTPS 报告当前请求是否经 HTTPS 到达。
+// 只有开启 TrustProxy 后才采信 X-Forwarded-Proto，避免客户端伪造安全上下文。
+func (m *Manager) IsHTTPS(r *http.Request) bool {
+	return m.isHTTPS(r)
+}
+
 // ---- 修改访问保护设置 ----
 
 // ErrWrongPassword 表示当前密码不正确。

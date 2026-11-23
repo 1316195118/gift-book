@@ -216,6 +216,50 @@
   letter-spacing: .02em;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--sp-5);
+}
+
+.hero-primary-cta,
+.hero-secondary-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  font-size: var(--fs-base);
+  font-weight: 650;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.hero-primary-cta {
+  gap: 9px;
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.hero-primary-cta:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.hero-secondary-cta {
+  color: var(--ink-2);
+  background: var(--surface);
+}
+
+.hero-secondary-cta:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* 三条说明跟在正文下面，和标题同一条左轴，不再孤零零飘在右边 */
 .home-trust {
   display: flex;
@@ -636,7 +680,7 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .recent-arrow:disabled {
-  opacity: .3;
+  opacity: .55;
 }
 
 .recent-list {
@@ -968,6 +1012,21 @@ body.theme-solemn .hero-book-art .book {
   text-decoration: underline;
   text-decoration-color: var(--line);
   text-underline-offset: 3px;
+}
+
+.home-legal-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 5px;
+  color: var(--faint);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.home-legal-link:hover {
+  color: var(--accent);
 }
 
 .home-legal-btn:hover {
@@ -2205,7 +2264,7 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .page-edge:disabled {
-  opacity: .35;
+  opacity: .55;
   cursor: default;
 }
 
@@ -3095,6 +3154,17 @@ body.theme-solemn .hero-book-art .book {
     scrollbar-width: none;
   }
 
+  .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-primary-cta,
+  .hero-secondary-cta {
+    width: 100%;
+    min-height: 48px;
+  }
+
   .home-top-actions::-webkit-scrollbar {
     display: none;
   }
@@ -3320,6 +3390,71 @@ body.theme-solemn .hero-book-art .book {
   .tpl-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* --------------------------------------------------------------------------
+   交互尺寸下限
+   --------------------------------------------------------------------------
+   高频入口统一保证至少 44×44 CSS 像素。视觉上的字号和留白仍按各组件
+   原样处理，只扩大可点击命中区，避免手机上出现“看得见但点不准”的按钮。 */
+.cat-btn,
+.home-help-btn,
+.home-side-help,
+.home-create-btn,
+.home-legal-btn,
+.home-legal-link,
+.recent-arrow,
+.eye-btn,
+.main-back,
+.event-switch,
+.net-chip,
+.version-chip,
+.queue-chip,
+.main-tool,
+#prev-page-btn,
+#next-page-btn,
+#modal-close,
+.entry-fields-btn,
+.entry-more-toggle,
+.gb-blank-btn,
+.amount-quick button,
+.book-page-label,
+.page-edge,
+.page-jump-btn,
+.mobile-jump button,
+.entry-receipt-link,
+.entry-receipt-close,
+.search-filter-toggle,
+.search-row-action,
+.search-row-locate {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.home-help-btn,
+.recent-arrow,
+.eye-btn,
+#prev-page-btn,
+#next-page-btn,
+#modal-close,
+.amount-quick button,
+.page-edge,
+.mobile-jump button,
+.entry-receipt-close {
+  min-width: 44px;
+}
+
+.home-legal-btn,
+.home-legal-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 最近账簿入场的轻微缩放会让 44px 命中区短暂测到 43.x px，
+   给触控区多留 4px 余量，图标视觉尺寸保持不变。 */
+.eye-btn {
+  min-width: 48px;
+  min-height: 48px;
 }
 
 /* 大字模式的字号覆盖统一放在 large-text.css：

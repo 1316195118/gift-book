@@ -1,6 +1,13 @@
 // 电子礼簿 Service Worker：导航 network-first（保证版本更新），静态资源 cache-first（离线可开）。
-const CACHE = 'giftbook-shell-v1'
-const SHELL = ['/index.html', '/manifest.webmanifest', '/icon.svg']
+const CACHE = 'giftbook-shell-v2'
+const SHELL = [
+  '/index.html',
+  '/site.webmanifest',
+  '/manifest.webmanifest',
+  '/icon.svg',
+  '/favicon.ico',
+  '/apple-touch-icon.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

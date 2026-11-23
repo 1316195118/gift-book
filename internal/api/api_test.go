@@ -52,9 +52,11 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.47"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.48"}
 	if len(extra) > 0 {
 		opts.StrictOrigin = extra[0].StrictOrigin
+		opts.ForceHTTPS = extra[0].ForceHTTPS
+		opts.PublicURL = extra[0].PublicURL
 	}
 	srvAPI := New(opts)
 	srv := httptest.NewServer(srvAPI.Handler())
@@ -113,7 +115,7 @@ func validCipher(seed byte) string {
 
 func TestStaticAndFallback(t *testing.T) {
 	env := newEnv(t)
-	for _, path := range []string{"/", "/index.html", "/some/deep/route"} {
+	for _, path := range []string{"/", "/index.html", "/terms", "/privacy"} {
 		res, err := http.Get(env.server.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -124,7 +126,15 @@ func TestStaticAndFallback(t *testing.T) {
 			t.Fatalf("%s: %d %q", path, res.StatusCode, body)
 		}
 	}
-	res, _ := http.Get(env.server.URL + "/build.json")
+	res, err := http.Get(env.server.URL + "/some/deep/route")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("未知页面状态码 = %d，期望 404", res.StatusCode)
+	}
+	res, _ = http.Get(env.server.URL + "/build.json")
 	if cc := res.Header.Get("Cache-Control"); !strings.Contains(cc, "no-store") && !strings.Contains(cc, "no-cache") {
 		t.Fatalf("html cache header wrong: %s", cc)
 	}
@@ -435,6 +445,115 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if res.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("api cache header: %s", res.Header.Get("Cache-Control"))
+	}
+}
+
+func TestPublicSEORoutes(t *testing.T) {
+	env := newEnv(t, Options{PublicURL: "https://giftbook.example"})
+	res, err := http.Get(env.server.URL + "/robots.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	robots, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK ||
+		!strings.Contains(string(robots), "Sitemap: https://giftbook.example/sitemap.xml") ||
+		!strings.Contains(string(robots), "Disallow: /api/") {
+		t.Fatalf("robots.txt 内容不正确: %d %q", res.StatusCode, robots)
+	}
+
+	res, err = http.Get(env.server.URL + "/sitemap.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sitemap, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK ||
+		!strings.Contains(string(sitemap), "<loc>https://giftbook.example/</loc>") ||
+		!strings.Contains(string(sitemap), "<loc>https://giftbook.example/privacy</loc>") ||
+		!strings.Contains(string(sitemap), "<loc>https://giftbook.example/terms</loc>") {
+		t.Fatalf("sitemap.xml 内容不正确: %d %q", res.StatusCode, sitemap)
+	}
+}
+
+func TestForceHTTPSAndHSTS(t *testing.T) {
+	env := newEnv(t, Options{ForceHTTPS: true})
+	req := httptest.NewRequest(http.MethodGet, "http://giftbook.example/terms?from=http", nil)
+	rec := httptest.NewRecorder()
+	env.api.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("HTTP 应 308 跳转，实际 %d", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "https://giftbook.example/terms?from=http" {
+		t.Fatalf("跳转地址 = %q", got)
+	}
+
+	health := httptest.NewRequest(http.MethodGet, "http://giftbook.example/api/ping", nil)
+	health.RemoteAddr = "127.0.0.1:54321"
+	healthRec := httptest.NewRecorder()
+	env.api.Handler().ServeHTTP(healthRec, health)
+	if healthRec.Code != http.StatusOK {
+		t.Fatalf("容器本机健康检查不应被 HTTPS 跳转：%d", healthRec.Code)
+	}
+
+	secure := httptest.NewRequest(http.MethodGet, "https://giftbook.example/", nil)
+	secureRec := httptest.NewRecorder()
+	env.api.Handler().ServeHTTP(secureRec, secure)
+	if got := secureRec.Header().Get("Strict-Transport-Security"); got != "max-age=31536000" {
+		t.Fatalf("HSTS = %q", got)
+	}
+}
+
+func TestGuestHoneypotAndRuneLimits(t *testing.T) {
+	env := newEnv(t)
+	id := env.createEvent(t, "宾客校验", noPassKey)
+	res, payload := env.do(t, "POST", "/api/events/"+id+"/guest", map[string]any{"enabled": true}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("enable guest: %d %v", res.StatusCode, payload)
+	}
+	token := payload["data"].(map[string]any)["token"].(string)
+
+	res, _ = env.do(t, "POST", "/api/guest/"+token+"/gifts", map[string]any{
+		"name": "机器人", "amount": 100, "website": "https://spam.example",
+	}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("honeypot 应静默成功，实际 %d", res.StatusCode)
+	}
+	pending, err := env.store.GuestInbox(id)
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("honeypot 内容不应落库: %v %v", pending, err)
+	}
+
+	// 长度按 Unicode 字符计算；旧实现使用字节长度，会误伤六个以上汉字。
+	res, _ = env.do(t, "POST", "/api/guest/"+token+"/gifts", map[string]any{
+		"name": "欧阳娜娜欧阳娜娜欧阳娜娜", "amount": 888,
+		"relation": "亲友", "note": "祝万事顺意",
+	}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("12 个汉字的姓名应通过，实际 %d", res.StatusCode)
+	}
+	res, _ = env.do(t, "POST", "/api/guest/"+token+"/gifts", map[string]any{
+		"name": strings.Repeat("礼", 21), "amount": 100,
+	}, nil)
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("超过 20 字的姓名应拒绝，实际 %d", res.StatusCode)
+	}
+}
+
+func TestGuestRateLimiter(t *testing.T) {
+	limiter := newGuestRateLimiter()
+	if ok, _ := limiter.allow("guest", 2, 40*time.Millisecond); !ok {
+		t.Fatal("第一次请求应放行")
+	}
+	if ok, _ := limiter.allow("guest", 2, 40*time.Millisecond); !ok {
+		t.Fatal("第二次请求应放行")
+	}
+	if ok, retry := limiter.allow("guest", 2, 40*time.Millisecond); ok || retry <= 0 {
+		t.Fatalf("超过上限应拒绝并返回重试时间: ok=%v retry=%v", ok, retry)
+	}
+	time.Sleep(55 * time.Millisecond)
+	if ok, _ := limiter.allow("guest", 2, 40*time.Millisecond); !ok {
+		t.Fatal("滑动窗口过期后应重新放行")
 	}
 }
 

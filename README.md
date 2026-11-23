@@ -159,6 +159,17 @@ node scripts/build.mjs        # npm run build → webapp/dist → 写 build.json
 
 环境变量 `GIFTBOOK_DATA_DIR` / `GIFTBOOK_CONFIG_DIR` 等价于对应参数。
 
+| 可选环境变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `GIFTBOOK_TRUST_PROXY=1` | 关闭 | 仅在可信反向代理后开启，允许读取 `X-Forwarded-For` / `X-Forwarded-Proto` |
+| `GIFTBOOK_FORCE_HTTPS=1` | 关闭 | 仅在前方已有可信 HTTPS 终止层时开启；HTTP 请求会 308 跳转，HTTPS 响应带 HSTS |
+| `GIFTBOOK_PUBLIC_URL` | 自动 | 如 `https://giftbook.example.com`，用于 `robots.txt`、`sitemap.xml` 和绝对社交分享地址 |
+| `GIFTBOOK_STRICT_ORIGIN=1` | 关闭 | 写请求的 `Origin` 必须与当前 `host:port` 完全一致 |
+| `GIFTBOOK_SETUP_TOKEN` | 空 | 首次设置管理员密码时额外要求的部署口令 |
+| `GIFTBOOK_UPDATE_PROXY` | 空 | 容器内检查/下载更新所用的 HTTP 代理 |
+
+局域网直接通过 `http://10.x.x.x:8099` 访问时不要开启 `GIFTBOOK_FORCE_HTTPS`，否则浏览器会被重定向到一个没有 HTTPS 监听的地址。只有反向代理确实提供 HTTPS 时才开启。
+
 **旧版 `rundata/` 自动迁移**：使用默认目录启动时，若可执行文件旁存在旧的 `rundata/`，且 `data/events.json` 尚不存在，启动时会把 `events.json`、`gifts_*.json`、`.trash/` 复制到 `data/`，把认证状态、自动备份设置、`backups/` 等其余文件复制到 `config/`。迁移只复制、不删除、不覆盖已有文件，`rundata/` 原样保留，确认无误后可自行归档；之后每次启动检测到 `data/events.json` 已存在就自动跳过。显式指定 `-data` / `-config` 或对应环境变量时视为自定义部署，不自动迁移，需自行把旧文件放进对应目录。
 
 ---
@@ -202,7 +213,10 @@ config/
 - 所有写接口校验同源 `Origin`，跨站请求直接 403。
 - 账簿钥匙走 `X-Ledger-Key` 请求头，服务端存 `HMAC-SHA256(钥匙, 每本随机盐)`。
 - 管理员密码与账簿钥匙的连续输错共用 IP 防爆破，锁定时间指数增长（1→30 分钟）。
+- 公开宾客入口带隐藏蜜罐字段和进程内滑动窗口限流，降低脚本灌库风险，同时不会把正常多人写请求串行化。
 - 静态资源与接口分离，API 一律 `no-store`。
+- 响应统一带 CSP、`nosniff`、同源 Referrer 与权限策略；仅在 HTTPS 请求上发送 HSTS。
+- `GIFTBOOK_FORCE_HTTPS=1` 可把 HTTP 以 308 跳转到 HTTPS，只应在可信 HTTPS 反向代理之后开启。
 
 管理员密码用于进入所有家庭、管理家庭与整站备份，与家庭访问码、单本账簿的管理密码相互独立。首次设置默认无需额外验证，局域网内任何能打开页面的人都可以抢先设置；部署到不受信任的网络时，建议设置环境变量 `GIFTBOOK_SETUP_TOKEN`（任意足够长的口令）：设置后首次设置管理员密码必须同时提供该口令，界面会显示「设置口令」输入框。\n\n开启多家庭（创建第二个家庭）时强制要求先设置管理员密码；多家庭模式下管理员密码不能关闭。位于受信任反向代理之后时，可再设 `GIFTBOOK_TRUST_PROXY=1` 让 `X-Forwarded-For` 参与防爆破与 Cookie 的 HTTPS 判断。
 

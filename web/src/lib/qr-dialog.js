@@ -16,7 +16,7 @@ export function showQrDialog() {
   const copy = copyOf(ev, st.homeCategory)
   const qr = currentQr()
   const html = qr
-    ? `<img src="${escapeHtml(qr)}" class="qr-thumb" alt="收款码" /><p class="text-xs text-gray-500 text-center">${copy.qrTip}</p><input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`
+    ? `<img src="${escapeHtml(qr)}" class="qr-thumb" alt="收款码" width="640" height="640" loading="lazy" decoding="async" /><p class="text-xs text-gray-500 text-center">${copy.qrTip}</p><input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`
     : `<div class="qr-empty">还没有上传收款码<br/>支持微信 / 支付宝收款码图片</div><input type="file" id="qr-file" accept="image/*" class="mt-3 w-full text-sm" />`
   const actions = [{ text: '关闭', class: 'themed-button-secondary border px-4 py-2 rounded' }]
   if (qr) {

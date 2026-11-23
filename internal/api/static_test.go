@@ -18,6 +18,7 @@ func TestStaticGzipAndVary(t *testing.T) {
 	big := []byte(strings.Repeat("body { color: red; }\n", 100)) // > 1024，可压缩
 	assets := fstest.MapFS{
 		"index.html":     {Data: []byte("<!doctype html><title>app</title>")},
+		"404.html":       {Data: []byte("<!doctype html><title>missing</title>")},
 		"assets/big.css": {Data: big},
 		"assets/tiny.js": {Data: []byte("var a=1;")},                    // 太小，不压缩
 		"assets/pic.png": {Data: bytes.Repeat([]byte{0x89, 0x50}, 900)}, // 二进制，不压缩
@@ -101,13 +102,19 @@ func TestStaticGzipAndVary(t *testing.T) {
 		}
 	})
 
-	t.Run("assets 缺失返回 404，其它路径回退首页", func(t *testing.T) {
+	t.Run("assets 缺失返回 404，未知页面返回品牌 404", func(t *testing.T) {
 		if got := request("/assets/missing.js", "", http.MethodGet).Code; got != http.StatusNotFound {
 			t.Fatalf("/assets/ 缺失应 404，实际 %d", got)
 		}
 		w := request("/some/deep/route", "", http.MethodGet)
-		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<title>app</title>") {
-			t.Fatalf("未知路径未回退到 index.html：code=%d body=%q", w.Code, w.Body.String())
+		if w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "<title>missing</title>") {
+			t.Fatalf("未知路径未返回 404 页面：code=%d body=%q", w.Code, w.Body.String())
+		}
+		if got := request("/terms", "", http.MethodGet).Code; got != http.StatusOK {
+			t.Fatalf("/terms 应由应用承载，实际 %d", got)
+		}
+		if got := request("/privacy", "", http.MethodGet).Code; got != http.StatusOK {
+			t.Fatalf("/privacy 应由应用承载，实际 %d", got)
 		}
 	})
 }
@@ -132,5 +139,31 @@ func TestStaticAssetReusedFromMemory(t *testing.T) {
 	}
 	if !bytes.Equal(second.data, original) || second.gzipped == nil {
 		t.Fatal("缓存的原文件或预压缩内容不正确")
+	}
+}
+
+func TestPersonalizeIndexForPublicPages(t *testing.T) {
+	server := &Server{}
+	server.publicURL = "https://giftbook.example"
+	index := []byte(`<html><head>
+<title>首页标题</title>
+<meta name="description" content="首页描述" />
+<meta property="og:title" content="首页标题" />
+<meta property="og:description" content="首页描述" />
+<meta property="og:image" content="/og-cover.png" />
+<meta name="twitter:title" content="首页标题" />
+<meta name="twitter:description" content="首页描述" />
+</head></html>`)
+	request := httptest.NewRequest(http.MethodGet, "https://giftbook.example/privacy", nil)
+	page := string(server.personalizeIndex(index, request))
+	for _, want := range []string{
+		"隐私政策｜",
+		`content="https://giftbook.example/og-cover.png"`,
+		`rel="canonical" href="https://giftbook.example/privacy"`,
+		`property="og:url" content="https://giftbook.example/privacy"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("个性化首页缺少 %q：%s", want, page)
+		}
 	}
 }

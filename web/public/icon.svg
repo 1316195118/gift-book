@@ -1,5 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#b3261e"/>
-  <rect x="36" y="36" width="440" height="440" rx="84" fill="none" stroke="#f6e7c8" stroke-width="10" opacity="0.55"/>
-  <text x="256" y="356" text-anchor="middle" font-family="KaiTi, STKaiti, SimSun, serif" font-size="300" fill="#fdf3e0">礼</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">电子礼簿</title>
+  <defs>
+    <linearGradient id="ink" x1="70" y1="32" x2="446" y2="492" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#bd3429"/>
+      <stop offset="1" stop-color="#8f1d18"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#ink)"/>
+  <rect x="30" y="30" width="452" height="452" rx="86" fill="none" stroke="#f1d8a6" stroke-width="8" opacity=".62"/>
+  <rect x="54" y="54" width="404" height="404" rx="66" fill="none" stroke="#fff8e9" stroke-width="3" opacity=".25"/>
+  <path d="M122 206h268M122 306h268" stroke="#f7e8c8" stroke-width="4" stroke-linecap="round" opacity=".18"/>
+  <text x="256" y="359" text-anchor="middle" font-family="KaiTi, STKaiti, SimSun, serif" font-size="292" font-weight="600" fill="#fff8e9">礼</text>
 </svg>

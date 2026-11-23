@@ -87,6 +87,8 @@ body.theme-festive {
   --faint: #6c614d;
   /* 纯装饰用的淡色：描边、图标、占位符，不承载文字信息 */
   --faint-deco: #a69781;
+  /* 占位符需要辨认，单独保持在 WCAG AA 以上。 */
+  --placeholder: #75664e;
 
   --line: #e9ddc7;
   --line-strong: #d7c7a7;
@@ -103,6 +105,8 @@ body.theme-festive {
   --gold: #b0873d;
   --gold-bright: #d6ae65;
   --gold-soft: #f4e8cd;
+  /* 纸底上的小号金色文字必须比装饰金更深。 */
+  --gold-text: #84612a;
 
   /* 第三色：赭。本想用彩画里的石青，但它和白事的青黛几乎同色，
      在红事页面上会让人以为点错了账簿，所以红事整体留在暖色一端：
@@ -168,6 +172,7 @@ body.theme-solemn {
   --muted: #5f686c;
   --faint: #626d72;
   --faint-deco: #99a1a4;
+  --placeholder: #596368;
 
   --line: #dde1e1;
   --line-strong: #c3caca;
@@ -184,6 +189,7 @@ body.theme-solemn {
   --gold: #7e8a90;
   --gold-bright: #a3adb2;
   --gold-soft: #e7eaeb;
+  --gold-text: #526169;
 
   /* 第三色：苍 —— 青灰偏绿，用于数据与提示 */
   --azure: #4e6b63;

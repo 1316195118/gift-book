@@ -181,7 +181,7 @@ export function openSettings({ section = 'general' } = {}) {
         <h4 class="settings-title">封面与收款</h4>
         <div class="field">
           ${label('edit-cover-image-upload', copy.bookTitle + '封面图', '', '尺寸建议 842 × 595px，格式 jpg/PNG，大小不超过 2MB。')}
-          <img id="edit-cover-preview" src="${escapeHtml(ev.coverImage || '')}" alt="封面预览" class="cover-edit-preview ${ev.coverImage ? '' : 'hidden'}" />
+          <img id="edit-cover-preview" src="${escapeHtml(ev.coverImage || '')}" alt="封面预览" class="cover-edit-preview ${ev.coverImage ? '' : 'hidden'}" width="595" height="842" loading="lazy" decoding="async" />
           <input type="file" id="edit-cover-image-upload" accept="image/*" />
         </div>
         <button type="button" id="edit-qr-btn" class="themed-button-secondary field-action">设置 / 更换收款码</button>

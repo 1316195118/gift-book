@@ -2,7 +2,9 @@ package api
 
 import (
 	"io/fs"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +24,10 @@ type Server struct {
 	ocr          OCREngine
 	configDir    string
 	strictOrigin bool
+	forceHTTPS   bool
+	publicURL    string
 	stream       *streamHub
+	guestLimiter *guestRateLimiter
 
 	auditMu       sync.Mutex
 	backupMu      sync.Mutex
@@ -59,6 +64,12 @@ type Options struct {
 	StrictOrigin bool
 	// AutoRestart 表示更新完成后是否请求进程退出（容器里由 restart 策略拉起）。
 	AutoRestart bool
+	// ForceHTTPS 为 true 时把 HTTP 请求以 308 重定向到 HTTPS。
+	// 仅在应用前面已有可信 HTTPS 终止层时开启，避免内网直连被锁在 HTTP 循环里。
+	ForceHTTPS bool
+	// PublicURL 是可选的外网根地址（如 https://giftbook.example.com）。
+	// 配置后 robots.txt、sitemap.xml 与社交图片始终使用该地址。
+	PublicURL string
 }
 
 // New 创建 HTTP 服务。
@@ -72,7 +83,10 @@ func New(opts Options) *Server {
 		ocr:            opts.OCR,
 		configDir:      opts.ConfigDir,
 		strictOrigin:   opts.StrictOrigin,
+		forceHTTPS:     opts.ForceHTTPS,
+		publicURL:      normalizePublicURL(opts.PublicURL),
 		stream:         newStreamHub(),
+		guestLimiter:   newGuestRateLimiter(),
 		stopAutoBackup: make(chan struct{}),
 		restartCh:      make(chan struct{}),
 		autoRestart:    opts.AutoRestart,
@@ -99,6 +113,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/update/settings", s.open(s.handleUpdateSettings))
 	mux.HandleFunc("PUT /api/update/settings", s.open(s.handleUpdateSettingsSave))
 	mux.HandleFunc("GET /api/health", s.open(s.handleHealth))
+	mux.HandleFunc("GET /robots.txt", s.handleRobots)
+	mux.HandleFunc("HEAD /robots.txt", s.handleRobots)
+	mux.HandleFunc("GET /sitemap.xml", s.handleSitemap)
+	mux.HandleFunc("HEAD /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("GET /api/auth", s.handleAuthState)
 	mux.HandleFunc("POST /api/auth", s.handleLogin)
 	mux.HandleFunc("PUT /api/auth", s.handleUpdateAuth)
@@ -171,7 +189,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle("/", s.staticHandler())
 
-	return s.securityHeaders(mux)
+	return s.securityHeaders(s.httpsRedirect(mux))
 }
 
 // middle 是 API 通用前置检查：同源 + 访问保护。
@@ -355,6 +373,9 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy", contentSecurityPolicy)
 		h.Set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
+		if s.isHTTPS(r) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
 			if r.URL.Path != "/api/stream" && strings.Contains(strings.ToLower(r.Header.Get("Accept-Encoding")), "gzip") {
@@ -363,4 +384,67 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) httpsRedirect(next http.Handler) http.Handler {
+	if !s.forceHTTPS {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.isHTTPS(r) || r.Host == "" || (r.URL.Path == "/api/ping" && isLoopbackRequest(r)) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		target := "https://" + r.Host + r.URL.RequestURI()
+		http.Redirect(w, r, target, http.StatusPermanentRedirect)
+	})
+}
+
+func isLoopbackRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	return ip != nil && ip.IsLoopback()
+}
+
+func (s *Server) isHTTPS(r *http.Request) bool {
+	return s.auth != nil && s.auth.IsHTTPS(r)
+}
+
+func (s *Server) siteOrigin(r *http.Request) string {
+	if s.publicURL != "" {
+		return s.publicURL
+	}
+	host := strings.TrimSpace(r.Host)
+	if !validRequestHost(host) {
+		return ""
+	}
+	scheme := "http"
+	if s.isHTTPS(r) {
+		scheme = "https"
+	}
+	return scheme + "://" + host
+}
+
+func normalizePublicURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.User != nil || parsed.Host == "" ||
+		(parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
+}
+
+func validRequestHost(host string) bool {
+	if host == "" || strings.ContainsAny(host, "/\\?#@ \t\r\n") {
+		return false
+	}
+	parsed, err := url.Parse("http://" + host)
+	return err == nil && parsed.User == nil && parsed.Host == host && parsed.Path == ""
 }

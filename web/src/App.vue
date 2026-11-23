@@ -1,15 +1,18 @@
 <template>
   <div id="app-shell">
-    <ActivityBar />
-    <GuestScreen v-if="st.guestToken" />
+    <PolicyScreen v-if="publicPolicy" :kind="publicPolicy" />
     <template v-else>
-    <FamilyGate v-if="st.familyGate" />
-    <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
-    <component :is="currentView" :key="st.route" />
-    <AppModal />
-    <OfflineToast />
-    <QrFloat />
-    <ToastStack />
+      <ActivityBar />
+      <GuestScreen v-if="st.guestToken" />
+      <template v-else>
+        <FamilyGate v-if="st.familyGate" />
+        <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
+        <component :is="currentView" :key="st.route" />
+        <AppModal />
+        <OfflineToast />
+        <QrFloat />
+        <ToastStack />
+      </template>
     </template>
   </div>
 </template>
@@ -28,6 +31,14 @@ import QrFloat from './components/QrFloat.vue'
 import ToastStack from './components/ToastStack.vue'
 import ViewLoading from './components/ViewLoading.vue'
 import { bootstrap } from './bootstrap.js'
+import { showTemplates, showHelpDialog } from './lib/actions.js'
+import { showHomeSettings } from './lib/home-settings.js'
+import { applyPageMeta } from './lib/page-meta.js'
+
+const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
+const publicPolicy = normalizedPath === '/privacy' || normalizedPath === '/terms'
+  ? normalizedPath.slice(1)
+  : ''
 
 const viewLoaders = {
   guest: () => import('./views/GuestScreen.vue'),
@@ -50,6 +61,7 @@ const GuestScreen = asyncView(viewLoaders.guest)
 const TemplateScreen = asyncView(viewLoaders.template)
 const SetupScreen = asyncView(viewLoaders.setup)
 const MainScreen = asyncView(viewLoaders.main)
+const PolicyScreen = asyncView(() => import('./views/PolicyScreen.vue'))
 
 const currentView = computed(() => (
   st.guestToken ? GuestScreen : ({
@@ -59,6 +71,12 @@ const currentView = computed(() => (
     main: MainScreen,
   }[st.route] || HomeScreen)
 ))
+
+watch(
+  () => publicPolicy || (st.guestToken ? 'guest' : st.route),
+  (route) => applyPageMeta(route),
+  { immediate: true },
+)
 
 // 主题跟着「当前这本账簿」走：进入白事账簿就是素色，回到首页回到所选分类。
 watch(
@@ -71,21 +89,36 @@ watch(
 )
 
 onMounted(() => {
+  if (publicPolicy) return
   // 宾客扫码链接是公开页：不带家庭会话、不加载账簿列表，只看这一本的名字。
   const giftToken = new URLSearchParams(window.location.search).get('gift')
   if (giftToken) {
     st.guestToken = giftToken
     return
   }
-  bootstrap()
+  bootstrap().then(runInitialAction)
   window.__giftbookOnAuthSuccess = () => bootstrap({ skipAuth: true })
   scheduleViewPrefetch()
 })
+
+function runInitialAction() {
+  const action = new URLSearchParams(window.location.search).get('action')
+  if (!['create', 'help', 'settings'].includes(action)) return
+  if (action === 'create') showTemplates(st.homeCategory)
+  if (action === 'help') showHelpDialog()
+  if (action === 'settings') showHomeSettings()
+  window.history.replaceState(null, '', '/')
+}
 
 let prefetchStarted = false
 function scheduleViewPrefetch() {
   if (prefetchStarted) return
   prefetchStarted = true
+  const connection = navigator.connection
+  const slowNetwork = connection?.saveData ||
+    /(^|-)[23]g$/.test(String(connection?.effectiveType || '')) ||
+    (Number.isFinite(connection?.downlink) && connection.downlink < 2)
+  if (slowNetwork) return
   const prefetch = (loaders) => {
     const run = () => loaders.forEach((loader) => loader().catch(() => {}))
     if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2600 })

@@ -107,7 +107,16 @@
               <div class="setup-field">
                 <label for="cover-image-upload" class="setup-label">上传封面图（可选）<span class="gb-hint" data-hint="不上传也行，导出时会自动生成封面。建议 595 × 842px、小于 2MB。" role="note" aria-label="不上传也行，导出时会自动生成封面。建议 595 × 842px、小于 2MB。" tabindex="0">?</span></label>
                 <input type="file" id="cover-image-upload" accept="image/*" class="setup-file" @change="onCoverFile" />
-                <img v-if="coverPreview" :src="coverPreview" alt="封面预览" class="cover-edit-preview" />
+                <img
+                  v-if="coverPreview"
+                  :src="coverPreview"
+                  alt="封面预览"
+                  class="cover-edit-preview"
+                  width="595"
+                  height="842"
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
               <div class="setup-field">
                 <label for="event-voice" class="setup-label">语音播报音色</label>

@@ -11,7 +11,7 @@
     <div id="qr-float-body">
       <div class="qr-poster">
         <div class="qr-poster-title">请扫码付款</div>
-        <img :src="state.qrImage" alt="收款码" />
+        <img :src="state.qrImage" alt="收款码" width="320" height="320" decoding="async" />
         <div class="qr-poster-foot">微信 · 支付宝 · 云闪付</div>
       </div>
     </div>

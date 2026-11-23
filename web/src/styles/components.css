@@ -131,7 +131,7 @@
 }
 
 button:disabled {
-  opacity: .45;
+  opacity: .58;
 }
 
 /* 统一按压反馈：所有实心/幽灵按钮按下即下沉 1px。
@@ -426,7 +426,7 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--faint-deco);
+  color: var(--placeholder);
   opacity: 1;
 }
 

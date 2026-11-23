@@ -282,7 +282,7 @@
           <input id="ocr-camera-file" type="file" accept="image/*" capture="environment" class="ocr-file-input">
           <div class="ocr-recognize-controls"><label>版式 <select id="ocr-layout"><option value="auto">自动匹配</option><option value="horizontal">横排：同一行姓名与金额</option><option value="vertical">竖排：同一列上姓名下金额</option></select></label><button type="button" id="ocr-recognize" disabled>开始识别</button></div>
           <div id="ocr-thumbnails" class="ocr-thumbnails" aria-label="图片列表"></div>
-          <figure class="ocr-preview" hidden><div class="ocr-image-wrap"><img id="ocr-preview-image" alt="礼簿原图"><span id="ocr-highlight" hidden></span></div><figcaption id="ocr-image-caption"></figcaption></figure>
+          <figure class="ocr-preview" hidden><div class="ocr-image-wrap"><img id="ocr-preview-image" alt="礼簿原图" width="1600" height="1200" loading="lazy" decoding="async"><span id="ocr-highlight" hidden></span></div><figcaption id="ocr-image-caption"></figcaption></figure>
           <p class="ocr-note">请拍清晰、平整的单页，避免反光和手指遮挡。手写或模糊内容可能识别错误，必须对照原图核对；未匹配的内容不会自动入账。</p>
           <details class="ocr-raw"><summary>查看识别原文与未配对内容</summary><pre id="ocr-raw-text">尚未识别</pre></details>
         </section>
@@ -352,7 +352,7 @@
     }
     function renderFiles() {
       // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
-      $("#ocr-thumbnails").innerHTML = files.map((f, i) => `<div class="${f.corrected ? "is-corrected" : ""}"><button type="button" data-page="${i}" title="${esc(f.file.name)}"><img src="${f.url}" alt="第 ${i + 1} 页"><span>第 ${i + 1} 页${f.corrected ? " · 已校正" : ""}</span></button><button type="button" data-adjust="${i}" class="ocr-adjust" aria-label="调整第 ${i + 1} 页边框">边框</button><button type="button" data-remove="${i}" aria-label="移除第 ${i + 1} 页">×</button></div>`).join("");
+      $("#ocr-thumbnails").innerHTML = files.map((f, i) => `<div class="${f.corrected ? "is-corrected" : ""}"><button type="button" data-page="${i}" title="${esc(f.file.name)}"><img src="${f.url}" alt="第 ${i + 1} 页" width="56" height="62" loading="lazy" decoding="async"><span>第 ${i + 1} 页${f.corrected ? " · 已校正" : ""}</span></button><button type="button" data-adjust="${i}" class="ocr-adjust" aria-label="调整第 ${i + 1} 页边框">边框</button><button type="button" data-remove="${i}" aria-label="移除第 ${i + 1} 页">×</button></div>`).join("");
       $("#ocr-thumbnails").querySelectorAll("[data-adjust]").forEach(b => b.onclick = () => adjustPage(Number(b.dataset.adjust)));
       $("#ocr-thumbnails").querySelectorAll("[data-page]").forEach(b => b.onclick = () => showImage(Number(b.dataset.page)));
       $("#ocr-thumbnails").querySelectorAll("[data-remove]").forEach(b => b.onclick = () => {

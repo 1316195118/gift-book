@@ -74,6 +74,12 @@ window.setTimeout(() => {
 
 // 首屏稳定后再分批预取体积较大的按需模块，避免和首页数据请求抢带宽。
 function prefetchHeavyModules() {
+  const connection = navigator.connection
+  const constrained = connection?.saveData ||
+    /(^|-)[23]g$/.test(String(connection?.effectiveType || '')) ||
+    (Number.isFinite(connection?.downlink) && connection.downlink < 2)
+  const publicPolicy = /^\/(?:privacy|terms)\/?$/.test(window.location.pathname)
+  if (constrained || publicPolicy) return
   const idle = (run) => {
     if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 2800 })
     else window.setTimeout(run, 900)

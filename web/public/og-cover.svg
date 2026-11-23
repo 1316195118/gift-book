@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">电子礼簿：清楚记下每一份心意</title>
+  <desc id="desc">朱砂印章、纸色背景与礼簿插图组成的电子礼簿社交预览图</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fbf6ec"/><stop offset=".55" stop-color="#f7efe1"/><stop offset="1" stop-color="#f1e4cc"/>
+    </linearGradient>
+    <linearGradient id="seal" x1="84" y1="76" x2="190" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#bd3429"/><stop offset="1" stop-color="#8f1d18"/>
+    </linearGradient>
+    <linearGradient id="book" x1="830" y1="150" x2="1050" y2="510" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a52a21"/><stop offset="1" stop-color="#721712"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="22" stdDeviation="18" flood-color="#392013" flood-opacity=".18"/>
+    </filter>
+    <pattern id="grain" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="5" cy="9" r="1" fill="#b0873d" opacity=".14"/><circle cx="23" cy="20" r=".8" fill="#ab2b21" opacity=".11"/><circle cx="14" cy="30" r=".7" fill="#b0873d" opacity=".12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#paper)"/>
+  <rect width="1200" height="630" fill="url(#grain)"/>
+  <circle cx="1080" cy="46" r="250" fill="#ab2b21" opacity=".045"/>
+  <circle cx="1140" cy="610" r="250" fill="#b0873d" opacity=".07"/>
+  <path d="M0 584C210 528 371 622 598 576s367-11 602 23v31H0Z" fill="#ab2b21" opacity=".04"/>
+  <g transform="translate(72 62)">
+    <rect width="108" height="108" rx="18" fill="url(#seal)" filter="url(#shadow)"/>
+    <rect x="8" y="8" width="92" height="92" rx="13" fill="none" stroke="#f4ddae" stroke-width="2" opacity=".65"/>
+    <text x="54" y="81" text-anchor="middle" font-family="KaiTi,STKaiti,SimSun,serif" font-size="70" font-weight="600" fill="#fff8e9">礼</text>
+  </g>
+  <text x="204" y="104" font-family="KaiTi,STKaiti,SimSun,serif" font-size="34" font-weight="600" fill="#6f261f" letter-spacing="5">电子礼簿</text>
+  <text x="205" y="141" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="15" fill="#766550" letter-spacing="4">GIFT BOOK · PRIVATE LEDGER</text>
+  <text x="72" y="286" font-family="STSong,SimSun,serif" font-size="72" font-weight="600" fill="#281c13" letter-spacing="2">清楚记下</text>
+  <text x="72" y="371" font-family="STSong,SimSun,serif" font-size="72" font-weight="600" fill="#a72a21" letter-spacing="2">每一份心意</text>
+  <text x="76" y="431" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="24" fill="#5f5241" letter-spacing="1.5">红白事礼金记录 · 统计 · 加密导出</text>
+  <g transform="translate(76 487)">
+    <rect width="284" height="48" rx="24" fill="#fffaf0" stroke="#dfcfb3"/>
+    <circle cx="25" cy="24" r="5" fill="#3d6b4f"/>
+    <text x="43" y="31" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="15" fill="#5f5241" letter-spacing=".6">数据仅留在自己的部署中</text>
+  </g>
+  <text x="76" y="586" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="14" fill="#766550" letter-spacing="1.2">红事有礼 · 白事有敬 · 每一笔都清清楚楚</text>
+  <g transform="translate(812 106) rotate(4 170 200)" filter="url(#shadow)">
+    <rect x="36" y="30" width="330" height="386" rx="18" fill="#d8c6a7"/>
+    <rect x="18" y="18" width="330" height="386" rx="18" fill="#eee2cf"/>
+    <rect width="332" height="392" rx="18" fill="url(#book)"/>
+    <path d="M38 0v392" stroke="#59110e" stroke-width="14" opacity=".7"/>
+    <rect x="62" y="50" width="230" height="282" rx="8" fill="none" stroke="#efd39d" stroke-width="3" opacity=".78"/>
+    <rect x="76" y="64" width="202" height="254" rx="4" fill="none" stroke="#efd39d" stroke-width="1" opacity=".45"/>
+    <text x="177" y="174" text-anchor="middle" font-family="KaiTi,STKaiti,SimSun,serif" font-size="78" fill="#f6dfae">礼</text>
+    <text x="177" y="225" text-anchor="middle" font-family="STSong,SimSun,serif" font-size="20" fill="#f6dfae" letter-spacing="6">电子礼簿</text>
+    <path d="M106 258h142M119 278h116" stroke="#efd39d" stroke-width="2" opacity=".5"/>
+    <circle cx="177" cy="316" r="18" fill="none" stroke="#efd39d" opacity=".7"/>
+    <path d="m168 316 7 7 13-15" fill="none" stroke="#efd39d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M286 44h22v245h-22l12-122Z" fill="#c24839" opacity=".8"/>
+  </g>
+  <path d="M1085 113c35 42 34 98-4 134" fill="none" stroke="#b0873d" stroke-width="3" opacity=".35"/>
+  <path d="M1096 128c23 30 22 68-3 94" fill="none" stroke="#b0873d" stroke-width="2" opacity=".25"/>
+</svg>

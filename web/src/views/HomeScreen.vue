@@ -20,6 +20,10 @@
           <div class="eyebrow" id="home-eyebrow">{{ catText.eyebrow }}</div>
           <h1 id="home-title">{{ catText.title }}</h1>
           <div class="sub" id="home-sub">{{ catText.sub }}</div>
+          <div class="hero-actions">
+            <button type="button" class="hero-primary-cta" @click="showTemplates(st.homeCategory)">免费创建礼簿 <span aria-hidden="true">→</span></button>
+            <button type="button" class="hero-secondary-cta" @click="showHelpDialog">先看 2 分钟使用说明</button>
+          </div>
         </div>
         <div class="home-trust" aria-label="本地部署、加密存储、便捷导出">
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2" /><rect x="4" y="14" width="16" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" stroke-linecap="round" /></svg>本地部署</span>
@@ -61,7 +65,7 @@
             <li><span>02</span><div><b>建立账簿</b><small>填写起止时间与地点，管理密码可选</small></div></li>
             <li><span>03</span><div><b>登记与导出</b><small>{{ copy.stepEntry }}</small></div></li>
           </ol>
-          <button type="button" class="home-side-help" @click="showHelpDialog">查看完整使用说明</button>
+          <button type="button" class="home-side-help" @click="showHelpDialog">2 分钟了解如何开始</button>
         </aside>
       </div>
 
@@ -126,12 +130,16 @@
 
       <div class="home-bottom">
         <p>一笔一份心意，一簿一段时光。</p>
-        <button id="home-create-btn" class="home-create-btn" @click="createNew">＋ 创建新账簿</button>
+        <button id="home-create-btn" class="home-create-btn" @click="createNew">免费创建第一本礼簿</button>
       </div>
 
       <footer class="home-footer"><span>本地部署 · 自主管理</span><span>建议开启自动备份，并定期导出留底</span></footer>
       <p class="home-legal">
         <button type="button" class="home-legal-btn" @click="showLicense">© 2026 Gift Book contributors · MIT License</button>
+        <span aria-hidden="true">·</span>
+        <a class="home-legal-link" href="/terms">服务条款</a>
+        <span aria-hidden="true">·</span>
+        <a class="home-legal-link" href="/privacy">隐私政策</a>
       </p>
     </div>
   </div>

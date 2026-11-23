@@ -1,7 +1,7 @@
 {
   "name": "giftbook-web",
   "private": true,
-  "version": "2.4.47",
+  "version": "2.4.48",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -13,8 +13,14 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
+    "brand:assets": "cd .. && node scripts/generate-brand-assets.mjs",
+    "images:optimize": "cd .. && python scripts/optimize-images.py",
+    "security:secrets": "cd .. && node scripts/scan-secrets.mjs",
+    "links:check": "cd .. && node scripts/check-links.mjs",
     "e2e:smoke": "node e2e/smoke.mjs",
-    "e2e:responsive": "node e2e/responsive.mjs"
+    "e2e:responsive": "node e2e/responsive.mjs",
+    "e2e:article": "node e2e/article-pages.mjs",
+    "e2e:perf": "node e2e/perf-audit.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4",

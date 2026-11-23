@@ -1147,12 +1147,56 @@
   gap: var(--sp-2);
 }
 
+.gb-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.gb-guest-submit {
+  min-height: 46px;
+}
+
+.gb-guest-submit[aria-busy="true"]::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: gb-spin 650ms linear infinite;
+}
+
 .gb-guest-done {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
   padding: var(--sp-4);
   border-radius: 10px;
   background: var(--ok-soft, #1f7a3d18);
   text-align: center;
   color: var(--ink);
+  animation: gb-guest-success 260ms ease-out;
+}
+
+.gb-guest-done-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--ok, #1f7a3d);
+  color: #fff;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.gb-guest-card > .gb-link-btn {
+  min-height: 44px;
 }
 
 .gb-guest-link,
@@ -1189,9 +1233,26 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gb-guest-card {
+  .gb-guest-card,
+  .gb-guest-done,
+  .gb-guest-submit[aria-busy="true"]::before {
     animation: none;
   }
+}
+
+@keyframes gb-guest-success {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gb-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 跳过占位行与批量备注 */

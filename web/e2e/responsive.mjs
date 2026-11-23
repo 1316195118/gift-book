@@ -18,6 +18,7 @@ if (!browserPath) throw new Error('找不到浏览器：请先运行 playwright-
 const browser = await chromium.launch({ executablePath: browserPath, headless: true })
 const allViewports = [
   ['small-phone', 320, 568],
+  ['phone-375', 375, 812],
   ['phone', 390, 844],
   ['tablet', 768, 1024],
   ['landscape-phone', 844, 390],
@@ -53,6 +54,37 @@ async function horizontalOverflow(page) {
   return page.evaluate(() => {
     const de = document.documentElement
     return Math.max(0, de.scrollWidth - de.clientWidth)
+  })
+}
+
+async function auditInteractiveTargets(page) {
+  return page.evaluate(() => {
+    const seen = []
+    for (const el of document.querySelectorAll('button, a[href], [role="button"]')) {
+      const rect = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue
+      if (rect.width < 44 || rect.height < 44) {
+        const text = String(el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24)
+        const label = el.getAttribute('aria-label') || el.getAttribute('title') || ''
+        seen.push(`${el.tagName.toLowerCase()}#${el.id || ''}.${String(el.className || '').replace(/\s+/g, '.')} ${Math.round(rect.width)}×${Math.round(rect.height)} "${text}" ${label}`)
+      }
+    }
+    return seen.slice(0, 16)
+  })
+}
+
+async function auditImages(page) {
+  return page.evaluate(() => {
+    const issues = []
+    for (const el of document.querySelectorAll('img')) {
+      if (!el.hasAttribute('alt')) issues.push(`${el.src.slice(0, 80)} 缺少 alt`)
+      const rect = el.getBoundingClientRect()
+      if (rect.width && rect.height && (!el.hasAttribute('width') || !el.hasAttribute('height'))) {
+        issues.push(`${el.alt || '(空 alt)'} 缺少尺寸`)
+      }
+    }
+    return issues.slice(0, 8)
   })
 }
 
@@ -105,17 +137,25 @@ for (const [name, width, height] of viewports) {
     const homeVisible = await page.locator('#home-main-card').isVisible()
     check(`${name} 首页主卡片可见`, homeVisible)
     check(`${name} 首页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const homeTargets = await auditInteractiveTargets(page)
+    check(`${name} 首页触控目标不小于 44px`, homeTargets.length === 0, homeTargets.join(' | '))
+    const homeImages = await auditImages(page)
+    check(`${name} 首页图片语义完整`, homeImages.length === 0, homeImages.join(' | '))
     await page.screenshot({ path: join(OUT, `${name}-01-home.png`), fullPage: true })
 
     await page.locator('#home-main-card').click()
     await page.waitForTimeout(450)
     check(`${name} 模板页可见`, await page.locator('.tpl-card').first().isVisible())
     check(`${name} 模板页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const templateTargets = await auditInteractiveTargets(page)
+    check(`${name} 模板页触控目标不小于 44px`, templateTargets.length === 0, templateTargets.join(' | '))
 
     await page.locator('.tpl-card').first().click()
     await page.waitForTimeout(550)
     check(`${name} 创建页可见`, await page.locator('#setup-screen').isVisible())
     check(`${name} 创建页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const setupTargets = await auditInteractiveTargets(page)
+    check(`${name} 创建页触控目标不小于 44px`, setupTargets.length === 0, setupTargets.join(' | '))
     await page.screenshot({ path: join(OUT, `${name}-02-setup.png`), fullPage: true })
 
     const unique = `${name}-${Date.now().toString(36).slice(-6)}`
@@ -134,6 +174,8 @@ for (const [name, width, height] of viewports) {
     check(`${name} 记账页可见`, await page.locator('#entry-panel').isVisible())
     check(`${name} 核心工具栏可见`, await page.locator('.main-tools').isVisible())
     check(`${name} 首页与记账页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const mainTargets = await auditInteractiveTargets(page)
+    check(`${name} 记账页触控目标不小于 44px`, mainTargets.length === 0, mainTargets.join(' | '))
     const submit = page.locator('#submit-gift-btn')
     await submit.scrollIntoViewIfNeeded()
     const blocker = await submit.evaluate(blockerInfo)
