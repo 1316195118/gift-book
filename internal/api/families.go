@@ -277,13 +277,13 @@ func (s *Server) setFamilyCookie(w http.ResponseWriter, r *http.Request, id stri
 		MaxAge:   familyCookieMaxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil,
+		Secure:   s.isHTTPS(r),
 	})
 }
 
 // 主动退出时留下一个无效哨兵值，而不是直接删 Cookie：
 // 删掉后 requests 会命中「默认家庭自动进入」的回退逻辑，反而退不出去。
-func (s *Server) clearFamilyCookie(w http.ResponseWriter) {
+func (s *Server) clearFamilyCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     familyCookieName,
 		Value:    "out",
@@ -291,6 +291,7 @@ func (s *Server) clearFamilyCookie(w http.ResponseWriter) {
 		MaxAge:   familyCookieMaxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   s.isHTTPS(r),
 	})
 }
 

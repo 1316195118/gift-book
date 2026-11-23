@@ -87,6 +87,10 @@ func (s *Server) handleGuestToggle(w http.ResponseWriter, r *http.Request, id st
 
 // GET /api/guest/{token}（公开：登记页信息，不含任何礼金）
 func (s *Server) handleGuestInfo(w http.ResponseWriter, r *http.Request) {
+	if ok, retry := s.guestLimiter.allow(s.guestIPRateKey(r, "info-ip"), guestInfoIPLimit, guestInfoIPWindow); !ok {
+		writeGuestRateLimit(w, retry, "读取登记信息太频繁，请稍后再试")
+		return
+	}
 	if ok, retry := s.guestLimiter.allow(s.guestRateKey(r, "info"), guestInfoLimit, guestInfoWindow); !ok {
 		writeGuestRateLimit(w, retry, "读取登记信息太频繁，请稍后再试")
 		return

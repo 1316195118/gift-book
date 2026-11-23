@@ -127,7 +127,7 @@ func (s *Server) handleFamilyLogin(w http.ResponseWriter, r *http.Request) {
 // ---- POST /api/family/logout ----
 
 func (s *Server) handleFamilyLogout(w http.ResponseWriter, r *http.Request) {
-	s.clearFamilyCookie(w)
+	s.clearFamilyCookie(w, r)
 	writeJSON(w, http.StatusOK, response{Success: true})
 }
 

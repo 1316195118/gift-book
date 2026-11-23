@@ -130,7 +130,7 @@ docker build -t gift-book:latest .
 
 ### 方式三：从源码构建
 
-需要 Go 1.24+；Node 仅用于生成构建号（也可直接 `go build`，此时构建号显示为 `dev`）：
+需要 Go 1.27.4+（修复标准库 HTTP 并发安全漏洞）和 Node.js 22.12+（构建 Vue 前端与构建号）。已有最新 `webapp/dist/` 时也可直接 `go build`，此时构建号显示为 `dev`：
 
 ```bash
 build.bat          # Windows：编译 giftbook.exe

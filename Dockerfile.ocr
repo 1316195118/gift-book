@@ -3,7 +3,7 @@
 # 默认 Dockerfile 仍是精简的 Alpine 版（无 OCR），这个镜像按需单独使用。
 
 # ---------- 前端 ----------
-FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS web
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS web
 WORKDIR /src
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -11,7 +11,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---------- Go 二进制（按目标架构交叉编译） ----------
-FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_ID=multiarch
@@ -22,7 +22,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"%s","version":"2.4.48"}\n' "$BUILD_ID" > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.49"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 

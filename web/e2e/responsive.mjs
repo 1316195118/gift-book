@@ -144,14 +144,14 @@ for (const [name, width, height] of viewports) {
     await page.screenshot({ path: join(OUT, `${name}-01-home.png`), fullPage: true })
 
     await page.locator('#home-main-card').click()
-    await page.waitForTimeout(450)
+    await page.locator('.tpl-card').first().waitFor({ state: 'visible', timeout: 5000 })
     check(`${name} 模板页可见`, await page.locator('.tpl-card').first().isVisible())
     check(`${name} 模板页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const templateTargets = await auditInteractiveTargets(page)
     check(`${name} 模板页触控目标不小于 44px`, templateTargets.length === 0, templateTargets.join(' | '))
 
     await page.locator('.tpl-card').first().click()
-    await page.waitForTimeout(550)
+    await page.locator('#setup-screen').waitFor({ state: 'visible', timeout: 5000 })
     check(`${name} 创建页可见`, await page.locator('#setup-screen').isVisible())
     check(`${name} 创建页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const setupTargets = await auditInteractiveTargets(page)

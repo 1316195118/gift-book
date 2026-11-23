@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- 1. 构建前端 ----------
-FROM node:20-alpine AS web
+FROM node:22-alpine AS web
 WORKDIR /src
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -9,7 +9,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---------- 2. 编译 Go 二进制 ----------
-FROM golang:1.24-alpine AS builder
+FROM golang:1.27-alpine AS builder
 ARG BUILD_ID=docker
 WORKDIR /src
 COPY go.mod ./
@@ -18,7 +18,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"%s","version":"2.4.48"}\n' "$BUILD_ID" > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.49"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 

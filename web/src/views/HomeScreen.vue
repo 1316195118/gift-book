@@ -20,10 +20,6 @@
           <div class="eyebrow" id="home-eyebrow">{{ catText.eyebrow }}</div>
           <h1 id="home-title">{{ catText.title }}</h1>
           <div class="sub" id="home-sub">{{ catText.sub }}</div>
-          <div class="hero-actions">
-            <button type="button" class="hero-primary-cta" @click="showTemplates(st.homeCategory)">免费创建礼簿 <span aria-hidden="true">→</span></button>
-            <button type="button" class="hero-secondary-cta" @click="showHelpDialog">先看 2 分钟使用说明</button>
-          </div>
         </div>
         <div class="home-trust" aria-label="本地部署、加密存储、便捷导出">
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2" /><rect x="4" y="14" width="16" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" stroke-linecap="round" /></svg>本地部署</span>

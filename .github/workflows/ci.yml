@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.x'
 
       - uses: actions/setup-node@v4
         with:
@@ -32,8 +32,14 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
+      - name: Go vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+
       - name: Go test
         run: go test ./...
+
+      - name: Go race tests
+        run: CGO_ENABLED=1 go test -race ./...
 
       # 备份可用性演练：导出 → 校验 → 全新目录还原 → 逐字节比对，
       # 另含篡改备份必须被拒。确保备份真的能救回来，而不是只有文件在。
@@ -42,7 +48,11 @@ jobs:
 
       - name: Frontend unit tests
         working-directory: web
-        run: npx vitest run
+        run: npx vitest run --coverage
+
+      - name: Frontend dependency audit
+        working-directory: web
+        run: npm audit --audit-level=high
 
       # 有 error 即失败；存量 warning 不阻塞，后续再逐条清理。
       - name: Frontend lint
@@ -57,7 +67,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.x'
 
       - uses: actions/setup-node@v4
         with:

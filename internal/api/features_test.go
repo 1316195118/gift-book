@@ -2,9 +2,33 @@ package api
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"giftbook/internal/auth"
 )
+
+func TestFamilyCookieSecureBehindTrustedHTTPSProxy(t *testing.T) {
+	authMgr, err := auth.NewWithOptions(t.TempDir(), auth.Options{TrustProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{auth: authMgr, configDir: t.TempDir()}
+	req := httptest.NewRequest(http.MethodPost, "http://giftbook.example/api/family/login", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+
+	s.setFamilyCookie(rec, req, "fam_default", 1)
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != familyCookieName {
+		t.Fatalf("家庭 Cookie 未签发: %#v", cookies)
+	}
+	if !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
+		t.Fatalf("家庭 Cookie 安全属性不正确: %#v", cookies[0])
+	}
+}
 
 // 结簿归档后，礼金的增 / 改 / 删都要被服务端拒绝，读与解除结簿仍可用。
 func TestArchivedEventBlocksGiftWrites(t *testing.T) {

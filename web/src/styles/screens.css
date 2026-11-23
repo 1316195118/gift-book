@@ -216,50 +216,6 @@
   letter-spacing: .02em;
 }
 
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: var(--sp-5);
-}
-
-.hero-primary-cta,
-.hero-secondary-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 0 20px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  font-size: var(--fs-base);
-  font-weight: 650;
-  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
-}
-
-.hero-primary-cta {
-  gap: 9px;
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  background: var(--accent);
-}
-
-.hero-primary-cta:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.hero-secondary-cta {
-  color: var(--ink-2);
-  background: var(--surface);
-}
-
-.hero-secondary-cta:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
 /* 三条说明跟在正文下面，和标题同一条左轴，不再孤零零飘在右边 */
 .home-trust {
   display: flex;
@@ -3152,17 +3108,6 @@ body.theme-solemn .hero-book-art .book {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-  }
-
-  .hero-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .hero-primary-cta,
-  .hero-secondary-cta {
-    width: 100%;
-    min-height: 48px;
   }
 
   .home-top-actions::-webkit-scrollbar {

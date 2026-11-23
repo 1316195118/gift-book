@@ -12,6 +12,8 @@ import (
 const (
 	guestInfoLimit    = 90
 	guestInfoWindow   = time.Minute
+	guestInfoIPLimit  = 300
+	guestInfoIPWindow = time.Minute
 	guestSubmitLimit  = 20
 	guestSubmitWindow = time.Minute
 	guestIPLimit      = 60
