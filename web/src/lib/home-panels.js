@@ -29,3 +29,7 @@ export function showAuditLog() {
 export function showAboutPanel() {
   return openComponent('AboutPanel', '本机与关于')
 }
+
+export function showBackupHealth() {
+  return openComponent('BackupHealthCenter', '备份健康中心', 'large')
+}

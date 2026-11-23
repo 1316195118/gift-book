@@ -105,3 +105,15 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:18199
         run: npm run e2e:smoke
+
+      - name: Run insights and cross-ledger E2E
+        working-directory: web
+        env:
+          BASE_URL: http://127.0.0.1:18199
+        run: npm run e2e:insights
+
+      - name: Run responsive E2E
+        working-directory: web
+        env:
+          BASE_URL: http://127.0.0.1:18199
+        run: npm run e2e:responsive

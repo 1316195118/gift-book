@@ -28,6 +28,7 @@ import { returnRecordsOf, totalReturnedOf, appendReturn, removeReturn, hasReturn
 import { compareGiftsByRegistration, registeredAtOf } from './gift-order.js'
 import { markRecentEntry } from './recent-entry.js'
 import { isArchived, ensureWritable } from './archive.js'
+import { currentOperator } from './operator.js'
 
 export const MAX_GIFT_NAME = 20
 export const MAX_GIFT_AMOUNT = 1000000
@@ -151,9 +152,15 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
 
   let queued = null
   let record = null
+  let fullGift = null
   try {
     noteRecentSubmit(giftData.name, giftData.amount, recentScope())
-    const fullGift = { ...giftData, timestamp: timestampOverride || new Date().toISOString(), late }
+    fullGift = {
+      ...giftData,
+      operator: currentOperator(st.family?.id),
+      timestamp: timestampOverride || new Date().toISOString(),
+      late,
+    }
     const encryptedContent = await encryptData(fullGift, st.currentPassword)
     record = { eventId: st.currentEvent.id, encryptedContent, requestId: newRequestId() }
     // 服务端近邻去重：clientAt 是录入时间，nameHash 不可逆，只用于比较同名。
@@ -219,20 +226,25 @@ async function saveGiftInner(giftData, resetForm, timestampOverride) {
         showAlert('错误', `录入失败：${error.message}`)
         return
       }
-      await handleOffline(record, giftData, queued, error instanceof ApiError && error.code !== 'NETWORK')
+      await handleOffline(record, giftData, queued, error instanceof ApiError && error.code !== 'NETWORK', fullGift)
       return
     }
     showAlert('错误', error.message ? `录入失败：${error.message}` : '录入失败。')
   }
 }
 
-async function handleOffline(record, giftData, item, serverIssue) {
+async function handleOffline(record, giftData, item, serverIssue, fullGift = null) {
+  const displayData = fullGift || {
+    ...giftData,
+    operator: currentOperator(st.family?.id),
+    timestamp: item.queuedAt,
+  }
   st.gifts.push({
     id: item.qid,
     eventId: record.eventId,
     encryptedContent: record.encryptedContent,
     pending: true,
-    data: { ...giftData, timestamp: item.queuedAt },
+    data: displayData,
   })
   st.currentPage = pageOfIndexFor(st.gifts.length - 1, st.gifts.length)
   markRecentEntry({ index: st.gifts.length - 1, name: giftData.name, amount: giftData.amount })
@@ -361,6 +373,10 @@ export function openGiftDetails(index) {
         <button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="relation">修改</button>
       </div>
       <div class="p-2 hover:bg-gray-50 rounded">
+        <strong>操作人:</strong> <span class="ml-2">${escapeHtml(data.operator || '未记录')}</span>
+        ${data.updatedBy && data.updatedBy !== data.operator ? `<span class="text-sm text-gray-500"> · 最后修改 ${escapeHtml(data.updatedBy)}</span>` : ''}
+      </div>
+      <div class="p-2 hover:bg-gray-50 rounded">
         <div class="flex justify-between items-start"><strong>备注:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="remarks">修改</button></div>
         <p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">${data.remarks ? escapeHtml(data.remarks) : '（无备注）'}</p>
       </div>
@@ -414,7 +430,10 @@ function renderTimeline(history, current) {
   const item = (time, text, isCurrent = false) =>
     `<li class="gb-timeline-item${isCurrent ? ' is-current' : ''}"><span class="gb-timeline-dot" aria-hidden="true"></span><div class="gb-timeline-time">${time}</div>${text ? `<div class="gb-timeline-text">${text}</div>` : ''}</li>`
   return `<ul class="gb-timeline">${reversed
-    .map((record) => item(new Date(record.timestamp).toLocaleString('zh-CN'), escapeHtml(record.changeLog)))
+    .map((record) => item(
+      new Date(record.timestamp).toLocaleString('zh-CN'),
+      `${record.operator ? `<span class="gb-timeline-operator">${escapeHtml(record.operator)}</span> · ` : ''}${escapeHtml(record.changeLog)}`,
+    ))
     .join('')}${item(`当前状态 (${new Date(current.updatedAt || current.timestamp).toLocaleString('zh-CN')})`, '', true)}</ul>`
 }
 
@@ -775,11 +794,21 @@ export async function updateWithHistory(index, fields, changeLog, options = {}) 
   if (!gift) return false
   const current = { ...gift.data }
   const now = new Date().toISOString()
-  const snapshot = { name: current.name, amount: current.amount, type: current.type, relation: current.relation, remarks: current.remarks, timestamp: current.timestamp }
-  const historyEntry = { timestamp: now, changeLog, snapshot }
+  const operator = currentOperator(st.family?.id)
+  const snapshot = {
+    name: current.name,
+    amount: current.amount,
+    type: current.type,
+    relation: current.relation,
+    remarks: current.remarks,
+    operator: current.operator || '',
+    timestamp: current.timestamp,
+  }
+  const historyEntry = { timestamp: now, operator, changeLog, snapshot }
   const updated = {
     ...current,
     ...fields,
+    updatedBy: operator,
     // 登记顺序以首次录入时间为准：修改只写 updatedAt，绝不动 timestamp。
     updatedAt: now,
     late: isLate(gift),

@@ -6,6 +6,7 @@ import { encryptData, loadGiftsForCurrentEvent } from '../bootstrap.js'
 import { enqueueGift, removeQueued, readQueue, writeQueue } from './offline.js'
 import { api, ApiError } from './api.js'
 import { paintQueueCount } from './queue-count.js'
+import { currentOperator } from './operator.js'
 
 const MAX_NAME = 20
 const MAX_AMOUNT = 1000000
@@ -167,7 +168,13 @@ async function confirmImport() {
   let failed = 0
   for (const row of pending.records) {
     if (st.currentEvent?.id !== targetId) break
-    const gift = { ...row, timestamp: new Date().toISOString(), late: false, source: 'csv-import' }
+    const gift = {
+      ...row,
+      operator: currentOperator(st.family?.id),
+      timestamp: new Date().toISOString(),
+      late: false,
+      source: 'csv-import',
+    }
     try {
       const encryptedContent = await encryptData(gift, st.currentPassword)
       const record = { eventId: targetId, encryptedContent, requestId: newRequestId() }

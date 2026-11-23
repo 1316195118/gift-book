@@ -1,7 +1,7 @@
 {
   "name": "giftbook-web",
   "private": true,
-  "version": "2.4.50",
+  "version": "2.4.51",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "e2e:smoke": "node e2e/smoke.mjs",
     "e2e:responsive": "node e2e/responsive.mjs",
     "e2e:article": "node e2e/article-pages.mjs",
+    "e2e:insights": "node e2e/insights.mjs",
     "e2e:perf": "node e2e/perf-audit.mjs"
   },
   "dependencies": {

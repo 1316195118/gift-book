@@ -9,6 +9,7 @@ import { newRequestId } from './format.js'
 import { enqueueGift, readQueue, writeQueue } from './offline.js'
 import { api, ApiError } from './api.js'
 import { paintQueueCount } from './queue-count.js'
+import { currentOperator } from './operator.js'
 
 const MAX_GIFT_NAME = 20
 const MAX_GIFT_AMOUNT = 1000000
@@ -60,6 +61,8 @@ export async function openOcr() {
       ) {
         throw new Error('姓名、金额或收款方式无效，请重新核对。')
       }
+      const score = Number(row.score)
+      const confidence = Number.isFinite(score) ? Math.max(0, Math.min(1, score)) : 1
       const fullGift = {
         name,
         amount,
@@ -67,8 +70,14 @@ export async function openOcr() {
         remarks: String(row.remarks || '').slice(0, 4000),
         timestamp: new Date().toISOString(),
         late,
+        operator: currentOperator(st.family?.id),
         source: 'paper-ocr',
         ocrReviewed: true,
+        ocrConfidence: confidence,
+        ocrWarnings: [
+          ...(row.warning ? [String(row.warning)] : []),
+          ...(confidence < .85 ? ['识别置信度较低，请对照原图复核'] : []),
+        ],
       }
       const record = { eventId: targetId, encryptedContent: await encryptData(fullGift, st.currentPassword), requestId: row.requestId }
       const queued = enqueueGift(record)

@@ -17,6 +17,8 @@ export const state = reactive({
   eventsLoaded: false,
   eventsLoading: false,
   ledgerKeys: new Map(),
+  // 只存在当前标签页内存里：用于本次会话内已解锁账簿的跨簿档案汇总。
+  ledgerPasswords: new Map(),
 
   // 界面
   route: 'home', // home | template | setup | main
@@ -90,6 +92,7 @@ export function applyLargeText(on) {
 export function rememberLedgerKey(eventId, password) {
   if (!eventId || !password) return
   state.ledgerKeys.set(String(eventId), ledgerKeyFor(password))
+  state.ledgerPasswords.set(String(eventId), password)
 }
 
 export function ledgerKeyForEvent(eventId) {
@@ -97,6 +100,8 @@ export function ledgerKeyForEvent(eventId) {
 }
 
 export const hasLedgerKey = (eventId) => Boolean(state.ledgerKeys.get(String(eventId)))
+
+export const ledgerPasswordForEvent = (eventId) => state.ledgerPasswords.get(String(eventId)) || ''
 
 // 会话恢复：每个标签页独立密钥，10 分钟内刷新可回到原账簿。
 const sessionKey = () => {

@@ -5,7 +5,7 @@ import { showAutoBackupModal, showAccessModal, logout } from './actions.js'
 import { showTrashModal } from './trash.js'
 import { showFamilyAdmin } from './family-admin.js'
 import { showFamilyBackup } from './family-backup.js'
-import { showFamilySettings, showFamilyArchives, showFamilyOverview, showAuditLog, showAboutPanel } from './home-panels.js'
+import { showFamilySettings, showFamilyArchives, showFamilyOverview, showAuditLog, showAboutPanel, showBackupHealth } from './home-panels.js'
 import { escapeHtml } from './crypto.js'
 
 const ICONS = {
@@ -46,6 +46,7 @@ export function showHomeSettings() {
   const groups = []
 
   const dataItems = []
+  dataItems.push(item('backuphealth', '备份健康中心', '检查最近备份、任务错误、备份数量与磁盘余量', 'shield'))
   if (isAdmin) {
     dataItems.push(item('backup', '备份与恢复', '整站备份、自动备份、换机器还原（仅管理员）', 'backup'))
   }
@@ -129,6 +130,7 @@ export function showHomeSettings() {
       // 等当前弹窗退场后再打开目标面板，避免两个弹窗抢同一个容器。
       setTimeout(() => {
         if (act === 'backup') showAutoBackupModal()
+        if (act === 'backuphealth') showBackupHealth()
         if (act === 'familybackup') showFamilyBackup()
         if (act === 'trash') showTrashModal()
         if (act === 'archives') showFamilyArchives()

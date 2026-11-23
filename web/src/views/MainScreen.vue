@@ -39,6 +39,10 @@
             <button id="lock-btn" class="main-tool" type="button" title="暂时锁定录入与修改" @click="onToggleLock">{{ st.locked ? '解锁' : '锁定' }}</button>
             <button id="qr-show-btn" class="main-tool" type="button" title="展示或上传收款码" @click="showQr">收款码</button>
             <button id="stats-btn" class="main-tool" type="button" title="金额、人数与分类汇总" @click="openStats">统计</button>
+            <button id="review-btn" class="main-tool" type="button" title="核对同名、大额与低置信度记录" @click="openReviewQueue">
+              核对<span v-if="reviewCount" class="main-tool-badge">{{ reviewCount > 99 ? '99+' : reviewCount }}</span>
+            </button>
+            <button id="guest-profile-btn" class="main-tool" type="button" title="查看来宾在本会话已解锁账簿中的往来" @click="openGuestProfiles">档案</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
             <button id="print-btn" class="main-tool" type="button" title="打印礼簿（可选字号与页边距）" @click="openPrint">打印</button>
             <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
@@ -67,7 +71,12 @@
               <span>{{ copy.entryTitle }}</span>
               <span v-if="queueCount" id="entry-pending" class="entry-pending"><i aria-hidden="true"></i>待同步<b>{{ queueCount }}</b></span>
             </h2>
-            <p>{{ copy.entrySub }}</p>
+            <div class="entry-heading-meta">
+              <p>{{ copy.entrySub }}</p>
+              <button type="button" class="operator-chip" title="切换本次录入与修改的操作人" @click="chooseOperator">
+                <span aria-hidden="true"></span>操作人 · {{ operatorName }}
+              </button>
+            </div>
           </div>
 
           <form id="add-gift-form" @submit.prevent="onSubmit" @keydown.alt.s.prevent="onBlank" autocomplete="off">
@@ -261,6 +270,9 @@ import { focusGiftRow } from '../lib/ledger-actions.js'
 import { recentEntry } from '../lib/recent-entry.js'
 import { isArchived } from '../lib/archive.js'
 import { pageRangeFor } from '../lib/page-size.js'
+import { openGuestProfiles, openReviewQueue } from '../lib/insights.js'
+import { buildReviewQueue, filterReviewed } from '../lib/review-queue.js'
+import { currentOperator, openOperatorPicker } from '../lib/operator.js'
 
 const dropdownOpen = ref(false)
 const searchName = ref('')
@@ -269,6 +281,8 @@ const searchRelation = ref('')
 const searchType = ref('')
 const searchFilterOpen = ref(false)
 const searchUnreturned = ref(false)
+const operatorName = ref(currentOperator(st.family?.id))
+const reviewTick = ref(0)
 const ENTRY_SHOW_KEY = 'gb-entry-show'
 function readEntryShow() {
   try {
@@ -347,6 +361,10 @@ const pages = computed(() => totalPages())
 const stats = computed(() => computeStats(st.gifts))
 // 结簿归档与手动锁定共用一套禁用逻辑，但只读横幅单独提示、不遮住礼簿。
 const readOnly = computed(() => st.locked || isArchived())
+const reviewCount = computed(() => {
+  reviewTick.value
+  return filterReviewed(buildReviewQueue(st.gifts), st.currentEvent?.id).length
+})
 
 // 汇总金额变化时做一次 count-up；但首次拿到账簿数据要直接显示，
 // 否则进入账簿会先播 420ms 数字滚动，看起来像还在加载。
@@ -479,6 +497,9 @@ const onRetrySync = async () => {
   await syncEventTotal()
 }
 const showQr = () => showQrDialog()
+const chooseOperator = () => openOperatorPicker(st.family?.id, (name) => {
+  operatorName.value = name
+})
 
 function menu(action) {
   dropdownOpen.value = false
@@ -704,6 +725,10 @@ function handleVisible() {
   }
 }
 
+function onReviewChanged() {
+  reviewTick.value += 1
+}
+
 onMounted(() => {
   screenUnmounted = false
   document.addEventListener('click', onDocClick)
@@ -711,6 +736,7 @@ onMounted(() => {
   // 手机浏览器会冻结后台页面、断掉 SSE：切回前台时主动补一次同步，
   // 不用用户手动刷新才能看到别的设备新记的礼金或改过的每页行数。
   document.addEventListener('visibilitychange', handleVisible)
+  window.addEventListener('gb-review-change', onReviewChanged)
   // 网络从断开恢复、或 SSE 断线重连成功时，立即补一次当前账簿的变更。
   stopNetworkWatch = watch(
     () => net.health.level,
@@ -726,6 +752,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onKeydown)
   document.removeEventListener('visibilitychange', handleVisible)
+  window.removeEventListener('gb-review-change', onReviewChanged)
   stopNetworkWatch?.()
   stopNetworkWatch = null
   stopRealtime()

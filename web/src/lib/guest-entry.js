@@ -56,7 +56,8 @@ async function confirmOne(ev, id) {
   if (!item) return false
   const gift = {
     name: item.name, amount: Number(item.amount), relation: item.relation || '',
-    note: item.note || '', timestamp: new Date().toISOString(), late: false, source: 'guest-qr',
+    note: item.note || '', operator: '宾客自助登记',
+    timestamp: new Date().toISOString(), late: false, source: 'guest-qr',
   }
   const encryptedContent = await encryptData(gift, st.currentPassword)
   await api.createGift({ eventId: ev.id, encryptedContent, requestId: newRequestId() })

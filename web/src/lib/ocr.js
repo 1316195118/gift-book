@@ -287,7 +287,7 @@
           <details class="ocr-raw"><summary>查看识别原文与未配对内容</summary><pre id="ocr-raw-text">尚未识别</pre></details>
         </section>
         <section class="ocr-review" aria-label="识别结果核对">
-          <div class="ocr-section-title"><b>02 核对每一笔</b><button type="button" id="ocr-add-row">＋ 手动补一笔</button></div>
+          <div class="ocr-section-title"><b>02 核对每一笔</b><span class="ocr-review-actions"><button type="button" id="ocr-low-filter" hidden>只看低置信度</button><button type="button" id="ocr-add-row">＋ 手动补一笔</button></span></div>
           <p class="ocr-note">识别结果只是草稿。点击记录可切换原图定位；收款方式默认“其他”，请按原件修改。</p>
           <div id="ocr-empty" class="ocr-empty"><span aria-hidden="true">簿</span><strong>先上传，再安心核对</strong><p>姓名、金额和备注将在这里整理<br>确认之前，不会写入任何账目</p></div>
           <div id="ocr-rows"></div>
@@ -299,13 +299,14 @@
     document.body.style.overflow = "hidden";
     const scan = root.GiftBookScan || null;
     let preparing = false, stopCamera = null;
-    let files = [], rows = [], busy = "", activeIndex = 0, controller, closed = false, interrupted = false, lastLayout = "auto";
+    let files = [], rows = [], busy = "", activeIndex = 0, controller, closed = false, interrupted = false, lastLayout = "auto", lowOnly = false;
     const $ = selector => dialog.querySelector(selector);
     const status = text => { $("#ocr-status").textContent = text; };
     const money = n => new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(n);
     const writableRows = () => rows.filter(r => r.selected && !["saved", "queued"].includes(r.state));
     const invalidate = () => { $("#ocr-reviewed").checked = false; };
     const valid = row => row.name.trim().length >= 1 && row.name.trim().length <= 20 && parseAmount(row.amount) !== null && parseAmount(row.amount) >= .01 && parseAmount(row.amount) <= 1000000;
+    const lowConfidence = row => Number(row.score) < .85 || !!row.warning;
     function warnings(row) {
       const list = [];
       if (!valid(row)) list.push("请填写有效姓名和金额（0.01～100 万，最多两位小数）");
@@ -317,7 +318,13 @@
     function sync() {
       const selected = writableRows(), amount = selected.reduce((n, r) => n + (parseAmount(r.amount) ?? 0), 0);
       const saved = rows.filter(r => r.state === "saved").length, queued = rows.filter(r => r.state === "queued").length;
-      $("#ocr-summary").textContent = `待导入 ${selected.length} 笔 · ${money(amount)}${saved ? ` · 已导入 ${saved} 笔` : ""}${queued ? ` · 加密待同步 ${queued} 笔` : ""}`;
+      const lowCount = rows.filter(row => !["saved", "queued"].includes(row.state) && lowConfidence(row)).length;
+      $("#ocr-summary").textContent = `待导入 ${selected.length} 笔 · ${money(amount)}${lowCount ? ` · 低置信度 ${lowCount} 笔` : ""}${saved ? ` · 已导入 ${saved} 笔` : ""}${queued ? ` · 加密待同步 ${queued} 笔` : ""}`;
+      const lowFilter = $("#ocr-low-filter");
+      lowFilter.hidden = !lowCount;
+      lowFilter.classList.toggle("is-active", lowOnly);
+      lowFilter.setAttribute("aria-pressed", String(lowOnly));
+      lowFilter.textContent = lowOnly ? `显示全部（${rows.length} 笔）` : `只看低置信度（${lowCount} 笔）`;
       $("#ocr-import").disabled = !!busy || !selected.length || !selected.every(valid) || !$("#ocr-reviewed").checked;
       $("#ocr-recognize").disabled = !!busy || preparing || !files.length || saved + queued > 0;
       $("#ocr-recognize").textContent = busy === "recognize" ? "正在本地识别…" : rows.length ? "重新识别（替换草稿）" : "开始识别";
@@ -328,8 +335,8 @@
       $("#ocr-layout").disabled = !!busy || saved + queued > 0;
       dialog.querySelectorAll("[data-remove]").forEach(button => { button.disabled = !!busy || saved + queued > 0; });
       $("#ocr-reviewed").disabled = !!busy;
-      dialog.querySelectorAll(".ocr-row").forEach((el, i) => {
-        const row = rows[i], locked = !!busy || ["saved", "queued"].includes(row.state);
+      dialog.querySelectorAll(".ocr-row").forEach((el) => {
+        const row = rows[Number(el.dataset.row)], locked = !!busy || ["saved", "queued"].includes(row.state);
         el.querySelectorAll("input,select,button").forEach(e => { e.disabled = locked; });
         const info = el.querySelector(".ocr-row-info");
         info.textContent = row.state === "saved" ? "已加密导入" : row.state === "queued" ? "已加密暂存，等待自动同步" : warnings(row).join(" · ") || "请对照原图核对";
@@ -373,13 +380,13 @@
     function renderRows() {
       $("#ocr-empty").hidden = rows.length > 0;
       // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
-      $("#ocr-rows").innerHTML = rows.map((row, i) => `<article class="ocr-row" data-row="${i}">
+      $("#ocr-rows").innerHTML = rows.map((row, i) => ({ row, i })).filter(({ row }) => !lowOnly || lowConfidence(row)).map(({ row, i }) => `<article class="ocr-row${lowConfidence(row) ? " is-low-confidence" : ""}" data-row="${i}">
         <div class="ocr-row-top"><label><input type="checkbox" data-field="selected" ${row.selected ? "checked" : ""}>第 ${i + 1} 笔${row.pageIndex >= 0 ? ` · 第 ${row.pageIndex + 1} 页` : " · 手动补录"}</label><button type="button" data-action="locate">对照原图</button></div>
         <label>姓名<input data-field="name" type="text" maxlength="20" autocomplete="off" value="${esc(row.name)}" aria-label="第 ${i + 1} 笔姓名"></label>
         <label>金额 / 元<input data-field="amount" type="text" inputmode="decimal" autocomplete="off" value="${esc(row.amount)}" aria-label="第 ${i + 1} 笔金额"></label>
         <label>收款方式<select data-field="type" aria-label="第 ${i + 1} 笔收款方式">${["其他", "现金", "支付宝", "微信"].map(t => `<option ${row.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
         <label class="ocr-remarks">备注<input data-field="remarks" type="text" maxlength="1000" value="${esc(row.remarks)}" aria-label="第 ${i + 1} 笔备注"></label>
-        <p class="ocr-row-info"></p></article>`).join("");
+        <p class="ocr-row-info"></p></article>`).join("") || '<div class="ocr-empty"><strong>没有低置信度记录</strong><p>当前草稿都已达到基础识别阈值，仍请对照原图核对。</p></div>';
       $("#ocr-rows").querySelectorAll("[data-field]").forEach(input => input.addEventListener("input", () => {
         const row = rows[Number(input.closest("[data-row]").dataset.row)];
         row[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value;
@@ -597,6 +604,10 @@
       : "当前为局域网 http 访问，浏览器不允许网页直接取景：将调起系统相机，拍完自动找边拉正，可手动微调。";
     $("#ocr-recognize").onclick = recognize;
     $("#ocr-reviewed").onchange = sync;
+    $("#ocr-low-filter").onclick = () => {
+      lowOnly = !lowOnly;
+      renderRows();
+    };
     $("#ocr-import").onclick = importSelected;
     $("#ocr-add-row").onclick = () => { rows.push(makeRow({ name: "", amount: "", score: 1, warning: "手动补录，请核对原图" }, -1)); rows[rows.length - 1].selected = true; invalidate(); renderRows(); $("#ocr-rows .ocr-row:last-child input[data-field=name]").focus(); };
     $("#ocr-layout").onchange = () => {

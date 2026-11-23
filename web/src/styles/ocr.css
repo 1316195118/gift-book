@@ -60,6 +60,11 @@
 .ocr-row-info { margin: 0; font-size: 10px; line-height: 1.8; color: var(--muted); overflow-wrap: anywhere; }
 .ocr-row-warning { border-color: var(--gold, #b69761); }
 .ocr-row-warning .ocr-row-info { color: var(--accent); }
+.ocr-row.is-low-confidence { border-color: color-mix(in srgb, var(--warn) 52%, var(--line)); box-shadow: inset 3px 0 var(--warn); }
+.ocr-row.is-low-confidence .ocr-row-info { color: var(--warn); font-weight: 550; }
+.ocr-review-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.paper-ocr .ocr-review-actions button { min-height: 32px; padding-inline: 10px; border-radius: 18px; background: var(--surface-sunken); color: var(--muted); font-size: 10px; }
+.paper-ocr .ocr-review-actions button:hover:not(:disabled), .paper-ocr .ocr-review-actions button.is-active { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
 .ocr-summary { padding: 12px 14px; color: var(--accent); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; margin-top: 16px; background: var(--accent-soft); }
 .ocr-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); padding: 16px 28px 20px; background: var(--surface); flex: none; }
 .ocr-footer > div { min-width: 0; }

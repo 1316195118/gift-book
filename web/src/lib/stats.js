@@ -5,6 +5,7 @@ import { openCrossSummary } from './cross-summary.js'
 import { copyOf, isSolemnEvent } from './content.js'
 import { formatCurrency, formatDateTime, escapeHtml } from './crypto.js'
 import { computeStats } from './stats-core.js'
+import { openAnnualReport } from './insights.js'
 export { computeStats }
 
 // 同名记录：同名不等于重复（可能真是两位同名客人），只列出来供核对。
@@ -64,6 +65,7 @@ export function openStats() {
           <li class="stat-line"><span>人均礼金</span> <span>${formatCurrency(stats.average)}</span></li>
         </ul></div>
         <div class="stats-block"><h4 class="font-semibold mb-2">同名记录</h4>${duplicateGroups().length ? `<button type="button" id="dup-names-btn" class="gb-link-btn">检查同名（${duplicateGroups().length} 组）</button>` : '<p class="text-sm text-gray-500">没有同名记录。</p>'}</div>
+        <div class="stats-block"><h4 class="font-semibold mb-2">年度报告</h4><button type="button" id="annual-report-btn" class="gb-link-btn">生成人情往来年度报告 →</button></div>
         <div class="stats-block"><h4 class="font-semibold mb-2">金额 Top 5</h4><ul class="space-y-2">${stats.topGivers.map(([name, amount], i) => `<li class="stat-line"><span>${i + 1}. ${escapeHtml(name)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
       </div>
     </div>
@@ -87,6 +89,10 @@ export function openStats() {
   const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', formatDateTime(g.data.timestamp)])
   afterModalRender(() => {
     document.getElementById('dup-names-btn')?.addEventListener('click', () => openDuplicateNames())
+    document.getElementById('annual-report-btn')?.addEventListener('click', () => {
+      closeModal()
+      setTimeout(() => openAnnualReport(), 120)
+    })
     const table = renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
     renderCharts(stats, table)
   })

@@ -57,6 +57,37 @@ async function horizontalOverflow(page) {
   })
 }
 
+async function ensureSetupScreen(page) {
+  const setup = page.locator('#setup-screen')
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await setup.isVisible()) {
+      await page.waitForTimeout(250)
+      if (await setup.isVisible()) return
+    }
+    if (await page.locator('.tpl-card').first().isVisible()) {
+      await page.locator('.tpl-card').first().click()
+    } else if (await page.locator('#home-main-card').isVisible()) {
+      await page.locator('#home-main-card').click()
+      await page.locator('.tpl-card').first().waitFor({ state: 'visible', timeout: 5000 })
+      await page.locator('.tpl-card').first().click()
+    }
+    await setup.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(300)
+  }
+}
+
+async function ensureTemplateScreen(page) {
+  const template = page.locator('.tpl-card').first()
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await template.isVisible()) return
+    if (await page.locator('#home-main-card').isVisible()) {
+      await page.locator('#home-main-card').click()
+    }
+    await template.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(300)
+  }
+}
+
 async function auditInteractiveTargets(page) {
   return page.evaluate(() => {
     const seen = []
@@ -143,15 +174,13 @@ for (const [name, width, height] of viewports) {
     check(`${name} 首页图片语义完整`, homeImages.length === 0, homeImages.join(' | '))
     await page.screenshot({ path: join(OUT, `${name}-01-home.png`), fullPage: true })
 
-    await page.locator('#home-main-card').click()
-    await page.locator('.tpl-card').first().waitFor({ state: 'visible', timeout: 5000 })
+    await ensureTemplateScreen(page)
     check(`${name} 模板页可见`, await page.locator('.tpl-card').first().isVisible())
     check(`${name} 模板页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const templateTargets = await auditInteractiveTargets(page)
     check(`${name} 模板页触控目标不小于 44px`, templateTargets.length === 0, templateTargets.join(' | '))
 
-    await page.locator('.tpl-card').first().click()
-    await page.locator('#setup-screen').waitFor({ state: 'visible', timeout: 5000 })
+    await ensureSetupScreen(page)
     check(`${name} 创建页可见`, await page.locator('#setup-screen').isVisible())
     check(`${name} 创建页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const setupTargets = await auditInteractiveTargets(page)
