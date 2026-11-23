@@ -168,8 +168,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
   padding: var(--sp-10) 0 var(--sp-7);
+}
+
+.hero-support {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  width: 100%;
 }
 
 /* 眉题：前面一道朱线，像在纸上起的界栏 */
@@ -206,6 +214,10 @@
   letter-spacing: .12em;
 }
 
+#home-title {
+  margin-bottom: 0;
+}
+
 #home-sub,
 #tpl-sub {
   max-width: 44em;
@@ -222,6 +234,7 @@
   flex-wrap: wrap;
   gap: var(--sp-2) var(--sp-5);
   flex: none;
+  margin-left: auto;
 }
 
 .home-trust span {

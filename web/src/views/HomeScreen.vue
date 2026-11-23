@@ -19,17 +19,19 @@
         <div class="hero-copy">
           <div class="eyebrow" id="home-eyebrow">{{ catText.eyebrow }}</div>
           <h1 id="home-title">{{ catText.title }}</h1>
-          <div class="sub" id="home-sub">{{ catText.sub }}</div>
         </div>
-        <div class="home-trust" aria-label="本地部署、加密存储、便捷导出">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2" /><rect x="4" y="14" width="16" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" stroke-linecap="round" /></svg>本地部署</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" stroke-linecap="round" /></svg>加密存储</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke-linecap="round" stroke-linejoin="round" /></svg>便捷导出</span>
+        <div class="hero-support">
+          <div class="sub" id="home-sub">{{ catText.sub }}</div>
+          <div class="home-trust" aria-label="本地部署、加密存储、便捷导出">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2" /><rect x="4" y="14" width="16" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" stroke-linecap="round" /></svg>本地部署</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" stroke-linecap="round" /></svg>加密存储</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke-linecap="round" stroke-linejoin="round" /></svg>便捷导出</span>
+          </div>
         </div>
       </section>
 
       <div class="choice-grid">
-        <div class="choice-card" id="home-main-card" role="button" tabindex="0" aria-label="选择礼簿模板" @click="showTemplates(st.homeCategory)" @keydown.enter.prevent="showTemplates(st.homeCategory)" @keydown.space.prevent="showTemplates(st.homeCategory)">
+        <div class="choice-card" id="home-main-card" role="button" tabindex="0" :aria-label="`选择${isSolemn ? '白事' : '红事'}场景并创建礼簿`" @click="showTemplates(st.homeCategory)" @keydown.enter.prevent="showTemplates(st.homeCategory)" @keydown.space.prevent="showTemplates(st.homeCategory)">
           <div class="hero-book-art" aria-hidden="true">
             <div class="book">
               <div class="book-pages"></div>
@@ -65,64 +67,65 @@
         </aside>
       </div>
 
-      <div class="section-head recent-head">
-        <div class="recent-head-title">
-          <h2>最近账簿</h2>
-          <span class="section-note">打开后自动汇总金额与人数</span>
+      <template v-if="showRecentSection">
+        <div class="section-head recent-head">
+          <div class="recent-head-title">
+            <h2>最近账簿</h2>
+            <span class="section-note">打开后自动汇总金额与人数</span>
+          </div>
+          <div class="recent-nav" id="recent-nav">
+            <span class="recent-nav-hint">左右滑动查看</span>
+            <button type="button" class="recent-arrow" id="recent-prev" aria-label="上一组账簿" :disabled="!canPrev" @click="scrollRecent(-1)">‹</button>
+            <button type="button" class="recent-arrow" id="recent-next" aria-label="下一组账簿" :disabled="!canNext" @click="scrollRecent(1)">›</button>
+          </div>
         </div>
-        <div class="recent-nav" id="recent-nav">
-          <span class="recent-nav-hint">左右滑动查看</span>
-          <button type="button" class="recent-arrow" id="recent-prev" aria-label="上一组账簿" :disabled="!canPrev" @click="scrollRecent(-1)">‹</button>
-          <button type="button" class="recent-arrow" id="recent-next" aria-label="下一组账簿" :disabled="!canNext" @click="scrollRecent(1)">›</button>
-        </div>
-      </div>
 
-      <div ref="recentEl" id="recent-events" class="recent-list" :aria-busy="st.eventsLoading && !st.eventsLoaded">
-        <div v-if="st.eventsLoading && !st.eventsLoaded" class="recent-skeleton-group" aria-label="正在加载最近账簿">
-          <div v-for="n in 3" :key="n" class="recent-skeleton" aria-hidden="true">
-            <span class="sk-line w60"></span>
-            <span class="sk-line w40"></span>
-            <span class="sk-line w80"></span>
-          </div>
-        </div>
-        <div v-else-if="!recentEvents.length" class="recent-empty">还没有{{ isSolemn ? '白事' : '红事' }}账簿，点击「创建新账簿」开始第一本。</div>
-        <div
-          v-for="ev in recentEvents"
-          :key="ev.id"
-          class="recent-item"
-          :class="isSolemnEvent(ev) ? 'white' : 'red'"
-          role="button"
-          tabindex="0"
-          @click="openEvent(ev)"
-          @keydown.enter.prevent="openEvent(ev)"
-        >
-          <div class="recent-body">
-            <div class="recent-top">
-              <div class="rn">{{ ev.name || '未命名账簿' }}</div>
-              <div class="recent-meta">
-                <span v-if="pendingFor(ev.id)" class="recent-pending-badge">待同步 {{ pendingFor(ev.id) }}</span>
-                <span v-if="ev.displayId" class="ledger-no">No.{{ displayIdOf(ev) }}</span>
-              </div>
-            </div>
-            <div class="rd">
-              <span class="rd-date" :title="ceremonyTitle(ev)">{{ cardDateText(ev) }}</span>
-              <span v-if="ev.location" class="rd-dot">·</span>
-              <span v-if="ev.location" class="rd-loc">{{ ev.location }}</span>
-            </div>
-            <div class="rfoot">
-              <span class="rtag">{{ templateLabel(ev) }}</span>
-              <div class="recent-money">
-                <span class="rm-value" :class="{ hidden: masked.has(ev.id) }"><span class="rm-count">{{ countText(ev) }}</span><span class="rm-amount">{{ amountText(ev) }}</span></span>
-                <span class="rm-mask" :class="{ hidden: !masked.has(ev.id) }"><span>••• 人</span><span>¥••••</span></span>
-                <button type="button" class="eye-btn" :aria-pressed="masked.has(ev.id)" :aria-label="masked.has(ev.id) ? '显示金额与人数' : '隐藏金额与人数'" @click.stop="toggleEye(ev.id)">
-                  <svg v-if="!masked.has(ev.id)" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></svg>
-                  <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.8M6.3 6.9A16.6 16.6 0 0 0 2 12s3.5 6 10 6a10.7 10.7 0 0 0 5.4-1.4" /></svg>
-                </button>
-              </div>
+        <div ref="recentEl" id="recent-events" class="recent-list" :aria-busy="st.eventsLoading && !st.eventsLoaded">
+          <div v-if="st.eventsLoading && !st.eventsLoaded" class="recent-skeleton-group" aria-label="正在加载最近账簿">
+            <div v-for="n in 3" :key="n" class="recent-skeleton" aria-hidden="true">
+              <span class="sk-line w60"></span>
+              <span class="sk-line w40"></span>
+              <span class="sk-line w80"></span>
             </div>
           </div>
+          <div
+            v-for="ev in recentEvents"
+            :key="ev.id"
+            class="recent-item"
+            :class="isSolemnEvent(ev) ? 'white' : 'red'"
+            role="button"
+            tabindex="0"
+            @click="openEvent(ev)"
+            @keydown.enter.prevent="openEvent(ev)"
+          >
+            <div class="recent-body">
+              <div class="recent-top">
+                <div class="rn">{{ ev.name || '未命名账簿' }}</div>
+                <div class="recent-meta">
+                  <span v-if="pendingFor(ev.id)" class="recent-pending-badge">待同步 {{ pendingFor(ev.id) }}</span>
+                  <span v-if="ev.displayId" class="ledger-no">No.{{ displayIdOf(ev) }}</span>
+                </div>
+              </div>
+              <div class="rd">
+                <span class="rd-date" :title="ceremonyTitle(ev)">{{ cardDateText(ev) }}</span>
+                <span v-if="ev.location" class="rd-dot">·</span>
+                <span v-if="ev.location" class="rd-loc">{{ ev.location }}</span>
+              </div>
+              <div class="rfoot">
+                <span class="rtag">{{ templateLabel(ev) }}</span>
+                <div class="recent-money">
+                  <span class="rm-value" :class="{ hidden: masked.has(ev.id) }"><span class="rm-count">{{ countText(ev) }}</span><span class="rm-amount">{{ amountText(ev) }}</span></span>
+                  <span class="rm-mask" :class="{ hidden: !masked.has(ev.id) }"><span>••• 人</span><span>¥••••</span></span>
+                  <button type="button" class="eye-btn" :aria-pressed="masked.has(ev.id)" :aria-label="masked.has(ev.id) ? '显示金额与人数' : '隐藏金额与人数'" @click.stop="toggleEye(ev.id)">
+                    <svg v-if="!masked.has(ev.id)" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></svg>
+                    <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.8M6.3 6.9A16.6 16.6 0 0 0 2 12s3.5 6 10 6a10.7 10.7 0 0 0 5.4-1.4" /></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </template>
 
       <div class="home-bottom">
         <p>一笔一份心意，一簿一段时光。</p>
@@ -176,6 +179,8 @@ const recentEvents = computed(() => {
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
     .slice(0, 12)
 })
+
+const showRecentSection = computed(() => (st.eventsLoading && !st.eventsLoaded) || recentEvents.value.length > 0)
 
 // 最近账簿会渲染多张卡片；一次性读取并分组待同步队列，
 // 避免每张卡片都重新解析一次 localStorage。
@@ -257,17 +262,26 @@ const switchFamily = async () => {
 }
 
 onMounted(() => {
-  const el = recentEl.value
-  if (!el) return
-  el.scrollLeft = 0
-  syncArrows()
-  el.addEventListener('scroll', syncArrows, { passive: true })
   window.addEventListener('resize', syncArrows)
 })
 
 watch(
   () => recentEvents.value.length,
   () => nextTick(syncArrows),
+)
+
+watch(
+  showRecentSection,
+  async (visible) => {
+    if (!visible) return
+    await nextTick()
+    const el = recentEl.value
+    if (!el) return
+    el.scrollLeft = 0
+    syncArrows()
+    el.addEventListener('scroll', syncArrows, { passive: true })
+  },
+  { immediate: true },
 )
 
 onBeforeUnmount(() => {
