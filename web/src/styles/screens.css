@@ -3403,7 +3403,9 @@ body.theme-solemn .hero-book-art .book {
 }
 
 .home-legal-btn,
-.home-legal-link {
+.home-legal-link,
+.entry-fields-btn {
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
 }
