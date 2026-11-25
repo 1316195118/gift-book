@@ -3243,6 +3243,12 @@ body.theme-solemn .hero-book-art .book {
     white-space: nowrap;
   }
 
+  /* 手机端保留 8 个高频入口，打印和收款码只在宽屏工具栏显示。 */
+  .main-tools #qr-show-btn,
+  .main-tools #print-btn {
+    display: none;
+  }
+
   /* 图标回到字的上方：桌面端是绝对定位在左侧的 */
   .main-tools .main-tool::before {
     display: block;

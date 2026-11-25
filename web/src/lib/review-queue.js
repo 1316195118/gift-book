@@ -6,12 +6,17 @@ export const REVIEW_TYPES = {
   same_amount: { label: '同名同额', severity: 'high' },
   same_name: { label: '同名多笔', severity: 'medium' },
   large_amount: { label: '大额礼金', severity: 'medium' },
+  non_round_amount: { label: '非整十金额', severity: 'low' },
+  small_amount: { label: '金额偏小', severity: 'low' },
   ocr_low: { label: 'OCR 低置信度', severity: 'high' },
   no_note: { label: '同名未备注', severity: 'low' },
 }
 
+const SMALL_AMOUNT_CENTS = 1000
+
 const reviewKey = (eventId) => `gb-review-done:${String(eventId || 'default')}`
 const issueId = (item) => item.issues.map((issue) => issue.code).sort().join(',')
+const identityKey = (data) => `${String(data?.name || '').trim()}\u0000${String(data?.remarks || '').trim()}`
 
 export function reviewSignature(gift, issues = []) {
   const data = gift?.data || {}
@@ -38,29 +43,32 @@ export function buildReviewQueue(gifts = [], options = {}) {
   const rows = gifts
     .map((gift, giftIndex) => ({ gift, giftIndex, data: gift?.data }))
     .filter(({ data }) => data && data.kind !== 'blank' && String(data.name || '').trim())
-  const byName = new Map()
+  const byIdentity = new Map()
   rows.forEach((row) => {
-    const name = String(row.data.name).trim()
-    const list = byName.get(name) || []
+    const key = identityKey(row.data)
+    const list = byIdentity.get(key) || []
     list.push(row)
-    byName.set(name, list)
+    byIdentity.set(key, list)
   })
 
   const items = rows.map(({ gift, giftIndex, data }) => {
     const issues = []
-    const sameName = byName.get(String(data.name).trim()) || []
-    const sameAmount = sameName.filter((row) => toCents(row.data.amount) === toCents(data.amount))
-    const amounts = new Set(sameName.map((row) => toCents(row.data.amount)))
+    const sameIdentity = byIdentity.get(identityKey(data)) || []
+    const sameAmount = sameIdentity.filter((row) => toCents(row.data.amount) === toCents(data.amount))
+    const amounts = new Set(sameIdentity.map((row) => toCents(row.data.amount)))
     if (sameAmount.length > 1) issues.push({ code: 'same_amount', ...REVIEW_TYPES.same_amount })
-    else if (sameName.length > 1 && amounts.size > 1) issues.push({ code: 'same_name', ...REVIEW_TYPES.same_name })
-    if (toCents(data.amount) >= toCents(largeAmount)) issues.push({ code: 'large_amount', ...REVIEW_TYPES.large_amount })
+    else if (sameIdentity.length > 1 && amounts.size > 1) issues.push({ code: 'same_name', ...REVIEW_TYPES.same_name })
+    const amountCents = toCents(data.amount)
+    if (amountCents >= toCents(largeAmount)) issues.push({ code: 'large_amount', ...REVIEW_TYPES.large_amount })
+    if (amountCents <= SMALL_AMOUNT_CENTS) issues.push({ code: 'small_amount', ...REVIEW_TYPES.small_amount })
+    else if (amountCents % 1000 !== 0) issues.push({ code: 'non_round_amount', ...REVIEW_TYPES.non_round_amount })
     if (
       (data.source === 'paper-ocr' && Number(data.ocrConfidence) < 0.85)
       || (Array.isArray(data.ocrWarnings) && data.ocrWarnings.length > 0)
     ) {
       issues.push({ code: 'ocr_low', ...REVIEW_TYPES.ocr_low })
     }
-    if (sameName.length > 1 && !String(data.remarks || '').trim()) issues.push({ code: 'no_note', ...REVIEW_TYPES.no_note })
+    if (sameIdentity.length > 1 && !String(data.remarks || '').trim()) issues.push({ code: 'no_note', ...REVIEW_TYPES.no_note })
     return {
       giftIndex,
       id: gift.id,

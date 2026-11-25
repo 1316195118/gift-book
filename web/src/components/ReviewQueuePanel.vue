@@ -48,7 +48,7 @@
     <div v-else class="gb-review-empty">
       <span aria-hidden="true">✓</span>
       <b>当前账簿没有待核对异常</b>
-      <p>大额礼金、同名同额、同名多笔、同名未备注和低置信度 OCR 都会自动进入核对队列。</p>
+      <p>大额、非整十金额、10 元及以下、同名同额、同名多笔、同名未备注和低置信度 OCR 都会自动进入核对队列。</p>
       <button v-if="Object.keys(reviewed).length" type="button" class="gb-link-btn" @click="resetReviewed">重新显示已核对记录</button>
     </div>
   </div>

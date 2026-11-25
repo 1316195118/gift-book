@@ -39,7 +39,7 @@
             <button id="lock-btn" class="main-tool" type="button" title="暂时锁定录入与修改" @click="onToggleLock">{{ st.locked ? '解锁' : '锁定' }}</button>
             <button id="qr-show-btn" class="main-tool" type="button" title="展示或上传收款码" @click="showQr">收款码</button>
             <button id="stats-btn" class="main-tool" type="button" title="金额、人数与分类汇总" @click="openStats">统计</button>
-            <button id="review-btn" class="main-tool" type="button" title="核对同名、大额与低置信度记录" @click="openReviewQueue">
+            <button id="review-btn" class="main-tool" type="button" title="核对金额、同名、大额与低置信度记录" @click="openReviewQueue">
               核对<span v-if="reviewCount" class="main-tool-badge">{{ reviewCount > 99 ? '99+' : reviewCount }}</span>
             </button>
             <button id="guest-profile-btn" class="main-tool" type="button" title="查看来宾在本会话已解锁账簿中的往来" @click="openGuestProfiles">档案</button>

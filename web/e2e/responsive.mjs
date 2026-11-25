@@ -202,6 +202,18 @@ for (const [name, width, height] of viewports) {
 
     check(`${name} 记账页可见`, await page.locator('#entry-panel').isVisible())
     check(`${name} 核心工具栏可见`, await page.locator('.main-tools').isVisible())
+    if (width <= 640) {
+      check(
+        `${name} 手机端隐藏打印与收款码`,
+        !(await page.locator('#print-btn').isVisible()) && !(await page.locator('#qr-show-btn').isVisible()),
+      )
+      check(`${name} 手机端保留 8 个工具入口`, (await page.locator('.main-tools .main-tool:visible').count()) === 8)
+    } else {
+      check(
+        `${name} 宽屏保留打印与收款码`,
+        (await page.locator('#print-btn').isVisible()) && (await page.locator('#qr-show-btn').isVisible()),
+      )
+    }
     check(`${name} 首页与记账页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const mainTargets = await auditInteractiveTargets(page)
     check(`${name} 记账页触控目标不小于 44px`, mainTargets.length === 0, mainTargets.join(' | '))
