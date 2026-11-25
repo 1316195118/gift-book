@@ -1,9 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +21,7 @@ import (
 var base64Std = base64.StdEncoding
 
 const maxCoverImageSize = 5 * 1024 * 1024
+const maxImagePixels int64 = 25_000_000
 
 var dateTimeLayout = "2006-01-02T15:04"
 
@@ -75,7 +81,68 @@ func validImage(value any) bool {
 		return false
 	}
 	decoded, err := decodeBase64(strings.TrimSpace(match[2]))
-	return err == nil && len(decoded) > 0
+	if err != nil || len(decoded) == 0 {
+		return false
+	}
+	actualType, width, height, ok := imageInfo(decoded)
+	if !ok || actualType != strings.ToLower(match[1]) || width <= 0 || height <= 0 {
+		return false
+	}
+	return int64(width)*int64(height) <= maxImagePixels
+}
+
+// imageInfo 从真实图片头读取格式与尺寸，声明成 PNG 的 JPEG 或只有魔数的伪文件都会被拒绝。
+func imageInfo(raw []byte) (format string, width, height int, ok bool) {
+	if cfg, format, err := image.DecodeConfig(bytes.NewReader(raw)); err == nil {
+		return format, cfg.Width, cfg.Height, true
+	}
+	width, height, ok = webPInfo(raw)
+	if ok {
+		return "webp", width, height, true
+	}
+	return "", 0, 0, false
+}
+
+// Go 标准库能识别 PNG/JPEG，但不能解码 WebP；这里只解析 WebP 容器中三种编码的尺寸头。
+func webPInfo(raw []byte) (int, int, bool) {
+	if len(raw) < 20 || string(raw[0:4]) != "RIFF" || string(raw[8:12]) != "WEBP" {
+		return 0, 0, false
+	}
+	riffEnd := int64(binary.LittleEndian.Uint32(raw[4:8])) + 8
+	if riffEnd < 20 || riffEnd > int64(len(raw)) {
+		return 0, 0, false
+	}
+	for pos := 12; pos+8 <= int(riffEnd); {
+		kind := string(raw[pos : pos+4])
+		size := int(binary.LittleEndian.Uint32(raw[pos+4 : pos+8]))
+		start := pos + 8
+		end := start + size
+		if size < 0 || end > int(riffEnd) {
+			return 0, 0, false
+		}
+		chunk := raw[start:end]
+		switch kind {
+		case "VP8X":
+			if len(chunk) >= 10 {
+				width := int(chunk[4]) | int(chunk[5])<<8 | int(chunk[6])<<16
+				height := int(chunk[7]) | int(chunk[8])<<8 | int(chunk[9])<<16
+				return width + 1, height + 1, true
+			}
+		case "VP8 ":
+			if len(chunk) >= 10 && chunk[3] == 0x9d && chunk[4] == 0x01 && chunk[5] == 0x2a {
+				width := int(binary.LittleEndian.Uint16(chunk[6:8]) & 0x3fff)
+				height := int(binary.LittleEndian.Uint16(chunk[8:10]) & 0x3fff)
+				return width, height, true
+			}
+		case "VP8L":
+			if len(chunk) >= 5 && chunk[0] == 0x2f {
+				bits := binary.LittleEndian.Uint32(chunk[1:5])
+				return int(bits&0x3fff) + 1, int((bits>>14)&0x3fff) + 1, true
+			}
+		}
+		pos = end + (size & 1)
+	}
+	return 0, 0, false
 }
 
 // validateAmount 把金额规范化为 float64，并做上下限与（可选）两位小数检查。

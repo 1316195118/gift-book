@@ -3,13 +3,22 @@
 const KEY = 'giftbook-client-id'
 
 export function clientId() {
-  let id = sessionStorage.getItem(KEY)
+  let id = ''
+  try {
+    id = sessionStorage.getItem(KEY) || ''
+  } catch {
+    /* 禁用会话存储时仍让请求继续，只是每个请求生成新的临时标识 */
+  }
   if (!id) {
     id =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-    sessionStorage.setItem(KEY, id)
+    try {
+      sessionStorage.setItem(KEY, id)
+    } catch {
+      /* 同上 */
+    }
   }
   return id
 }

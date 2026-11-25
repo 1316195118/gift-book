@@ -52,9 +52,8 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.52"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.53"}
 	if len(extra) > 0 {
-		opts.StrictOrigin = extra[0].StrictOrigin
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL
 	}
@@ -170,11 +169,24 @@ func TestCrossOriginWritesRejected(t *testing.T) {
 			t.Fatalf("origin %q should be rejected, got %d", origin, res.StatusCode)
 		}
 	}
-	// 同源（含端口差异）放行
+	// 同源放行
 	origin := strings.Replace(env.server.URL, "http://", "http://", 1)
 	res, _ := env.do(t, "POST", "/api/events", body, map[string]string{"Origin": origin})
 	if res.StatusCode != 200 {
 		t.Fatalf("same origin rejected: %d", res.StatusCode)
+	}
+
+	// 协议、端口和浏览器跨站提示任一不符都拒绝。
+	httpsOrigin := strings.Replace(env.server.URL, "http://", "https://", 1)
+	res, _ = env.do(t, "POST", "/api/events", body, map[string]string{"Origin": httpsOrigin})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("same host with different scheme should be rejected, got %d", res.StatusCode)
+	}
+	res, _ = env.do(t, "POST", "/api/events", body, map[string]string{
+		"Origin": origin, "Sec-Fetch-Site": "cross-site",
+	})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("Sec-Fetch-Site cross-site should be rejected, got %d", res.StatusCode)
 	}
 }
 
@@ -209,6 +221,41 @@ func TestEventLifecycle(t *testing.T) {
 	}
 }
 
+func TestEventListOmitsImagePayloads(t *testing.T) {
+	env := newEnv(t)
+	imageData := testPNGDataURL(t, 2, 2)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{
+		"name": "图片投影测试", "passwordHash": noPassKey,
+		"coverImage": imageData, "qrcode": imageData,
+	}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create event: %d %v", res.StatusCode, payload)
+	}
+	id := payload["data"].(map[string]any)["id"].(string)
+
+	res, payload = env.do(t, "GET", "/api/events", nil, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("list events: %d", res.StatusCode)
+	}
+	listed := payload["data"].(map[string]any)[id].(map[string]any)
+	for _, field := range []string{"coverImage", "qrcode"} {
+		if _, exists := listed[field]; exists {
+			t.Fatalf("event list leaked %s", field)
+		}
+	}
+
+	res, payload = env.do(t, "GET", "/api/events/"+id, nil, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("get event: %d", res.StatusCode)
+	}
+	detail := payload["data"].(map[string]any)
+	for _, field := range []string{"coverImage", "qrcode"} {
+		if detail[field] != imageData {
+			t.Fatalf("single event lost %s", field)
+		}
+	}
+}
+
 func TestGiftFlowWithLedgerKey(t *testing.T) {
 	env := newEnv(t)
 	key := sha256Hex("secret-pass")
@@ -239,6 +286,12 @@ func TestGiftFlowWithLedgerKey(t *testing.T) {
 
 	// 乐观并发
 	next := validCipher(2)
+	res, payload = env.do(t, "PUT", "/api/gifts/"+giftID+"?eventId="+id, map[string]any{
+		"eventId": id, "encryptedContent": next,
+	}, headers)
+	if res.StatusCode != http.StatusPreconditionRequired {
+		t.Fatalf("missing ifMatch should 428, got %d %v", res.StatusCode, payload)
+	}
 	res, _ = env.do(t, "PUT", "/api/gifts/"+giftID+"?eventId="+id, map[string]any{
 		"eventId": id, "encryptedContent": next, "ifMatch": sha256Hex("wrong"),
 	}, headers)
@@ -610,25 +663,19 @@ func TestAutoBackupNameValidation(t *testing.T) {
 	}
 }
 
-// 严格 Origin 模式：默认兼容（同 host 不同端口放行），开启后要求 host:port 一致。
-func TestStrictOriginMode(t *testing.T) {
+// Origin 默认就要求 host:port 完全一致，不再依赖可选环境变量。
+func TestOriginPortMustMatch(t *testing.T) {
 	body := map[string]any{"name": "x", "passwordHash": noPassKey}
 	otherPort := map[string]string{"Origin": "http://127.0.0.1:1"}
 
-	loose := newEnv(t)
-	res, _ := loose.do(t, "POST", "/api/events", body, otherPort)
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("兼容模式应放行同 host 不同端口，实际 %d", res.StatusCode)
-	}
-
-	strict := newEnv(t, Options{StrictOrigin: true})
-	res, _ = strict.do(t, "POST", "/api/events", body, otherPort)
+	env := newEnv(t)
+	res, _ := env.do(t, "POST", "/api/events", body, otherPort)
 	if res.StatusCode != http.StatusForbidden {
-		t.Fatalf("严格模式应拒绝不同端口，实际 %d", res.StatusCode)
+		t.Fatalf("应拒绝不同端口，实际 %d", res.StatusCode)
 	}
-	res, _ = strict.do(t, "POST", "/api/events", body, map[string]string{"Origin": strict.server.URL})
+	res, _ = env.do(t, "POST", "/api/events", body, map[string]string{"Origin": env.server.URL})
 	if res.StatusCode != http.StatusOK {
-		t.Fatalf("严格模式同源应放行，实际 %d", res.StatusCode)
+		t.Fatalf("同源应放行，实际 %d", res.StatusCode)
 	}
 }
 

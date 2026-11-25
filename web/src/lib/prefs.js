@@ -4,11 +4,20 @@ const LARGE_TEXT_KEY = 'giftbook_large_text.v1'
 const PRINT_OPTIONS_KEY = 'giftbook_print_options.v1'
 const CATEGORY_KEY = 'giftbook_category'
 
-export const getHomeCategory = () =>
-  localStorage.getItem(CATEGORY_KEY) === 'white' ? 'white' : 'red'
+export const getHomeCategory = () => {
+  try {
+    return localStorage.getItem(CATEGORY_KEY) === 'white' ? 'white' : 'red'
+  } catch {
+    return 'red'
+  }
+}
 
 export const setHomeCategory = (cat) => {
-  localStorage.setItem(CATEGORY_KEY, cat === 'white' ? 'white' : 'red')
+  try {
+    localStorage.setItem(CATEGORY_KEY, cat === 'white' ? 'white' : 'red')
+  } catch {
+    /* 隐私模式或禁用存储时只影响本机偏好，不阻断进入 */
+  }
 }
 
 export function getVoiceOptions() {

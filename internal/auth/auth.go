@@ -60,6 +60,8 @@ type Manager struct {
 	throttleCache  map[string]thrustRow
 	throttleStamp  fileStamp
 	throttleLoaded bool
+	// 防爆破表读写失败时短时 fail-closed，避免磁盘异常被当成“没有失败记录”。
+	throttleFailureUntil int64
 }
 
 // Options 是构造 Manager 的可选参数。

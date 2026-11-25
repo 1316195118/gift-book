@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const throttleStorageLock = 60
+
 // thrustRow 是单个 IP 的失败计数。
 type thrustRow struct {
 	Fails   int   `json:"fails"`
@@ -20,6 +22,12 @@ type thrustRow struct {
 // readThrottle 读防爆破表；缓存按文件 stamp 失效，避免每次校验都读盘+解析。
 // 调用方须持有 m.mu。
 func (m *Manager) readThrottle() map[string]thrustRow {
+	now := time.Now().Unix()
+	if m.throttleFailureUntil > 0 && m.throttleFailureUntil <= now {
+		// 冷却期结束后强制重新探测磁盘；仍不可写时会再次进入 fail-closed。
+		m.throttleFailureUntil = 0
+		m.throttleLoaded = false
+	}
 	stamp := statFile(m.throttlePath())
 	if m.throttleLoaded && stamp == m.throttleStamp {
 		return m.throttleCache
@@ -28,7 +36,12 @@ func (m *Manager) readThrottle() map[string]thrustRow {
 	if stamp.exists {
 		raw, err := os.ReadFile(m.throttlePath())
 		if err == nil {
-			_ = json.Unmarshal(raw, &out)
+			if err := json.Unmarshal(raw, &out); err != nil {
+				out = map[string]thrustRow{}
+				m.lockThrottleStorage()
+			}
+		} else {
+			m.lockThrottleStorage()
 		}
 		if out == nil {
 			out = map[string]thrustRow{}
@@ -42,27 +55,43 @@ func (m *Manager) readThrottle() map[string]thrustRow {
 
 // writeThrottle 写回并刷新缓存；任何失败都让缓存失效，下次强制重读文件，
 // 避免内存里留下与磁盘不一致的失败计数。调用方须持有 m.mu。
-func (m *Manager) writeThrottle(data map[string]thrustRow) {
+func (m *Manager) writeThrottle(data map[string]thrustRow) error {
 	payload, err := json.Marshal(data)
 	if err != nil {
 		m.throttleLoaded = false
-		return
+		m.lockThrottleStorage()
+		return err
 	}
 	tmp := m.throttlePath() + ".tmp"
 	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
 		m.throttleLoaded = false
-		return
+		m.lockThrottleStorage()
+		return err
 	}
 	if err := os.Rename(tmp, m.throttlePath()); err != nil {
 		m.throttleLoaded = false
-		return
+		m.lockThrottleStorage()
+		return err
 	}
 	m.throttleCache = data
 	m.throttleStamp = statFile(m.throttlePath())
 	m.throttleLoaded = true
+	m.throttleFailureUntil = 0
+	return nil
+}
+
+func (m *Manager) lockThrottleStorage() {
+	until := time.Now().Unix() + throttleStorageLock
+	if until > m.throttleFailureUntil {
+		m.throttleFailureUntil = until
+	}
 }
 
 func (m *Manager) throttleStatus(ip string) thrustRow {
+	now := time.Now().Unix()
+	if m.throttleFailureUntil > now {
+		return thrustRow{Until: m.throttleFailureUntil}
+	}
 	row, ok := m.readThrottle()[ip]
 	if !ok {
 		return thrustRow{}
@@ -74,6 +103,10 @@ func (m *Manager) throttleFail(ip string) thrustRow {
 	data := m.readThrottle()
 	row := data[ip]
 	now := time.Now().Unix()
+	if m.throttleFailureUntil > now {
+		row.Until = m.throttleFailureUntil
+		return row
+	}
 	if now-row.Last > 900 {
 		row.Fails = 0
 		row.Strikes = 0
@@ -101,7 +134,9 @@ func (m *Manager) throttleFail(ip string) thrustRow {
 	if len(data) > maxThrottleRows {
 		m.pruneThrottle(data)
 	}
-	m.writeThrottle(data)
+	if err := m.writeThrottle(data); err != nil {
+		row.Until = m.throttleFailureUntil
+	}
 	return row
 }
 
@@ -126,7 +161,7 @@ func (m *Manager) throttleClear(ip string) {
 	data := m.readThrottle()
 	if _, ok := data[ip]; ok {
 		delete(data, ip)
-		m.writeThrottle(data)
+		_ = m.writeThrottle(data)
 	}
 }
 

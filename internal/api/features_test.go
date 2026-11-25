@@ -58,7 +58,7 @@ func TestArchivedEventBlocksGiftWrites(t *testing.T) {
 			"eventId": id, "encryptedContent": validCipher(12), "requestId": "req-archive-2",
 		}},
 		{"PUT", "/api/gifts/" + giftID + "?eventId=" + id, map[string]any{
-			"eventId": id, "encryptedContent": validCipher(13),
+			"eventId": id, "encryptedContent": validCipher(13), "ifMatch": sha256Hex(validCipher(11)),
 		}},
 		{"DELETE", "/api/gifts/" + giftID + "?eventId=" + id, nil},
 	}

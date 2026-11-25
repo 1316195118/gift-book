@@ -1,5 +1,5 @@
 // 收款码：上传/更换/删除，服务端保存一份，本机也留缓存以便断网展示。
-import { state as st } from '../store.js'
+import { state as st, updateSessionEvent } from '../store.js'
 import { api } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { copyOf } from './content.js'
@@ -8,7 +8,12 @@ import { qrStorageKey } from './prefs.js'
 import { showQrImage } from './qr.js'
 
 export function currentQr() {
-  return st.currentEvent?.qrcode || localStorage.getItem(qrStorageKey(st.currentEvent?.id)) || ''
+  if (st.currentEvent?.qrcode) return st.currentEvent.qrcode
+  try {
+    return localStorage.getItem(qrStorageKey(st.currentEvent?.id)) || ''
+  } catch {
+    return ''
+  }
 }
 
 export function showQrDialog() {
@@ -70,21 +75,33 @@ function uploadQr() {
   reader.readAsDataURL(file)
 }
 
-async function saveQr(dataUrl) {
+export async function saveQr(dataUrl) {
   const ev = st.currentEvent
-  const key = qrStorageKey(ev?.id)
-  if (dataUrl) localStorage.setItem(key, dataUrl)
-  else localStorage.removeItem(key)
-  if (ev) {
-    ev.qrcode = dataUrl || null
-    try {
-      await api.updateEvent(ev.id, { qrcode: dataUrl || null })
-    } catch (error) {
-      console.warn('收款码同步到服务器失败，已保存在本机', error)
-    }
+  if (!ev) {
+    showAlert('保存失败', '当前账簿已关闭，请重新打开后再设置收款码。')
+    return
   }
+  const key = qrStorageKey(ev?.id)
+  let result
+  try {
+    result = await api.updateEvent(ev.id, { qrcode: dataUrl || null })
+  } catch (error) {
+    console.warn('收款码同步到服务器失败', error)
+    showAlert('未保存', '收款码未能同步到服务器，请检查网络后重试。')
+    return
+  }
+  Object.assign(ev, result?.data || { qrcode: dataUrl || null })
+  let localCached = true
+  try {
+    if (dataUrl) localStorage.setItem(key, dataUrl)
+    else localStorage.removeItem(key)
+  } catch {
+    localCached = false
+  }
+  updateSessionEvent(ev)
   closeModal()
-  showAlert('已保存', dataUrl ? '收款码已保存。' : '收款码已删除。')
+  const action = dataUrl ? '收款码已保存。' : '收款码已删除。'
+  showAlert('已保存', localCached ? action : `${action} 当前浏览器禁用本地存储，因此仅保存在服务器。`)
 }
 
 export function showQrFloat() {

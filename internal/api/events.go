@@ -124,7 +124,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	out := make(map[string]map[string]any, len(mine))
 	ids := make([]string, 0, len(mine))
 	for id, event := range mine {
-		public := ledger.Public(event)
+		public := publicEventSummary(event)
 		ids = append(ids, id)
 		out[id] = public
 	}
@@ -133,6 +133,14 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		out[id]["giftCount"] = counts[id]
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: out})
+}
+
+// publicEventSummary 用于列表：去掉体积较大的封面和收款码，单本详情仍返回完整字段。
+func publicEventSummary(event map[string]any) map[string]any {
+	out := ledger.Public(event)
+	delete(out, "coverImage")
+	delete(out, "qrcode")
+	return out
 }
 
 // needsDisplayIDBackfill 只读判断是否有账簿缺编号，避免每次列表都去抢写锁。

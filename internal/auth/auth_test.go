@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -116,6 +118,28 @@ func TestVerifyOrFailLocksAfterRepeatedFailures(t *testing.T) {
 	}
 	if m.ThrottleRetryAfter("192.0.2.10") <= 0 {
 		t.Fatal("锁定剩余时间应大于 0")
+	}
+}
+
+func TestThrottleStorageFailureFailsClosed(t *testing.T) {
+	m := newManager(t)
+	enable(t, m, "secret-123")
+	blockingFile := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// 指向普通文件后 auth-throttle.json 无法写入，正确密码也不能绕过计数。
+	m.configDir = blockingFile
+	req := httptest.NewRequest(http.MethodPost, "/api/auth", nil)
+	req.RemoteAddr = "192.0.2.55:3456"
+	if ok, _, _ := m.VerifyOrFail(req, "bad-pass"); ok {
+		t.Fatal("bad password accepted")
+	}
+	if !m.ThrottleLocked("192.0.2.55") {
+		t.Fatal("throttle storage failure must fail closed")
+	}
+	if m.ThrottleRetryAfter("192.0.2.55") <= 0 {
+		t.Fatal("fail-closed state must include a retry delay")
 	}
 }
 

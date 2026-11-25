@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -89,36 +88,56 @@ func failCode(w http.ResponseWriter, status int, code, message string) {
 }
 
 // sameOrigin 拒绝带 Origin 头的跨站写请求；无 Origin（curl、旧浏览器）照常放行。
-// 默认只比主机名（与旧版一致）；开启 StrictOrigin 后要求 host:port 完全一致，
-// 堵住同机另一端口的页面发简单请求跨站写。
+// Origin 必须与当前请求的协议、主机和端口一致，避免同机另一端口借简单请求跨站写入。
 func (s *Server) sameOrigin(r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "cross-site") {
+		return false
 	}
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true
 	}
-	if origin == "null" {
+	expected, expectedOK := parseOrigin(s.siteOrigin(r))
+	actual, actualOK := parseOrigin(origin)
+	if !expectedOK || !actualOK {
 		return false
 	}
-	parsed, err := url.Parse(origin)
-	if err != nil || parsed.Hostname() == "" {
-		return false
-	}
-	if s.strictOrigin {
-		return strings.EqualFold(parsed.Host, r.Host)
-	}
-	// 兼容模式：比较主机名（忽略端口、IPv6 方括号），与旧版 PHP 的行为一致。
-	return strings.EqualFold(parsed.Hostname(), requestHostname(r))
+	return expected == actual
 }
 
-func requestHostname(r *http.Request) string {
-	host := r.Host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		return h
+type originParts struct {
+	scheme string
+	host   string
+	port   string
+}
+
+// parseOrigin 规范化默认端口并按主机名大小写无关比较；路径、查询、用户信息一律拒绝。
+func parseOrigin(raw string) (originParts, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.User != nil || parsed.Hostname() == "" ||
+		parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return originParts{}, false
 	}
-	return strings.Trim(host, "[]")
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return originParts{}, false
+	}
+	port := parsed.Port()
+	if port == "" {
+		if scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return originParts{
+		scheme: scheme,
+		host:   strings.ToLower(strings.TrimSuffix(parsed.Hostname(), ".")),
+		port:   port,
+	}, true
 }
 
 // decodeJSON 读取并校验请求体。传入 ResponseWriter 让 MaxBytesReader

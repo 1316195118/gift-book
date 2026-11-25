@@ -286,7 +286,21 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 	if _, ok := s.preflightLedgerAccess(w, r, eventID, family.ID); !ok {
 		return
 	}
-	ifMatch, _ := body["ifMatch"].(string)
+	rawIfMatch, hasIfMatch := body["ifMatch"]
+	if !hasIfMatch || rawIfMatch == nil {
+		failCode(w, http.StatusPreconditionRequired, "precondition_required", "修改礼金必须提供版本标记，请刷新后重试")
+		return
+	}
+	ifMatch, isString := rawIfMatch.(string)
+	ifMatch = strings.TrimSpace(ifMatch)
+	if !isString || len(ifMatch) != sha256.Size*2 {
+		fail(w, http.StatusBadRequest, "无效的版本标记")
+		return
+	}
+	if _, err := hex.DecodeString(ifMatch); err != nil {
+		fail(w, http.StatusBadRequest, "无效的版本标记")
+		return
+	}
 
 	var updated map[string]any
 	var status int
@@ -311,14 +325,12 @@ func (s *Server) handleUpdateGift(w http.ResponseWriter, r *http.Request, giftID
 			status, message = http.StatusNotFound, "礼物不存在"
 			return migrated && valid, false, errors.New(message)
 		}
-		if ifMatch != "" {
-			current, _ := gift["encryptedContent"].(string)
-			sum := sha256.Sum256([]byte(current))
-			if ifMatch != hex.EncodeToString(sum[:]) {
-				status, code = http.StatusConflict, "conflict"
-				message = "这笔记录已在其他设备上修改，请刷新后再改"
-				return migrated && valid, false, errors.New(message)
-			}
+		current, _ := gift["encryptedContent"].(string)
+		sum := sha256.Sum256([]byte(current))
+		if !strings.EqualFold(ifMatch, hex.EncodeToString(sum[:])) {
+			status, code = http.StatusConflict, "conflict"
+			message = "这笔记录已在其他设备上修改，请刷新后再改"
+			return migrated && valid, false, errors.New(message)
 		}
 		gift["encryptedContent"] = cipher
 		// 旧版遗留的明文字段在修改时一并清掉。

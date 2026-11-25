@@ -25,7 +25,7 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.52"
+const appVersion = "2.4.53"
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
@@ -105,17 +105,16 @@ func main() {
 	}
 
 	handler := api.New(api.Options{
-		Store:        st,
-		Auth:         authMgr,
-		Assets:       assets,
-		Build:        buildLabel(),
-		Version:      appVersion,
-		OCR:          ocr,
-		ConfigDir:    configDir,
-		StrictOrigin: envBool("GIFTBOOK_STRICT_ORIGIN"),
-		AutoRestart:  envBool("GIFTBOOK_AUTO_RESTART"),
-		ForceHTTPS:   envBool("GIFTBOOK_FORCE_HTTPS"),
-		PublicURL:    strings.TrimSpace(os.Getenv("GIFTBOOK_PUBLIC_URL")),
+		Store:       st,
+		Auth:        authMgr,
+		Assets:      assets,
+		Build:       buildLabel(),
+		Version:     appVersion,
+		OCR:         ocr,
+		ConfigDir:   configDir,
+		AutoRestart: envBool("GIFTBOOK_AUTO_RESTART"),
+		ForceHTTPS:  envBool("GIFTBOOK_FORCE_HTTPS"),
+		PublicURL:   strings.TrimSpace(os.Getenv("GIFTBOOK_PUBLIC_URL")),
 	})
 	handler.StartAutoBackup()
 

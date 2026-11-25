@@ -148,7 +148,7 @@ export function updateSessionEvent(event) {
     const raw = sessionStorage.getItem('activeEventSession')
     const data = raw ? JSON.parse(raw) : null
     if (data && data.event && data.event.id === event.id) {
-      data.event = { ...data.event, kdf: event.kdf }
+      data.event = { ...data.event, kdf: event.kdf, qrcode: event.qrcode }
       sessionStorage.setItem('activeEventSession', JSON.stringify(data))
     }
   } catch {

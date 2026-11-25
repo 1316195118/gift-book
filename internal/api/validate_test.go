@@ -1,8 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
+	"hash/crc32"
+	"image"
+	"image/color"
+	"image/png"
 	"strings"
 	"testing"
 )
@@ -86,7 +92,7 @@ func TestValidateEventBodyRejectsBadInput(t *testing.T) {
 
 func TestValidateEventBodyAcceptsRealisticPayload(t *testing.T) {
 	salt := b64(make([]byte, 16))
-	png := "data:image/png;base64,iVBORw0KGgo="
+	imageData := testPNGDataURL(t, 1, 1)
 	body := map[string]any{
 		"name":            "张三李四新婚之喜",
 		"theme":           "theme-festive",
@@ -100,13 +106,54 @@ func TestValidateEventBodyAcceptsRealisticPayload(t *testing.T) {
 		"minSpeechAmount": 100.0,
 		"totalAmount":     8888.0,
 		"voiceEnabled":    true,
-		"coverImage":      png,
+		"coverImage":      imageData,
 		"passwordHash":    strings.Repeat("a", 64),
 		"kdf":             map[string]any{"v": 2.0, "alg": "pbkdf2-sha256", "iter": 310000.0, "salt": salt},
 	}
 	if err := validateEventBody(body, nil); err != nil {
 		t.Fatalf("valid payload rejected: %v", err)
 	}
+}
+
+func TestValidateImageChecksRealFormatAndDimensions(t *testing.T) {
+	valid := testPNGDataURL(t, 640, 480)
+	if !validImage(valid) {
+		t.Fatal("real PNG rejected")
+	}
+	if validImage("data:image/png;base64," + b64(pngHeader(6000, 5000))) {
+		t.Fatal("oversized image accepted")
+	}
+	jpegDeclared := strings.Replace(valid, "image/png", "image/jpeg", 1)
+	if validImage(jpegDeclared) {
+		t.Fatal("declared MIME mismatch accepted")
+	}
+	if validImage("data:image/png;base64," + b64([]byte("\x89PNG\r\n\x1a\nnot-an-image"))) {
+		t.Fatal("signature-only fake image accepted")
+	}
+}
+
+func testPNGDataURL(t *testing.T, width, height int) string {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	img.Set(0, 0, color.RGBA{R: 255, A: 255})
+	var raw bytes.Buffer
+	if err := png.Encode(&raw, img); err != nil {
+		t.Fatal(err)
+	}
+	return "data:image/png;base64," + b64(raw.Bytes())
+}
+
+func pngHeader(width, height uint32) []byte {
+	const signature = "\x89PNG\r\n\x1a\n"
+	chunk := make([]byte, 25)
+	binary.BigEndian.PutUint32(chunk[0:4], 13)
+	copy(chunk[4:8], "IHDR")
+	binary.BigEndian.PutUint32(chunk[8:12], width)
+	binary.BigEndian.PutUint32(chunk[12:16], height)
+	chunk[16] = 8 // bit depth
+	chunk[17] = 2 // truecolor
+	binary.BigEndian.PutUint32(chunk[21:25], crc32.ChecksumIEEE(chunk[4:21]))
+	return append([]byte(signature), chunk...)
 }
 
 func TestNextDisplayIDSkipsFour(t *testing.T) {

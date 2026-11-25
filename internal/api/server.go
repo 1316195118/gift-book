@@ -23,7 +23,6 @@ type Server struct {
 	version      string
 	ocr          OCREngine
 	configDir    string
-	strictOrigin bool
 	forceHTTPS   bool
 	publicURL    string
 	stream       *streamHub
@@ -59,9 +58,6 @@ type Options struct {
 	Version   string
 	OCR       OCREngine
 	ConfigDir string
-	// StrictOrigin 为 true 时，写请求要求 Origin 的 host:port 与 Host 完全一致。
-	// 默认只比主机名，保持与旧版（含开发代理、同机不同端口前端）的兼容。
-	StrictOrigin bool
 	// AutoRestart 表示更新完成后是否请求进程退出（容器里由 restart 策略拉起）。
 	AutoRestart bool
 	// ForceHTTPS 为 true 时把 HTTP 请求以 308 重定向到 HTTPS。
@@ -82,7 +78,6 @@ func New(opts Options) *Server {
 		version:        opts.Version,
 		ocr:            opts.OCR,
 		configDir:      opts.ConfigDir,
-		strictOrigin:   opts.StrictOrigin,
 		forceHTTPS:     opts.ForceHTTPS,
 		publicURL:      normalizePublicURL(opts.PublicURL),
 		stream:         newStreamHub(),
