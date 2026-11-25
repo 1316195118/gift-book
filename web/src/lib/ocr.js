@@ -625,6 +625,6 @@
   }
 
   const api = { open, parseAmount, extractRows };
+  root.GiftBookOCR = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.GiftBookOCR = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

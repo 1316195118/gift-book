@@ -52,7 +52,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.53"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.54"}
 	if len(extra) > 0 {
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL

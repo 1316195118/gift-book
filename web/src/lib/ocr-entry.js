@@ -32,15 +32,17 @@ export async function openOcr() {
   } catch (error) {
     return showAlert('无法扫描导入', String(error.message))
   }
-  if (!window.GiftBookOCR) {
+  let ocrApi = window.GiftBookOCR
+  if (!ocrApi?.open) {
     try {
-      await import('./ocr.js')
+      const mod = await import('./ocr.js')
+      ocrApi = window.GiftBookOCR || mod?.default || mod
     } catch {
       return showAlert('扫描功能加载失败', '请检查网络后重试（Ctrl+F5）。')
     }
   }
-  if (!window.GiftBookOCR) return showAlert('扫描功能未加载', '请刷新页面后重试。')
-  window.GiftBookOCR.open({
+  if (!ocrApi?.open) return showAlert('扫描功能未加载', '请刷新页面后重试。')
+  ocrApi.open({
     eventName: st.currentEvent.name,
     notice: lateAtOpen ? '此账簿已超出设定的录入时间；本次确认导入的记录将标记为补录，请一并核对。' : '',
     existing: st.gifts.filter((g) => g.data).map((g) => ({ name: g.data.name, amount: g.data.amount })),
