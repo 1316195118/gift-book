@@ -7,6 +7,7 @@ import {
   WHITE_TEMPLATES,
 } from '../content.js'
 import { renderCoverMarkup } from '../cover.js'
+import { COVER_STYLE_ARTWORK, coverArtworkFor } from '../cover-art.js'
 
 describe('封面款式目录', () => {
   it('红事和白事款式完整且编号唯一', () => {
@@ -32,6 +33,20 @@ describe('封面款式目录', () => {
         expect(html).toContain(`data-template="${template.key}"`)
         expect(html).toContain('cover-motif')
       }
+    }
+  })
+
+  it('每款封面都使用已登记的原创绘画底图且保留可替换的书名', () => {
+    for (const style of COVER_STYLES) {
+      expect(COVER_STYLE_ARTWORK[style.id], style.id).toBeTruthy()
+      const artwork = coverArtworkFor(style)
+      expect(artwork.src, style.id).toMatch(/\.(?:webp|png)(?:\?|$)/)
+      const html = renderCoverMarkup({ template: style.theme === 'white' ? 'baishi' : 'wedding', coverStyle: style.id }, true, style.theme)
+      expect(html, style.id).toContain('class="cover-art"')
+      expect(html, style.id).toContain('data-cover-src=')
+      expect(html, style.id).toContain('cover-title-panel')
+      expect(html, style.id).toContain('alt=""')
+      expect(html, style.id).not.toContain('<script')
     }
   })
 })

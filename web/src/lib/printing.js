@@ -15,6 +15,49 @@ export const ITEMS_PER_PAGE = 12
 export const PDF_PAGE_W_PT = 841.89
 export const PDF_PAGE_H_PT = 595.28
 
+const coverAssetDataCache = new Map()
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('封面底图读取失败'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function coverAssetDataUrl(source) {
+  const absolute = new URL(source, document.baseURI).href
+  if (!coverAssetDataCache.has(absolute)) {
+    coverAssetDataCache.set(
+      absolute,
+      fetch(absolute, { credentials: 'same-origin' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`封面底图加载失败（HTTP ${response.status}）`)
+          return response.blob()
+        })
+        .then(blobToDataUrl),
+    )
+  }
+  return coverAssetDataCache.get(absolute)
+}
+
+// 打印窗口可以直接加载 Vite 资源；PDF 的 SVG foreignObject 却不会可靠加载外部图片。
+// 在序列化之前把封面底图换成 data URL，保证封面与明细在同一张 PDF 中完整落盘。
+export async function inlineCoverAssets(root = document) {
+  const images = Array.from(root.querySelectorAll('img[data-cover-src]'))
+  await Promise.all(
+    images.map(async (image) => {
+      if (String(image.currentSrc || image.src).startsWith('data:image/')) return
+      const source = image.dataset.coverSrc || image.getAttribute('src') || ''
+      if (!source) return
+      image.src = await coverAssetDataUrl(source)
+      if (typeof image.decode === 'function') await image.decode().catch(() => {})
+    }),
+  )
+  return images.length
+}
+
 function isLate(gift) {
   const data = gift?.data
   if (!data) return false
@@ -210,7 +253,7 @@ function appendAppendix(printView, dateStr, gifts) {
   }
 }
 
-export function prepareForPrint() {
+export async function prepareForPrint() {
   const ev = st.currentEvent
   const printView = buildPrintPages()
   if (!printView) return showAlert('无法打印', `当前账簿没有任何${copyOf(ev, st.homeCategory).recordNoun}记录，无需打印。`)
@@ -218,6 +261,14 @@ export function prepareForPrint() {
   document.title = `${ev.name}${copyOf(ev, st.homeCategory).detailTitle}-${dateStr}`
   document.body.appendChild(printView)
   document.body.classList.add('printing')
+  try {
+    await document.fonts?.ready
+    await inlineCoverAssets(printView)
+  } catch (error) {
+    document.body.classList.remove('printing')
+    printView.remove()
+    return showAlert('打印失败', error.message || '封面底图未能加载，请刷新页面后重试。')
+  }
   setTimeout(() => {
     window.print()
     setTimeout(() => {
@@ -261,6 +312,7 @@ export function collectPrintCss() {
 export async function rasterizePrintPage(pageEl, css, themeClass, scale) {
   const widthPx = (297 / 25.4) * 96
   const heightPx = (209 / 25.4) * 96
+  await inlineCoverAssets(pageEl)
   let markup = ''
   try {
     markup = new XMLSerializer().serializeToString(pageEl)

@@ -30,6 +30,13 @@ const viewports = wanted.size ? allViewports.filter(([name]) => wanted.has(name)
 const results = []
 const failures = []
 
+function dateInput(offsetDays = 0) {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 function check(label, ok, detail = '') {
   results.push({ label, ok, detail })
   console.log(`${ok ? '✓' : '✗'} ${label}${detail ? ` — ${detail}` : ''}`)
@@ -189,6 +196,9 @@ for (const [name, width, height] of viewports) {
       templateCovers.length === 5 && new Set(templateCovers).size === templateCovers.length,
       templateCovers.join(' / '),
     )
+    const templateArtLoaded = await page.locator('.tpl-card .cover-art').evaluateAll((images) =>
+      images.length === 5 && images.every((image) => image.complete && image.naturalWidth > 0))
+    check(`${name} 模板原创底图已解码`, templateArtLoaded)
     const templateBack = page.getByRole('button', { name: '返回首页' })
     const templateBackBox = await templateBack.boundingBox()
     check(
@@ -225,14 +235,19 @@ for (const [name, width, height] of viewports) {
       `${name} 封面缩略图带场景纹样`,
       (await page.locator('#cover-style-grid .cover-motif').count()) === coverStyleIds.length,
     )
+    check(
+      `${name} 红事封面原创底图已解码`,
+      await page.locator('#cover-style-grid .cover-art').evaluateAll((images) =>
+        images.length === 16 && images.every((image) => image.complete && image.naturalWidth > 0)),
+    )
     await page.screenshot({ path: join(OUT, `${name}-02b-cover-styles.png`), fullPage: true })
     await page.locator('.setup-more-summary').click()
 
     const unique = `${name}-${Date.now().toString(36).slice(-6)}`
     await page.locator('#event-name').fill(unique)
     await page.locator('#event-location').fill('多分辨率回归厅')
-    await page.locator('#start-date').fill('2026-11-20')
-    await page.locator('#end-date').fill('2026-11-22')
+    await page.locator('#start-date').fill(dateInput(0))
+    await page.locator('#end-date').fill(dateInput(2))
     await page.locator('.setup-submit').click()
     await page.locator('#main-screen').waitFor({ state: 'visible', timeout: 15000 })
     await page.waitForTimeout(500)
@@ -399,8 +414,50 @@ for (const [name, width, height] of [['small-phone', 320, 568], ['desktop', 1440
       whiteStyles.length === 12 && new Set(whiteStyles).size === 12 && whiteStyles.every((item) => item.includes('|white|true')),
       whiteStyles.join(' / '),
     )
+    check(
+      `${name} 白事封面原创底图已解码`,
+      await page.locator('#cover-style-grid .cover-art').evaluateAll((images) =>
+        images.length === 12 && images.every((image) => image.complete && image.naturalWidth > 0)),
+    )
     check(`${name} 白事封面页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     await page.screenshot({ path: join(OUT, `${name}-solemn-cover-styles.png`), fullPage: true })
+    if (name === 'desktop') {
+      const whiteTitle = `白事封面回归-${Date.now().toString(36).slice(-6)}`
+      await page.locator('#event-name').fill(whiteTitle)
+      await page.locator('#event-location').fill('追思厅')
+      await page.locator('#start-date').fill(dateInput(0))
+      await page.locator('#end-date').fill(dateInput(2))
+      await page.locator('.setup-submit').click()
+      await page.locator('#main-screen').waitFor({ state: 'visible', timeout: 15000 })
+      await page.waitForTimeout(1300)
+      await dismissLightModals(page)
+      check(`${name} 白事封面账簿可创建`, await page.locator('#main-screen').isVisible())
+      await page.locator('#guest-name').fill('白事来宾')
+      await page.locator('#gift-amount').fill('208')
+      await page.locator('#submit-gift-btn').click()
+      await page.locator('#modal').waitFor({ state: 'visible', timeout: 3000 })
+      const confirm = page.locator('#modal-actions button').filter({ hasText: /^确定$/ }).last()
+      await confirm.waitFor({ state: 'visible', timeout: 3000 })
+      const whiteConfirmText = (await page.locator('#modal').innerText()).replace(/\s+/g, ' ').trim()
+      check(`${name} 白事录入确认框内容正确`, /奠仪|208|白事来宾/.test(whiteConfirmText), whiteConfirmText.slice(0, 160))
+      await confirm.click({ force: true })
+      await page.waitForTimeout(2200)
+      const whiteRows = await page.locator('#gift-book-content .name-cell .name').count()
+      const whiteMessages = (await page.locator('#modal-content, .toast, .sync-status').allTextContents()).join(' / ').trim()
+      check(`${name} 白事封面账簿可录入`, whiteRows > 0, whiteMessages || `rows=${whiteRows}`)
+      if (!whiteRows) throw new Error(`白事首笔未出现${whiteMessages ? `：${whiteMessages.slice(0, 160)}` : ''}`)
+      await page.locator('#export-btn').click()
+      await page.locator('.export-option').filter({ hasText: 'PDF' }).click()
+      await page.locator('.pdf-cover-picker').waitFor({ state: 'visible', timeout: 5000 })
+      check(`${name} 白事 PDF 封面可选完整 12 款`, (await page.locator('.pdf-cover-choice').count()) === 12)
+      await page.locator('.pdf-cover-choice').nth(7).click()
+      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
+      await page.getByRole('button', { name: '生成 PDF', exact: true }).click()
+      const download = await downloadPromise
+      const pdfPath = join(OUT, 'desktop-solemn-selected-cover.pdf')
+      await download.saveAs(pdfPath)
+      check(`${name} 白事选择的封面实际写入 PDF`, existsSync(pdfPath) && statSync(pdfPath).size > 10000, `${download.suggestedFilename()} ${existsSync(pdfPath) ? statSync(pdfPath).size : 0}B`)
+    }
   } catch (error) {
     check(`${name} 白事封面链路`, false, error.message.split('\n')[0])
   } finally {

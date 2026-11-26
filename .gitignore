@@ -33,6 +33,7 @@
 /.edge*/
 /.vite*
 /.tmp-*
+/.test-final-*
 
 # ---- OCR 第三方产物（不入库，按各自许可证单独获取）----
 # 模型与 Python 依赖是第三方作品，体积大且各有许可，绝不能提交进本仓库。
@@ -66,3 +67,7 @@ Thumbs.db
 
 # 前端覆盖率报表
 web/coverage/
+
+# 封面设计母版：仅提交生产用 WebP，避免把数十 MB 的原始 PNG 带进仓库
+/web/src/assets/covers/*.png
+/web/src/assets/covers/revised/

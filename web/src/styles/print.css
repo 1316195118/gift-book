@@ -49,37 +49,52 @@
   }
 
   #print-view .print-cover-page {
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
-    padding: 0;
-    background: #fff;
+    padding: 7mm;
+    background:
+      radial-gradient(72% 80% at 50% 38%, #f4efe5, #ddd4c5 72%, #cfc5b5);
+  }
+
+  #print-view .print-cover-page:has(.ledger-cover[data-theme="white"]) {
+    background:
+      radial-gradient(72% 80% at 50% 38%, #fafaf7, #e5e7e3 72%, #d5dad7);
   }
 
   /* ---- 封面 ----
-     印在一张平摊的纸上，书脊那条装订边没有意义，而且会把金框推得左右不对称。
-     所以打印时撤掉书脊，四边留一样的空。 */
+     绘画底图按 3:4 书封比例印在 A4 页中央，不拉伸也不裁掉题签。
+     书脊保留，让它看起来是一本装订好的礼簿，而不是一张海报。 */
   #print-view .ledger-cover {
-    width: 100%;
+    width: auto;
     height: 100%;
+    max-width: 100%;
+    aspect-ratio: 3 / 4;
     min-height: 0;
-    gap: 6mm;
-    padding: 6% 9%;
-    border-radius: 0;
+    gap: 2.4mm;
+    padding: 6% 8% 7% 15%;
+    border-radius: 1mm 3mm 3mm 1mm;
+    box-shadow:
+      0 3mm 9mm rgb(48 30 15 / .24),
+      0 1mm 2mm rgb(48 30 15 / .2);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   #print-view .cover-spine {
-    display: none;
+    display: flex;
+    width: 11%;
+    max-width: none;
   }
 
   #print-view .ledger-cover::before {
-    inset: 5%;
+    inset: 4.5% 5% 4.5% 15.8%;
   }
 
-  #print-view .ledger-cover[data-frame="single"]::before { inset: 5.6%; }
-  #print-view .ledger-cover[data-frame="strip"]::before { inset: 5% 18%; }
+  #print-view .ledger-cover[data-frame="single"]::before { inset: 5% 5.6% 5% 16%; }
+  #print-view .ledger-cover[data-frame="strip"]::before { inset: 4.5% 17.5% 4.5% 23%; }
 
-  #print-view .cover-corner-tl { left: 7%; }
-  #print-view .cover-corner-bl { left: 7%; }
+  #print-view .cover-corner-tl { left: 6.6%; }
+  #print-view .cover-corner-bl { left: 6.6%; }
 
   /* 清掉屏幕上的质感填充，但印章和圆章的墨色要留着 ——
      原来一句 * { background-color: transparent } 把朱印也洗成了空框。 */
@@ -88,37 +103,51 @@
   }
 
   #print-view .ledger-cover .cover-medallion {
-    width: 62mm;
+    width: 37mm;
     max-width: none;
-    font-size: calc(58pt * var(--print-font-scale, 1));
+    font-size: calc(31pt * var(--print-font-scale, 1));
     font-weight: 500;
   }
 
+  #print-view .ledger-cover .cover-title-panel {
+    width: 76%;
+    min-height: 24%;
+    padding: 4.5mm 3.2mm;
+    border-width: 1px;
+  }
+
+  #print-view .ledger-cover[data-panel="vertical"] .cover-title-panel {
+    width: 40%;
+    min-height: 49%;
+    padding: 3mm 1.8mm;
+  }
+
   #print-view .ledger-cover .cover-name {
-    max-width: 174mm;
-    font-size: calc(36pt * var(--print-font-scale, 1));
+    max-width: 105mm;
+    font-size: calc(27pt * var(--print-font-scale, 1));
   }
 
   #print-view .ledger-cover .cover-edition,
   #print-view .ledger-cover .cover-blessing {
-    font-size: calc(12pt * var(--print-font-scale, 1));
+    font-size: calc(9pt * var(--print-font-scale, 1));
   }
 
   #print-view .ledger-cover .cover-meta {
-    font-size: calc(11pt * var(--print-font-scale, 1));
+    max-width: 82%;
+    font-size: calc(8.5pt * var(--print-font-scale, 1));
   }
 
   /* 朱印：印泥是实的，白事落墨青。印面反白，才看得出是一方印 */
   #print-view .ledger-cover .cover-seal {
-    right: 14mm;
-    bottom: 12mm;
-    width: 12mm;
-    height: 12mm;
+    right: 7.4mm;
+    bottom: 7mm;
+    width: 9mm;
+    height: 9mm;
     max-width: none;
     background: var(--cover-seal-bg);
     color: var(--cover-bg-lit);
     opacity: 1;
-    font-size: calc(15pt * var(--print-font-scale, 1));
+    font-size: calc(11pt * var(--print-font-scale, 1));
   }
 
   #print-view .ledger-cover[data-theme="red"] .cover-seal {
@@ -126,14 +155,18 @@
   }
 
   #print-view .ledger-cover .cover-corner {
-    width: 11mm;
+    width: 7.5mm;
     max-width: none;
   }
 
-  #print-view .ledger-cover .cover-corner-tl { top: 9mm; left: 9mm; }
-  #print-view .ledger-cover .cover-corner-tr { top: 9mm; right: 9mm; }
-  #print-view .ledger-cover .cover-corner-bl { bottom: 9mm; left: 9mm; }
-  #print-view .ledger-cover .cover-corner-br { bottom: 9mm; right: 9mm; }
+  #print-view .ledger-cover .cover-corner-tl { top: 7mm; left: 7mm; }
+  #print-view .ledger-cover .cover-corner-tr { top: 7mm; right: 7mm; }
+  #print-view .ledger-cover .cover-corner-bl { bottom: 7mm; left: 7mm; }
+  #print-view .ledger-cover .cover-corner-br { bottom: 7mm; right: 7mm; }
+
+  #print-view .ledger-cover .cover-toplabel {
+    font-size: calc(7.5pt * var(--print-font-scale, 1));
+  }
 
   /* ---- 标题 ---- */
   #print-view .print-header {
