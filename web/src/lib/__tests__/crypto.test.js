@@ -1,5 +1,25 @@
-import { describe, it, expect } from 'vitest'
-import { escapeHtml, amountToChinese, formatCurrency, formatDateTime, formatDate, safeFileName } from '../crypto.js'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { escapeHtml, amountToChinese, formatCurrency, formatDateTime, formatDate, safeFileName, sha256Hex } from '../crypto.js'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('sha256Hex', () => {
+  it('局域网 HTTP 没有 Web Crypto 时仍返回稳定摘要', async () => {
+    vi.stubGlobal('crypto', {})
+    expect(await sha256Hex('测试客')).toBe(
+      '3e19ea2700ca18f531838a3fd3ac158a01ce88750715d1c88df96a518ea43d16'
+    )
+  })
+
+  it('空姓名摘要与已知 SHA-256 一致', async () => {
+    vi.stubGlobal('crypto', {})
+    expect(await sha256Hex('')).toBe(
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    )
+  })
+})
 
 describe('escapeHtml', () => {
   it('转义 HTML 危险字符', () => {
