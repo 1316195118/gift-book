@@ -187,20 +187,60 @@ export const COVER_STYLES = [
   { id: 'manyue', name: '弥月之喜', theme: 'red', frame: 'strip', corners: 'cloud', medallion: true, tassel: true, layout: 'vertical', label: '弥月之喜', weave: true },
   { id: 'duanmian', name: '缎面素章', theme: 'red', frame: 'none', corners: 'vine', medallion: false, tassel: false, layout: 'center', weave: true },
   { id: 'chanzhi', name: '缠枝双喜', theme: 'red', frame: 'double', corners: 'vine', medallion: true, tassel: false, layout: 'center', weave: true },
+  { id: 'longfeng', name: '龙凤呈祥', theme: 'red', frame: 'double', corners: 'phoenix', medallion: true, tassel: true, layout: 'center', weave: true },
+  { id: 'huakai', name: '花开富贵', theme: 'red', frame: 'thick', corners: 'blossom', medallion: false, tassel: false, layout: 'center', weave: false },
+  { id: 'bairi', name: '百日之喜', theme: 'red', frame: 'strip', corners: 'cloud', medallion: true, tassel: false, layout: 'vertical', weave: true },
+  { id: 'huimen', name: '回门之喜', theme: 'red', frame: 'single', corners: 'blossom', medallion: true, tassel: true, layout: 'center', weave: true },
+  { id: 'xieshi', name: '谢师金榜', theme: 'red', frame: 'none', corners: 'scroll', medallion: false, tassel: false, layout: 'vertical', weave: false },
+  { id: 'wufu', name: '五福临门', theme: 'red', frame: 'double', corners: 'cloud', medallion: true, tassel: false, layout: 'center', weave: true },
+  { id: 'jinyu', name: '金玉良缘', theme: 'red', frame: 'double', corners: 'blossom', medallion: true, tassel: true, layout: 'center', weave: true },
+  { id: 'mantang', name: '满堂红', theme: 'red', frame: 'strip', corners: 'cloud', medallion: true, tassel: false, layout: 'vertical', weave: true },
+  { id: 'tongxin', name: '同心永结', theme: 'red', frame: 'thick', corners: 'vine', medallion: true, tassel: true, layout: 'center', weave: false },
+  { id: 'qianxi', name: '乔迁纳福', theme: 'red', frame: 'single', corners: 'scroll', medallion: false, tassel: false, layout: 'center', weave: true },
   { id: 'sujuan', name: '素绢', theme: 'white', frame: 'single', corners: 'cloud', medallion: true, tassel: false, layout: 'center' },
   { id: 'baiju', name: '白菊', theme: 'white', frame: 'double', corners: 'floral', medallion: true, tassel: false, layout: 'center' },
   { id: 'liantai', name: '莲台', theme: 'white', frame: 'strip', corners: 'cloud', medallion: true, tassel: false, layout: 'vertical' },
+  { id: 'suju', name: '素菊', theme: 'white', frame: 'thick', corners: 'chrysanthemum', medallion: true, tassel: false, layout: 'center' },
+  { id: 'songbai', name: '松柏', theme: 'white', frame: 'single', corners: 'pine', medallion: false, tassel: false, layout: 'vertical' },
+  { id: 'qingyan', name: '青烟', theme: 'white', frame: 'none', corners: 'ripple', medallion: false, tassel: false, layout: 'center' },
+  { id: 'changsi', name: '长思', theme: 'white', frame: 'double', corners: 'moon', medallion: true, tassel: false, layout: 'vertical' },
+  { id: 'yuanshan', name: '远山', theme: 'white', frame: 'thick', corners: 'mountain', medallion: true, tassel: false, layout: 'center' },
+  { id: 'qingzhu', name: '清竹', theme: 'white', frame: 'single', corners: 'pine', medallion: false, tassel: false, layout: 'center' },
+  { id: 'qiulu', name: '清露', theme: 'white', frame: 'none', corners: 'floral', medallion: true, tassel: false, layout: 'center' },
+  { id: 'qiusheng', name: '秋声', theme: 'white', frame: 'strip', corners: 'chrysanthemum', medallion: true, tassel: false, layout: 'vertical' },
+  { id: 'huaien', name: '怀恩', theme: 'white', frame: 'double', corners: 'moon', medallion: false, tassel: false, layout: 'center' },
 ]
 
 export const TEMPLATE_DEFAULT_STYLE = {
-  wedding: 'shuangxi', birthday: 'lihe', fullmoon: 'manyue', housewarming: 'wujia', school: 'duanmian',
-  funeral: 'sujuan', baishi: 'baiju', memorial: 'liantai', anniversary: 'sujuan', reburial: 'baiju',
+  wedding: 'shuangxi', birthday: 'lihe', fullmoon: 'manyue', housewarming: 'wujia', school: 'xieshi',
+  funeral: 'sujuan', baishi: 'baiju', memorial: 'liantai', anniversary: 'changsi', reburial: 'songbai',
 }
 
 export const COVER_CORNERS = {
   floral: '<path d="M4 31c0-13 9-23 22-23"/><path d="M11 35c0-10 7-17 17-17"/><path d="M16 37c4-6 10-6 15-2-4 6-11 6-15 2Z"/><path d="M6 22c-2 5 0 9 4 10"/>',
   cloud: '<path d="M4 16c5-7 11-7 15 0s10 7 15 0M4 26c5-7 11-7 15 0s10 7 15 0M4 36c5-7 11-7 15 0"/>',
   vine: '<path d="M4 35C6 20 18 8 35 6"/><path d="M11 27c-1-5 2-8 6-8 1 5-2 8-6 8Z"/><path d="M19 18c-1-5 2-8 6-8 1 5-2 8-6 8Z"/><path d="M26 32c4-1 7 1 7 5-4 1-7-1-7-5Z"/>',
+  phoenix: '<path d="M5 35C9 20 22 8 36 5"/><path d="M8 30c7-1 12-4 16-10M13 25c5 0 9-2 12-6M19 19c4 1 7 0 10-3"/><path d="M5 18c5-1 8-4 10-8 1 5 0 9-3 13"/>',
+  blossom: '<path d="M5 35C10 22 20 12 35 6"/><path d="M13 25c-4-5-2-9 1-11 4 2 5 6 3 10M23 17c-4-5-2-9 1-11 4 2 5 6 3 10M10 32c2-6 7-7 10-4-1 4-5 7-10 4Z"/>',
+  scroll: '<path d="M6 7h25c3 0 4 2 4 5v22H12c-4 0-7-2-7-5 0-3 2-5 6-5h18M12 13h17M12 20h15M12 27h12"/>',
+  chrysanthemum: '<path d="M20 35V8M7 15c7 2 10 6 13 12M33 15c-7 2-10 6-13 12M7 29c6-5 9-6 13-4M33 29c-6-5-9-6-13-4"/>',
+  pine: '<path d="M6 35C11 24 19 13 35 5"/><path d="M12 27l-5-4M18 20l-5-4M25 14l-5-4M16 30l7-9M23 23l7-9M30 16l5-7"/>',
+  ripple: '<path d="M4 13c4-4 8-4 12 0s8 4 12 0 8-4 8 0M4 23c4-4 8-4 12 0s8 4 12 0 8-4 8 0M4 33c4-4 8-4 12 0s8 4 12 0"/>',
+  moon: '<path d="M28 6a13 13 0 1 0 4 25A15 15 0 0 1 28 6Z"/><path d="M5 33c5-5 10-5 15 0s10 5 16 0"/>',
+  mountain: '<path d="M3 34 13 20l6 7 8-14 10 21M8 34l8-8 7 8M20 34l7-9 9 9"/>',
+}
+
+export const COVER_MOTIFS = {
+  wedding: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="48" cy="76" r="30"/><circle cx="72" cy="76" r="30"/><path d="M28 47c-9-7-17-6-23 1M92 47c9-7 17-6 23 1M31 108c-9 7-15 15-13 24M89 108c9 7 15 15 13 24"/></svg>',
+  birthday: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M60 115V42M44 115c2-25 8-43 16-58M76 115c-2-25-8-43-16-58M26 83c13-1 23 5 30 16M94 83c-13-1-23 5-30 16"/><circle cx="60" cy="69" r="30"/><circle cx="60" cy="69" r="21"/></svg>',
+  fullmoon: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="60" cy="70" r="40"/><circle cx="60" cy="70" r="31"/><path d="M13 98c12-11 24-11 36 0s24 11 36 0 24-11 28 0M17 110c11-9 22-9 33 0s22 9 33 0 20-9 25 0"/></svg>',
+  housewarming: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 68 60 32l40 36v49H20Z"/><path d="M38 117V76h44v41M38 88h44M60 76v41M20 68h80"/><path d="M31 54h58"/></svg>',
+  school: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 45c14-7 27-5 39 5 12-10 25-12 39-5v70c-14-7-27-5-39 5-12-10-25-12-39-5Z"/><path d="M60 50v70M31 61c8-2 14-1 20 2M31 74c8-2 14-1 20 2M31 87c8-2 14-1 20 2M69 63c6-3 12-4 20-2M69 76c6-3 12-4 20-2M69 89c6-3 12-4 20-2"/></svg>',
+  funeral: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="60" cy="78" r="16"/><path d="M60 111V94M60 62V45M34 78h17M69 78h17M42 60l12 12M66 84l12 12M42 96l12-12M66 72l12-12M23 52c11 5 22 9 37 10M97 52c-11 5-22 9-37 10"/></svg>',
+  baishi: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M31 49c0-16 13-25 29-25s29 9 29 25v82H31Z"/><path d="M43 49c0-9 7-15 17-15s17 6 17 15M31 76h58M48 93h24M60 61v15"/></svg>',
+  memorial: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M43 114h34M49 114c0-22 2-38 2-51M71 114c0-18-2-36-2-51"/><path d="M51 63c-8-16-2-28 7-35 0 10 5 16 11 21M66 49c9-13 7-26-1-35-2 12-8 18-14 23"/><path d="M33 122h54"/></svg>',
+  anniversary: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="60" cy="77" r="38"/><circle cx="60" cy="77" r="28"/><circle cx="60" cy="77" r="18"/><path d="M60 39v12M60 103v12M22 77h12M86 77h12M33 50l9 9M78 95l9 9M33 104l9-9M78 59l9-9"/></svg>',
+  reburial: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 112 24-36 15 18 19-36 22 32 16-20 10 42"/><path d="m24 112 18-20 16 20M58 112l15-20 17 20M18 127h84"/><path d="M38 54c9-8 19-9 28-3 9-6 19-5 26 2"/></svg>',
 }
 
 export const COVER_TASSEL = '<svg class="cover-tassel" viewBox="0 0 24 64" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" aria-hidden="true"><path d="M12 0v18"/><path d="M9 22l3-4 3 4-3 4z"/><path d="M12 30v6"/><path d="M8 38c0 8 1 16 4 24M16 38c0 8-1 16-4 24M12 38v24" opacity=".75"/></svg>'

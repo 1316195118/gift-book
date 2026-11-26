@@ -1,5 +1,5 @@
 // 封面渲染：与旧版完全相同的 markup（屏幕预览、打印、PDF 共用一套）。
-import { BLESSINGS, COVER_CORNERS, COVER_TASSEL, getCoverTemplate, getCoverStyle, isSolemnEvent } from './content.js'
+import { BLESSINGS, COVER_CORNERS, COVER_MOTIFS, COVER_TASSEL, getCoverTemplate, getCoverStyle, isSolemnEvent } from './content.js'
 import { escapeHtml } from './crypto.js'
 
 function coverDate(value) {
@@ -23,6 +23,7 @@ export function renderCoverMarkup(event = {}, compact = false, homeCategory = 'r
     <div class="cover-spine" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     ${corners}
     ${style.label ? `<div class="cover-toplabel">${escapeHtml(style.label)}</div>` : ''}
+    <div class="cover-motif-wrap" aria-hidden="true">${COVER_MOTIFS[t.key] || ''}</div>
     <div class="cover-edition">${solemn ? '肃穆礼记' : '喜事礼记'}</div>
     ${style.medallion ? `<div class="cover-medallion" aria-hidden="true">${t.glyph}</div>` : ''}
     ${style.tassel ? COVER_TASSEL : ''}

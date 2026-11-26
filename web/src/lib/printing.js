@@ -109,7 +109,7 @@ function renderBookRows(items) {
   return `<div class="gift-book-row">${cells.name.join('')}</div><div class="gift-book-row flex-1">${cells.type.join('')}</div><div class="gift-book-row">${cells.amount.join('')}</div>`
 }
 
-export function buildPrintPages(giftList = null) {
+export function buildPrintPages(giftList = null, coverEvent = null) {
   // 不传范围时打印整本；导出 PDF 传入所选记录，保证与 Excel / Word 是同一批数据。
   const gifts = Array.isArray(giftList) ? giftList : st.gifts
   if (!gifts.length) return null
@@ -124,8 +124,9 @@ export function buildPrintPages(giftList = null) {
 
   const coverPage = document.createElement('div')
   coverPage.className = 'print-page print-cover-page'
+  const coverSource = coverEvent && typeof coverEvent === 'object' ? coverEvent : ev
   // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
-  coverPage.innerHTML = renderCoverMarkup(ev, false, st.homeCategory)
+  coverPage.innerHTML = renderCoverMarkup(coverSource, false, st.homeCategory)
   printView.appendChild(coverPage)
 
   const perPage = itemsPerPage()

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"giftbook/internal/auth"
 	"giftbook/internal/ledger"
 	"giftbook/internal/store"
 )
@@ -569,12 +570,12 @@ func (s *Server) requireLedgerKey(w http.ResponseWriter, r *http.Request, event 
 	if !ledger.ValidKey(key) {
 		key = ""
 	}
-	ip := "ledger:" + s.auth.ClientIP(r)
+	ip := auth.ThrottleTarget("ledger", s.auth.ClientIP(r), stringValue(event["id"]))
 	if s.auth.ThrottleLocked(ip) {
 		retry := s.auth.ThrottleRetryAfter(ip)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		w.Header().Set("Retry-After", strconv.Itoa(auth.RetryAfterSeconds(retry)))
 		failCode(w, http.StatusTooManyRequests, "ledger_locked",
-			"管理密码错误次数过多，请 "+strconv.Itoa(int(retry.Minutes())+1)+" 分钟后再试")
+			"管理密码错误次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 		return false
 	}
 	if ledger.Matches(event, key) {
@@ -582,13 +583,13 @@ func (s *Server) requireLedgerKey(w http.ResponseWriter, r *http.Request, event 
 		return true
 	}
 	if key != "" {
-		s.auth.ThrottleFail(ip)
+		s.auth.ThrottleFail(ip, key)
 	}
 	if s.auth.ThrottleLocked(ip) {
 		retry := s.auth.ThrottleRetryAfter(ip)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		w.Header().Set("Retry-After", strconv.Itoa(auth.RetryAfterSeconds(retry)))
 		failCode(w, http.StatusTooManyRequests, "ledger_locked",
-			"管理密码错误次数过多，请 "+strconv.Itoa(int(retry.Minutes())+1)+" 分钟后再试")
+			"管理密码错误次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 		return false
 	}
 	if key == "" {

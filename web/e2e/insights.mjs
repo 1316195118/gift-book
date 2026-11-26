@@ -199,6 +199,9 @@ try {
   await page.locator('#guest-profile-btn').click()
   await page.locator('.gb-profile-panel').waitFor({ state: 'visible' })
   await page.locator('.gb-profile-person').first().waitFor({ state: 'visible', timeout: 15000 })
+  // 当前账簿会先出现在列表中；必须等其他已解锁账簿也解密完成后再检查跨簿汇总。
+  await page.locator('.gb-progress-card').waitFor({ state: 'hidden', timeout: 15000 })
+  await page.locator('.gb-profile-person').filter({ hasText: '测试客' }).click()
   const profileText = await page.locator('.gb-profile-panel').textContent()
   check('来宾档案汇总两本已解锁账簿', profileText.includes(firstEventName) && profileText.includes(secondEventName), `${firstEventName} / ${secondEventName}`)
   check('跨簿档案弹窗不超出手机屏幕', await modalFits(page, 390, 844))

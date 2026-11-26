@@ -52,6 +52,8 @@ type Manager struct {
 	trustProxy bool
 	setupToken string
 	mu         sync.Mutex
+	// 进程内随机密钥只用于防爆破表中的“同一失败请求”去重，避免持久化口令摘要。
+	throttleAttemptKey []byte
 
 	stateCache  State
 	stateStamp  fileStamp
@@ -94,7 +96,16 @@ func NewWithOptions(configDir string, opts Options) (*Manager, error) {
 	if err := os.MkdirAll(configDir, 0o775); err != nil {
 		return nil, err
 	}
-	return &Manager{configDir: configDir, trustProxy: opts.TrustProxy, setupToken: opts.SetupToken}, nil
+	attemptKey := make([]byte, 32)
+	if _, err := rand.Read(attemptKey); err != nil {
+		return nil, err
+	}
+	return &Manager{
+		configDir:          configDir,
+		trustProxy:         opts.TrustProxy,
+		setupToken:         opts.SetupToken,
+		throttleAttemptKey: attemptKey,
+	}, nil
 }
 
 func (m *Manager) statePath() string    { return filepath.Join(m.configDir, "auth-state.json") }
@@ -307,7 +318,7 @@ type UpdateRequest struct {
 
 // VerifyOrFail 校验密码并计入失败次数。返回的 retryAfter>0 表示已被锁定。
 func (m *Manager) VerifyOrFail(r *http.Request, password string) (ok bool, fails int, retryAfter time.Duration) {
-	ip := m.ClientIP(r)
+	ip := ThrottleTarget("admin", m.ClientIP(r), "")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	th := m.throttleStatus(ip)
@@ -319,7 +330,7 @@ func (m *Manager) VerifyOrFail(r *http.Request, password string) (ok bool, fails
 		m.throttleClear(ip)
 		return true, 0, 0
 	}
-	th = m.throttleFail(ip)
+	th = m.throttleFail(ip, password)
 	if th.Until > time.Now().Unix() {
 		return false, 0, time.Until(time.Unix(th.Until, 0))
 	}

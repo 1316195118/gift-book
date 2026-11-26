@@ -3,20 +3,29 @@ package auth
 // 登录防爆破：按来源 IP 记录失败次数，连续失败后指数退避锁定。
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"os"
 	"sort"
+	"strconv"
 	"time"
 )
 
-const throttleStorageLock = 60
+const (
+	throttleStorageLock = 60
+	throttleBaseLock    = 15
+	throttleMaxLock     = 15 * 60
+	throttleDedupe      = 2
+)
 
 // thrustRow 是单个 IP 的失败计数。
 type thrustRow struct {
-	Fails   int   `json:"fails"`
-	Until   int64 `json:"until"`
-	Strikes int   `json:"strikes"`
-	Last    int64 `json:"last"`
+	Fails   int    `json:"fails"`
+	Until   int64  `json:"until"`
+	Strikes int    `json:"strikes"`
+	Last    int64  `json:"last"`
+	LastKey string `json:"lastKey,omitempty"`
 }
 
 // readThrottle 读防爆破表；缓存按文件 stamp 失效，避免每次校验都读盘+解析。
@@ -99,12 +108,18 @@ func (m *Manager) throttleStatus(ip string) thrustRow {
 	return row
 }
 
-func (m *Manager) throttleFail(ip string) thrustRow {
+func (m *Manager) throttleFail(ip, attempt string) thrustRow {
 	data := m.readThrottle()
 	row := data[ip]
 	now := time.Now().Unix()
 	if m.throttleFailureUntil > now {
 		row.Until = m.throttleFailureUntil
+		return row
+	}
+	// 双击、回车与按钮同时触发等网络层重复请求，不应把用户的一次输入算成两次。
+	// 用进程随机密钥做 HMAC，避免把访问码的普通摘要写进防爆破文件。
+	attemptKey := m.attemptFingerprint(attempt)
+	if attemptKey != "" && row.LastKey == attemptKey && now-row.Last <= throttleDedupe {
 		return row
 	}
 	if now-row.Last > 900 {
@@ -113,14 +128,15 @@ func (m *Manager) throttleFail(ip string) thrustRow {
 	}
 	row.Fails++
 	row.Last = now
+	row.LastKey = attemptKey
 	if row.Fails >= 5 {
 		row.Strikes++
 		if row.Strikes > 6 {
 			row.Strikes = 6
 		}
-		lock := 60 * (1 << (row.Strikes - 1))
-		if lock > 1800 {
-			lock = 1800
+		lock := throttleBaseLock * (1 << (row.Strikes - 1))
+		if lock > throttleMaxLock {
+			lock = throttleMaxLock
 		}
 		row.Until = now + int64(lock)
 		row.Fails = 0
@@ -138,6 +154,25 @@ func (m *Manager) throttleFail(ip string) thrustRow {
 		row.Until = m.throttleFailureUntil
 	}
 	return row
+}
+
+func (m *Manager) attemptFingerprint(attempt string) string {
+	if attempt == "" || len(m.throttleAttemptKey) == 0 {
+		return ""
+	}
+	mac := hmac.New(sha256.New, m.throttleAttemptKey)
+	mac.Write([]byte(attempt))
+	return hexString(mac.Sum(nil))
+}
+
+func hexString(raw []byte) string {
+	const digits = "0123456789abcdef"
+	out := make([]byte, len(raw)*2)
+	for i, value := range raw {
+		out[i*2] = digits[value>>4]
+		out[i*2+1] = digits[value&0x0f]
+	}
+	return string(out)
 }
 
 // pruneThrottle 在来源过多时删除最久未活动的记录，避免防爆破文件无限膨胀。
@@ -185,10 +220,11 @@ func (m *Manager) ThrottleRetryAfter(ip string) time.Duration {
 }
 
 // ThrottleFail 记录一次失败并返回当前失败次数。
-func (m *Manager) ThrottleFail(ip string) int {
+// attempt 只用于识别短时间内的同一请求，不会写入文件。
+func (m *Manager) ThrottleFail(ip, attempt string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.throttleFail(ip).Fails
+	return m.throttleFail(ip, attempt).Fails
 }
 
 // ThrottleClear 清空该来源的失败记录。
@@ -211,4 +247,30 @@ func (m *Manager) ThrottleFails(ip string) int {
 		return 5
 	}
 	return 0
+}
+
+// ThrottleTarget 为同一来源下的不同验证对象生成独立计数键。
+// 例如同一户家庭里输入错另一本账簿，不会锁住当前账簿。
+func ThrottleTarget(scope, ip, subject string) string {
+	if subject == "" {
+		return scope + ":" + ip
+	}
+	return scope + ":" + ip + ":" + subject
+}
+
+// RetryAfterSeconds 向上取整，返回 Retry-After 需要的秒数。
+func RetryAfterSeconds(retry time.Duration) int {
+	if retry <= 0 {
+		return 1
+	}
+	return int((retry + time.Second - 1) / time.Second)
+}
+
+// RetryAfterLabel 给出用户可读的剩余时间；不足一分钟按秒显示。
+func RetryAfterLabel(retry time.Duration) string {
+	seconds := RetryAfterSeconds(retry)
+	if seconds < 60 {
+		return strconv.Itoa(seconds) + " 秒"
+	}
+	return strconv.Itoa((seconds+59)/60) + " 分钟"
 }

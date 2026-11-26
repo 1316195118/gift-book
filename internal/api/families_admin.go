@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"giftbook/internal/auth"
 	"giftbook/internal/store"
 )
 
@@ -52,18 +53,21 @@ func (s *Server) handleFamilyLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	code := strings.TrimSpace(stringValue(body["accessCode"]))
 	familyID := strings.TrimSpace(stringValue(body["familyId"]))
+	adminUnlocked := s.adminUnlocked(r)
 	families, err := s.store.ReadFamilies()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "家庭数据读取失败")
 		return
 	}
 
-	ip := "family:" + s.auth.ClientIP(r)
-	if s.auth.ThrottleLocked(ip) {
+	ip := auth.ThrottleTarget("family", s.auth.ClientIP(r), familyID)
+	// 管理员凭据已经通过独立校验；家庭访问码冷却只约束普通家庭成员，
+	// 不能把同一设备此前的错误访问码尝试变成管理员进入家庭的阻断。
+	if !adminUnlocked && s.auth.ThrottleLocked(ip) {
 		retry := s.auth.ThrottleRetryAfter(ip)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		w.Header().Set("Retry-After", strconv.Itoa(auth.RetryAfterSeconds(retry)))
 		failCode(w, http.StatusTooManyRequests, "family_locked",
-			"访问码错误次数过多，请 "+strconv.Itoa(int(retry.Minutes())+1)+" 分钟后再试")
+			"访问码错误次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 		return
 	}
 
@@ -111,10 +115,45 @@ func (s *Server) handleFamilyLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 管理员已经通过站点密码认证时，家庭门上的文字输入不应再被误当成家庭访问码。
+	// 单家庭直接进入；多家庭返回列表，让前端明确选择，避免把管理员密码当访问码提交。
+	if !found && familyID == "" && adminUnlocked {
+		var available []familyInfo
+		for id, rec := range families {
+			candidate := familyFromRecord(id, rec)
+			if !candidate.Archived {
+				available = append(available, candidate)
+			}
+		}
+		switch len(available) {
+		case 1:
+			target, found = available[0], true
+		default:
+			if len(available) > 1 {
+				sort.Slice(available, func(i, j int) bool {
+					if available[i].CreatedAt != available[j].CreatedAt {
+						return available[i].CreatedAt < available[j].CreatedAt
+					}
+					return available[i].ID < available[j].ID
+				})
+				list := make([]familyPublic, 0, len(available))
+				for _, match := range available {
+					list = append(list, match.public())
+				}
+				writeJSON(w, http.StatusConflict, response{
+					Success: false,
+					Code:    "family_ambiguous",
+					Message: "请选择要进入的家庭",
+					Data:    list,
+				})
+				return
+			}
+		}
+	}
 
-	if !found || (!s.adminUnlocked(r) && !familyCodeMatches(target, code)) {
+	if !found || (!adminUnlocked && !familyCodeMatches(target, code)) {
 		if code != "" {
-			s.auth.ThrottleFail(ip)
+			s.auth.ThrottleFail(ip, code)
 		}
 		failCode(w, http.StatusForbidden, "family_code", "家庭访问码不正确")
 		return
@@ -550,8 +589,8 @@ func (s *Server) handleDeleteFamily(w http.ResponseWriter, r *http.Request, id s
 	ok, fails, retry := s.auth.VerifyOrFail(r, body.CurrentPassword)
 	if !ok {
 		if retry > 0 {
-			w.Header().Set("Retry-After", itoa(int(retry.Seconds())+1))
-			fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+itoa(int(retry.Minutes())+1)+" 分钟后再试")
+			w.Header().Set("Retry-After", itoa(auth.RetryAfterSeconds(retry)))
+			fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 			return
 		}
 		left := 5 - fails

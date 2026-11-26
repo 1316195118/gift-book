@@ -44,9 +44,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		time.Sleep(400 * time.Millisecond)
 		if retry > 0 {
-			w.Header().Set("Retry-After", itoa(int(retry.Seconds())+1))
-			minutes := int(retry.Minutes()) + 1
-			fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+itoa(minutes)+" 分钟后再试")
+			w.Header().Set("Retry-After", itoa(auth.RetryAfterSeconds(retry)))
+			fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 			return
 		}
 		left := 5 - fails
@@ -84,8 +83,8 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 		ok, fails, retry := s.auth.VerifyOrFail(r, body.CurrentPassword)
 		if !ok {
 			if retry > 0 {
-				minutes := int(retry.Minutes()) + 1
-				fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+itoa(minutes)+" 分钟后再试")
+				w.Header().Set("Retry-After", itoa(auth.RetryAfterSeconds(retry)))
+				fail(w, http.StatusTooManyRequests, "尝试次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 				return
 			}
 			left := 5 - fails

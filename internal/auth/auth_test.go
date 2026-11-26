@@ -6,7 +6,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func newManager(t *testing.T) *Manager {
@@ -94,6 +96,7 @@ func TestVerifyOrFailLocksAfterRepeatedFailures(t *testing.T) {
 	enable(t, m, "secret-123")
 	req := httptest.NewRequest(http.MethodPost, "/api/auth", nil)
 	req.RemoteAddr = "192.0.2.10:3456"
+	throttleIP := ThrottleTarget("admin", "192.0.2.10", "")
 
 	if ok, _, _ := m.VerifyOrFail(req, "secret-123"); !ok {
 		t.Fatal("正确密码应立即通过")
@@ -101,7 +104,7 @@ func TestVerifyOrFailLocksAfterRepeatedFailures(t *testing.T) {
 
 	locked := false
 	for i := 0; i < 8; i++ {
-		ok, _, retry := m.VerifyOrFail(req, "bad-pass")
+		ok, _, retry := m.VerifyOrFail(req, "bad-pass-"+strconv.Itoa(i))
 		if ok {
 			t.Fatal("错误密码不应通过")
 		}
@@ -113,11 +116,67 @@ func TestVerifyOrFailLocksAfterRepeatedFailures(t *testing.T) {
 	if !locked {
 		t.Fatal("连续失败后应触发锁定")
 	}
-	if !m.ThrottleLocked("192.0.2.10") {
+	if !m.ThrottleLocked(throttleIP) {
 		t.Fatal("锁定状态应可查询")
 	}
-	if m.ThrottleRetryAfter("192.0.2.10") <= 0 {
+	if m.ThrottleRetryAfter(throttleIP) <= 0 {
 		t.Fatal("锁定剩余时间应大于 0")
+	}
+}
+
+func TestThrottleDeduplicatesSameAttemptWithinBurst(t *testing.T) {
+	m := newManager(t)
+	ip := ThrottleTarget("ledger", "192.0.2.10", "ledger-a")
+	for i := 0; i < 5; i++ {
+		m.ThrottleFail(ip, "same-wrong-key")
+	}
+	if got := m.ThrottleFails(ip); got != 1 {
+		t.Fatalf("同一瞬间的重复失败只应计数一次，实际 %d", got)
+	}
+}
+
+func TestCorrectPasswordClearsSingleMistake(t *testing.T) {
+	m := newManager(t)
+	enable(t, m, "secret-123")
+	req := httptest.NewRequest(http.MethodPost, "/api/auth", nil)
+	req.RemoteAddr = "192.0.2.11:3456"
+	target := ThrottleTarget("admin", "192.0.2.11", "")
+
+	if ok, _, _ := m.VerifyOrFail(req, "one-wrong-password"); ok {
+		t.Fatal("错误密码不应通过")
+	}
+	if got := m.ThrottleFails(target); got != 1 {
+		t.Fatalf("一次错误应只计一次，实际 %d", got)
+	}
+	if ok, _, retry := m.VerifyOrFail(req, "secret-123"); !ok || retry != 0 {
+		t.Fatal("紧接着输入正确密码应立即通过，不应进入冷却")
+	}
+	if got := m.ThrottleFails(target); got != 0 {
+		t.Fatalf("正确密码通过后应清空失败记录，实际 %d", got)
+	}
+}
+
+func TestThrottleTargetsAreIsolated(t *testing.T) {
+	m := newManager(t)
+	a := ThrottleTarget("ledger", "192.0.2.10", "ledger-a")
+	b := ThrottleTarget("ledger", "192.0.2.10", "ledger-b")
+	for i := 0; i < 5; i++ {
+		m.ThrottleFail(a, "wrong-"+strconv.Itoa(i))
+	}
+	if !m.ThrottleLocked(a) {
+		t.Fatal("目标账簿应进入冷却")
+	}
+	if m.ThrottleLocked(b) {
+		t.Fatal("另一本账簿不应被同一来源的失败连坐")
+	}
+}
+
+func TestRetryAfterLabelUsesSecondsForShortCooldown(t *testing.T) {
+	if got := RetryAfterLabel(14 * time.Second); got != "14 秒" {
+		t.Fatalf("短冷却应显示秒数，实际 %q", got)
+	}
+	if got := RetryAfterLabel(61 * time.Second); got != "2 分钟" {
+		t.Fatalf("长冷却应向上取整到分钟，实际 %q", got)
 	}
 }
 
@@ -132,13 +191,14 @@ func TestThrottleStorageFailureFailsClosed(t *testing.T) {
 	m.configDir = blockingFile
 	req := httptest.NewRequest(http.MethodPost, "/api/auth", nil)
 	req.RemoteAddr = "192.0.2.55:3456"
+	throttleIP := ThrottleTarget("admin", "192.0.2.55", "")
 	if ok, _, _ := m.VerifyOrFail(req, "bad-pass"); ok {
 		t.Fatal("bad password accepted")
 	}
-	if !m.ThrottleLocked("192.0.2.55") {
+	if !m.ThrottleLocked(throttleIP) {
 		t.Fatal("throttle storage failure must fail closed")
 	}
-	if m.ThrottleRetryAfter("192.0.2.55") <= 0 {
+	if m.ThrottleRetryAfter(throttleIP) <= 0 {
 		t.Fatal("fail-closed state must include a retry delay")
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"giftbook/internal/auth"
 	"giftbook/internal/store"
 )
 
@@ -427,12 +428,12 @@ func (s *Server) requireFamilyRestore(w http.ResponseWriter, r *http.Request, fa
 		return false
 	}
 	code := strings.TrimSpace(r.Header.Get("X-Family-Code"))
-	ip := "family-restore:" + s.auth.ClientIP(r)
+	ip := auth.ThrottleTarget("family-restore", s.auth.ClientIP(r), family.ID)
 	if s.auth.ThrottleLocked(ip) {
 		retry := s.auth.ThrottleRetryAfter(ip)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		w.Header().Set("Retry-After", strconv.Itoa(auth.RetryAfterSeconds(retry)))
 		failCode(w, http.StatusTooManyRequests, "family_locked",
-			"访问码错误次数过多，请 "+strconv.Itoa(int(retry.Minutes())+1)+" 分钟后再试")
+			"访问码错误次数过多，请 "+auth.RetryAfterLabel(retry)+"后再试")
 		return false
 	}
 	if familyCodeMatches(family, code) {
@@ -440,7 +441,7 @@ func (s *Server) requireFamilyRestore(w http.ResponseWriter, r *http.Request, fa
 		return true
 	}
 	if code != "" {
-		s.auth.ThrottleFail(ip)
+		s.auth.ThrottleFail(ip, code)
 	}
 	failCode(w, http.StatusForbidden, "family_code", "还原会覆盖本家庭全部账簿，请重新输入家庭访问码")
 	return false

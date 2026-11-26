@@ -22,4 +22,9 @@ describe('buildPrintPages 日期兜底', () => {
     expect(view.textContent).toContain('日期: 2026')
     expect(view.textContent).not.toContain('Invalid Date')
   })
+
+  it('PDF 可使用本次导出单独选择的封面', () => {
+    const view = buildPrintPages([st.gifts[0]], { ...st.currentEvent, coverStyle: 'longfeng' })
+    expect(view.querySelector('.ledger-cover')?.dataset.style).toBe('longfeng')
+  })
 })

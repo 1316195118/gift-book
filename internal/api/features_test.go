@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -278,6 +279,22 @@ func TestFamilyIsolation(t *testing.T) {
 	}
 }
 
+func TestAdminCanEnterSingleFamilyWithoutSubmittingAccessCode(t *testing.T) {
+	env := newEnv(t)
+	adminCookie := env.enableAdminPassword(t, "adminpass123")
+	res, payload := env.do(t, "POST", "/api/family/login", map[string]any{
+		// 旧页面可能把管理员密码误填在家庭访问码输入框；已经认证的管理员仍应直接进入。
+		"accessCode": "adminpass123",
+	}, map[string]string{"Cookie": adminCookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("管理员选择单家庭失败: %d %v", res.StatusCode, payload)
+	}
+	data, _ := payload["data"].(map[string]any)
+	if data["id"] != "fam_default" {
+		t.Fatalf("进入的家庭不正确: %v", data)
+	}
+}
+
 // 家庭登录：默认家庭没有访问码时可直接进入；主动退出后不再自动回退。
 func TestFamilyGateAndDefaultFallback(t *testing.T) {
 	env := newEnv(t)
@@ -389,6 +406,22 @@ func TestSiteAdminCanEnterAnyFamily(t *testing.T) {
 	}
 	familyID := payload["data"].(map[string]any)["id"].(string)
 
+	// 同一设备误输家庭访问码进入冷却后，已登录管理员仍应能凭管理员会话进入。
+	for i := 0; i < 5; i++ {
+		res, payload = env.do(t, "POST", "/api/family/login", map[string]any{
+			"familyId": familyID, "accessCode": "wrong-family-code-" + strconv.Itoa(i),
+		}, nil)
+		if res.StatusCode != http.StatusForbidden {
+			t.Fatalf("第 %d 次错误家庭访问码应被拒绝: %d %v", i+1, res.StatusCode, payload)
+		}
+	}
+	res, payload = env.do(t, "POST", "/api/family/login", map[string]any{
+		"familyId": familyID,
+	}, nil)
+	if res.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("普通成员在冷却期内应被限流: %d %v", res.StatusCode, payload)
+	}
+
 	// 管理员不输家庭码，直接按 familyId 进入。
 	res, payload = env.do(t, "POST", "/api/family/login", map[string]any{"familyId": familyID}, map[string]string{"Cookie": authCookie})
 	if res.StatusCode != http.StatusOK {
@@ -441,6 +474,31 @@ func TestAdminPasswordDoesNotBlockFamilyAccess(t *testing.T) {
 	res, _ = env.do(t, "GET", "/api/families", nil, map[string]string{"Cookie": familyCookie})
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("家庭成员不应访问家庭管理接口，实际 %d", res.StatusCode)
+	}
+}
+
+func TestFamilyCorrectCodeClearsSingleMistake(t *testing.T) {
+	env := newEnv(t)
+	adminCookie := env.enableAdminPassword(t, "adminpass123")
+	res, payload := env.do(t, "POST", "/api/families", map[string]any{
+		"name": "家庭访问码测试", "accessCode": "correct-family-code",
+	}, map[string]string{"Cookie": adminCookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("创建家庭失败: %d %v", res.StatusCode, payload)
+	}
+	familyID := payload["data"].(map[string]any)["id"].(string)
+
+	res, payload = env.do(t, "POST", "/api/family/login", map[string]any{
+		"familyId": familyID, "accessCode": "one-wrong-code",
+	}, nil)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("一次错误访问码应被拒绝: %d %v", res.StatusCode, payload)
+	}
+	res, payload = env.do(t, "POST", "/api/family/login", map[string]any{
+		"familyId": familyID, "accessCode": "correct-family-code",
+	}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("一次输入错误后，紧接着的正确访问码应立即通过: %d %v", res.StatusCode, payload)
 	}
 }
 

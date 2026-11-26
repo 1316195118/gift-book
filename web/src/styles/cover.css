@@ -85,6 +85,148 @@
     inset 0 0 30px rgb(51 71 90 / .07);
 }
 
+/* 款式不只换边框：同属红事的绸面也保留朱砂、绛红、胭脂等细微色阶；
+   白事只在素白、雾青和墨灰之间变化，不引入红、金或喜庆色。 */
+.ledger-cover[data-theme="red"][data-style="lihe"] {
+  --cover-bg: #9d382d;
+  --cover-bg-deep: #6d2017;
+  --cover-bg-lit: #c25540;
+}
+
+.ledger-cover[data-theme="red"][data-style="wujia"] {
+  --cover-bg: #b23829;
+  --cover-bg-deep: #812319;
+  --cover-bg-lit: #d15d43;
+}
+
+.ledger-cover[data-theme="red"][data-style="manyue"] {
+  --cover-bg: #ae3e33;
+  --cover-bg-deep: #812a23;
+  --cover-bg-lit: #d76e56;
+}
+
+.ledger-cover[data-theme="red"][data-style="duanmian"] {
+  --cover-bg: #8f2a23;
+  --cover-bg-deep: #621914;
+  --cover-bg-lit: #b94b38;
+}
+
+.ledger-cover[data-theme="red"][data-style="chanzhi"] {
+  --cover-bg: #96312b;
+  --cover-bg-deep: #67221d;
+  --cover-bg-lit: #ba5743;
+}
+
+.ledger-cover[data-theme="red"][data-style="longfeng"] {
+  --cover-bg: #a62d21;
+  --cover-bg-deep: #741b12;
+  --cover-bg-lit: #cc4e34;
+}
+
+.ledger-cover[data-theme="red"][data-style="huakai"] {
+  --cover-bg: #9b322a;
+  --cover-bg-deep: #70241f;
+  --cover-bg-lit: #c75a47;
+}
+
+.ledger-cover[data-theme="red"][data-style="bairi"] {
+  --cover-bg: #b34034;
+  --cover-bg-deep: #892d24;
+  --cover-bg-lit: #dc7258;
+}
+
+.ledger-cover[data-theme="red"][data-style="huimen"] {
+  --cover-bg: #a93428;
+  --cover-bg-deep: #7b241c;
+  --cover-bg-lit: #ca573f;
+}
+
+.ledger-cover[data-theme="red"][data-style="xieshi"] {
+  --cover-bg: #98402f;
+  --cover-bg-deep: #6b291e;
+  --cover-bg-lit: #bd624a;
+}
+
+.ledger-cover[data-theme="red"][data-style="wufu"] {
+  --cover-bg: #a22e23;
+  --cover-bg-deep: #731e17;
+  --cover-bg-lit: #c64e39;
+}
+
+.ledger-cover[data-theme="red"][data-style="jinyu"] {
+  --cover-bg: #a83327;
+  --cover-bg-deep: #782119;
+  --cover-bg-lit: #ce6049;
+}
+
+.ledger-cover[data-theme="red"][data-style="mantang"] {
+  --cover-bg: #b53a2d;
+  --cover-bg-deep: #86281f;
+  --cover-bg-lit: #d86b53;
+}
+
+.ledger-cover[data-theme="red"][data-style="tongxin"] {
+  --cover-bg: #982d27;
+  --cover-bg-deep: #691c18;
+  --cover-bg-lit: #bf533f;
+}
+
+.ledger-cover[data-theme="red"][data-style="qianxi"] {
+  --cover-bg: #9d3a2d;
+  --cover-bg-deep: #70261d;
+  --cover-bg-lit: #c45d47;
+}
+
+.ledger-cover[data-theme="white"][data-style="baiju"],
+.ledger-cover[data-theme="white"][data-style="suju"] {
+  --cover-bg: #eeefec;
+  --cover-bg-deep: #daddd9;
+  --cover-bg-lit: #fafaf8;
+}
+
+.ledger-cover[data-theme="white"][data-style="songbai"],
+.ledger-cover[data-theme="white"][data-style="yuanshan"] {
+  --cover-bg: #e8ebe7;
+  --cover-bg-deep: #d5dad4;
+  --cover-bg-lit: #f7f8f5;
+}
+
+.ledger-cover[data-theme="white"][data-style="qingyan"] {
+  --cover-bg: #e8ecee;
+  --cover-bg-deep: #d3dadd;
+  --cover-bg-lit: #f8fafb;
+}
+
+.ledger-cover[data-theme="white"][data-style="changsi"] {
+  --cover-bg: #e6e9e7;
+  --cover-bg-deep: #d0d6d3;
+  --cover-bg-lit: #f5f7f6;
+}
+
+.ledger-cover[data-theme="white"][data-style="qingzhu"] {
+  --cover-bg: #e9eee9;
+  --cover-bg-deep: #d4ddd5;
+  --cover-bg-lit: #f8faf7;
+}
+
+.ledger-cover[data-theme="white"][data-style="qiulu"] {
+  --cover-bg: #eef0ed;
+  --cover-bg-deep: #d9ded9;
+  --cover-bg-lit: #fbfcfa;
+}
+
+.ledger-cover[data-theme="white"][data-style="qiusheng"] {
+  --cover-bg: #ebeae5;
+  --cover-bg-deep: #d7d5cc;
+  --cover-bg-lit: #faf9f5;
+}
+
+.ledger-cover[data-theme="white"][data-style="huaien"] {
+  --cover-bg: #e8ebed;
+  --cover-bg-deep: #d3d8db;
+  --cover-bg-lit: #f7f9fa;
+}
+
 /* 素绢的织纹比红绸更细、更淡：浅底上的白线很容易变成明显的斜网格，
    所以把对比压到刚好看得出是织物的程度，线距也拉开。 */
 .ledger-cover[data-theme="white"]::after {
@@ -232,6 +374,31 @@
   text-indent: .3em;
   white-space: nowrap;
   z-index: 3;
+}
+
+/* 场景纹样：只做抽象线稿和几何秩序，不替代题名，也不抢圆章。 */
+.cover-motif-wrap {
+  position: absolute;
+  inset: 15% 10% 16% 20%;
+  display: grid;
+  place-items: center;
+  color: var(--cover-gold);
+  opacity: .2;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cover-motif {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ledger-cover[data-theme="white"] .cover-motif-wrap {
+  color: var(--cover-ink);
+  opacity: .14;
 }
 
 /* ---- 团花圆章 ---- */
@@ -467,14 +634,13 @@
 
 /* ---- 缩略图场景 ---- */
 
-/* 模板页封面：只保留圆章与题名 */
+/* 模板页封面：保留场景纹样、圆章、题名与落印，让每个场景一眼可辨。 */
 .tpl-cover .ledger-cover {
   padding: 13% 10% 15% 17%;
   gap: 0;
   justify-content: center;
 }
 
-.tpl-cover .cover-seal,
 .tpl-cover .cover-meta,
 .tpl-cover .cover-blessing {
   display: none;
@@ -503,6 +669,17 @@
   letter-spacing: .06em;
 }
 
+.tpl-cover .cover-seal {
+  width: 10%;
+  max-width: 24px;
+  font-size: clamp(7px, 3.3cqi, 10px);
+}
+
+.tpl-cover .cover-motif-wrap {
+  inset: 12% 8% 13% 18%;
+  opacity: .17;
+}
+
 /* 创建页封面样式选择器：迷你缩略图 */
 .cover-style-thumb .ledger-cover {
   padding: 7% 6% 9% 14%;
@@ -511,10 +688,7 @@
 
 .cover-style-thumb .cover-blessing,
 .cover-style-thumb .cover-edition,
-.cover-style-thumb .cover-toplabel,
-.cover-style-thumb .cover-seal,
-.cover-style-thumb .cover-corner,
-.cover-style-thumb .cover-tassel {
+.cover-style-thumb .cover-meta {
   display: none;
 }
 
@@ -539,6 +713,39 @@
   letter-spacing: .02em;
   writing-mode: horizontal-tb;
   text-orientation: mixed;
+}
+
+.cover-style-thumb .cover-corner {
+  width: 17%;
+  max-width: none;
+  opacity: .78;
+}
+
+.cover-style-thumb .cover-toplabel {
+  top: 4%;
+  padding: 0 3px;
+  border-color: transparent;
+  background: transparent;
+  font-size: clamp(4px, 2.8cqi, 6px);
+  letter-spacing: .08em;
+  text-indent: .08em;
+}
+
+.cover-style-thumb .cover-seal {
+  width: 16%;
+  max-width: none;
+  font-size: clamp(5px, 3.8cqi, 7px);
+}
+
+.cover-style-thumb .cover-tassel {
+  display: block;
+  width: 8%;
+  margin-top: -2%;
+}
+
+.cover-style-thumb .cover-motif-wrap {
+  inset: 13% 9% 14% 18%;
+  opacity: .13;
 }
 
 /* 创建页右侧大预览 */

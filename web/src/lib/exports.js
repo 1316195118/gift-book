@@ -1,7 +1,8 @@
 // 导出：Excel 明细、PDF 礼簿（A4 横向）、Word 文档（A4 纵向）。
 import { state as st } from '../store.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { COVER_STYLES, copyOf, getCoverStyle, isSolemnEvent } from './content.js'
+import { renderCoverMarkup } from './cover.js'
 import { amountToChinese, formatCurrency, escapeHtml, formatDate, formatDateTime, safeFileName } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
 import { XlsxLite } from './xlsx-lite.js'
@@ -48,7 +49,7 @@ export function openExport() {
       onPick: (format) => {
         if (format === 'excel') setTimeout(() => exportToExcel(), 80)
         if (format === 'returns') setTimeout(() => openReturnsExport(), 80)
-        if (format === 'pdf') setTimeout(() => exportLedgerPdf(), 120)
+        if (format === 'pdf') setTimeout(() => openPdfCoverPicker((coverStyle) => exportLedgerPdf({ coverStyle })), 120)
         if (format === 'word') setTimeout(() => exportToWord(), 80)
         if (format === 'import') setTimeout(() => openImport(), 80)
         if (format === 'scope') setTimeout(() => openScopePicker(() => openExport()), 80)
@@ -242,7 +243,7 @@ export function openReturnsExport() {
         const fmt = btn.dataset.returnsFmt
         closeModal()
         if (fmt === 'excel') setTimeout(() => exportReturnsExcel(), 80)
-        if (fmt === 'pdf') setTimeout(() => exportReturnsPdf(), 80)
+        if (fmt === 'pdf') setTimeout(() => openPdfCoverPicker((coverStyle) => exportReturnsPdf({ coverStyle })), 80)
         if (fmt === 'word') setTimeout(() => exportReturnsWord(), 80)
       })
     })
@@ -376,7 +377,7 @@ export function exportReturnsWord() {
 // PDF：A4 横向，与礼簿同一套渲染链（逐页转图再写 PDF）。
 const RETURNS_PER_PAGE = 16
 
-export async function exportReturnsPdf() {
+export async function exportReturnsPdf({ coverStyle = '' } = {}) {
   const data = collectReturns()
   if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
   const { ev, list, total } = data
@@ -387,6 +388,12 @@ export async function exportReturnsPdf() {
   printView.id = 'print-view'
   printView.style.cssText = 'position:fixed;left:-9999px;top:0;width:297mm;'
   const pages = []
+  const coverPage = document.createElement('div')
+  coverPage.className = 'print-page print-cover-page'
+  // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
+  coverPage.innerHTML = renderCoverMarkup({ ...ev, coverStyle: coverStyle || getCoverStyle(ev, st.homeCategory).id }, false, st.homeCategory)
+  printView.appendChild(coverPage)
+  pages.push(coverPage)
   for (let p = 0; p < totalPages; p += 1) {
     const slice = list.slice(p * RETURNS_PER_PAGE, (p + 1) * RETURNS_PER_PAGE)
     const page = document.createElement('div')
@@ -479,11 +486,12 @@ export function exportToWord() {
   }, 1000)
 }
 
-export async function exportLedgerPdf() {
+export async function exportLedgerPdf({ coverStyle = '' } = {}) {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
   if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
-  const printView = buildPrintPages(scopeGifts())
+  const selectedCover = coverStyle || getCoverStyle(ev, st.homeCategory).id
+  const printView = buildPrintPages(scopeGifts(), { ...ev, coverStyle: selectedCover })
   if (!printView) return
   const pages = Array.from(printView.querySelectorAll('.print-page'))
   const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'
@@ -505,6 +513,82 @@ export async function exportLedgerPdf() {
     progress.close()
     printView.remove()
   }
+}
+
+function openPdfCoverPicker(onConfirm) {
+  const ev = st.currentEvent
+  if (!ev) return
+  const solemn = isSolemnEvent(ev, st.homeCategory)
+  const copy = copyOf(ev, st.homeCategory)
+  const styles = COVER_STYLES.filter((style) => style.theme === (solemn ? 'white' : 'red'))
+  let selected = getCoverStyle(ev, st.homeCategory).id
+  const cards = styles.map((style) => `
+    <button
+      type="button"
+      class="pdf-cover-choice${style.id === selected ? ' active' : ''}"
+      data-pdf-cover="${style.id}"
+      aria-pressed="${style.id === selected}"
+      title="${escapeHtml(style.name)}"
+    >
+      <span class="cover-style-thumb">${renderCoverMarkup({ ...ev, coverStyle: style.id }, true, st.homeCategory)}</span>
+      <span class="pdf-cover-name">${escapeHtml(style.name)}</span>
+    </button>`).join('')
+  const html = `
+    <div class="pdf-cover-picker">
+      <div class="pdf-cover-intro">
+        <div>
+          <h3>为这次 PDF 选一套封面</h3>
+          <p>与创建账簿时是同一套红事 / 白事封面。这里的选择只用于本次导出，不会改动账簿当前封面。</p>
+        </div>
+        <span class="pdf-cover-count">${styles.length} 款</span>
+      </div>
+      <div class="pdf-cover-layout">
+        <div class="pdf-cover-grid" role="group" aria-label="PDF 封面款式">${cards}</div>
+        <aside class="pdf-cover-preview-card" aria-label="PDF 封面预览">
+          <div class="pdf-cover-preview-head"><span>封面预览</span><b id="pdf-cover-current-name">${escapeHtml(getCoverStyle(ev, st.homeCategory).name)}</b></div>
+          <div class="pdf-cover-preview" id="pdf-cover-preview">${renderCoverMarkup({ ...ev, coverStyle: selected }, false, st.homeCategory)}</div>
+          <p>${escapeHtml(copy.bookTitle)} · 导出时与明细同一份数据</p>
+        </aside>
+      </div>
+    </div>`
+  openModal(
+    '选择 PDF 封面',
+    { type: 'html', html },
+    [
+      { text: '取消', class: 'modal-btn-ghost' },
+      {
+        text: '生成 PDF',
+        class: 'modal-btn-primary',
+        beforeClose: () => {
+          selected = document.querySelector('.pdf-cover-choice.active')?.dataset.pdfCover || selected
+        },
+        handler: () => {
+          setTimeout(() => onConfirm(selected), 80)
+        },
+      },
+    ],
+    { size: 'large', theme: solemn ? 'theme-solemn' : 'theme-festive', dismissable: true },
+  )
+  afterModalRender(() => {
+    const preview = document.getElementById('pdf-cover-preview')
+    const currentName = document.getElementById('pdf-cover-current-name')
+    document.querySelectorAll('.pdf-cover-choice').forEach((button) => {
+      button.addEventListener('click', () => {
+        selected = button.dataset.pdfCover
+        document.querySelectorAll('.pdf-cover-choice').forEach((item) => {
+          const active = item === button
+          item.classList.toggle('active', active)
+          item.setAttribute('aria-pressed', String(active))
+        })
+        const style = styles.find((item) => item.id === selected)
+        if (preview) {
+          // eslint-disable-next-line no-unsanitized/property -- 内容已 escapeHtml 转义
+          preview.innerHTML = renderCoverMarkup({ ...ev, coverStyle: selected }, false, st.homeCategory)
+        }
+        if (currentName) currentName.textContent = style?.name || ''
+      })
+    })
+  })
 }
 
 function showPdfProgress(total) {

@@ -1,6 +1,6 @@
 // 多分辨率核心链路回归：首页 → 模板 → 创建 → 记账 → 录入确认 → 统计弹窗。
 // 用法：先启动隔离实例，再 BASE_URL=http://127.0.0.1:18199 node e2e/responsive.mjs
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
 
@@ -177,6 +177,18 @@ for (const [name, width, height] of viewports) {
     await ensureTemplateScreen(page)
     check(`${name} 模板页可见`, await page.locator('.tpl-card').first().isVisible())
     check(`${name} 模板页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const templateCovers = await page.locator('.tpl-card .ledger-cover').evaluateAll((nodes) => nodes.map((node) => [
+      node.dataset.style,
+      node.dataset.template,
+      node.dataset.frame,
+      node.dataset.layout,
+      Boolean(node.querySelector('.cover-motif')),
+    ].join('|')))
+    check(
+      `${name} 模板封面款式互不重复`,
+      templateCovers.length === 5 && new Set(templateCovers).size === templateCovers.length,
+      templateCovers.join(' / '),
+    )
     const templateBack = page.getByRole('button', { name: '返回首页' })
     const templateBackBox = await templateBack.boundingBox()
     check(
@@ -200,6 +212,21 @@ for (const [name, width, height] of viewports) {
     const setupTargets = await auditInteractiveTargets(page)
     check(`${name} 创建页触控目标不小于 44px`, setupTargets.length === 0, setupTargets.join(' | '))
     await page.screenshot({ path: join(OUT, `${name}-02-setup.png`), fullPage: true })
+    await page.locator('.setup-more-summary').click()
+    await page.locator('#cover-style-grid').waitFor({ state: 'visible' })
+    const coverStyleIds = await page.locator('#cover-style-grid .cover-style-item').evaluateAll((nodes) =>
+      nodes.map((node) => node.querySelector('.ledger-cover')?.dataset.style || ''))
+    check(
+      `${name} 红事封面款式完整且互不重复`,
+      coverStyleIds.length === 16 && new Set(coverStyleIds).size === 16,
+      coverStyleIds.join(' / '),
+    )
+    check(
+      `${name} 封面缩略图带场景纹样`,
+      (await page.locator('#cover-style-grid .cover-motif').count()) === coverStyleIds.length,
+    )
+    await page.screenshot({ path: join(OUT, `${name}-02b-cover-styles.png`), fullPage: true })
+    await page.locator('.setup-more-summary').click()
 
     const unique = `${name}-${Date.now().toString(36).slice(-6)}`
     await page.locator('#event-name').fill(unique)
@@ -261,6 +288,30 @@ for (const [name, width, height] of viewports) {
     check(`${name} 录入后无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     await page.screenshot({ path: join(OUT, `${name}-04-filled.png`), fullPage: true })
 
+    await page.locator('#export-btn').click()
+    await page.locator('#modal').waitFor({ state: 'visible' })
+    await page.locator('.export-option').filter({ hasText: 'PDF' }).click()
+    await page.locator('.pdf-cover-picker').waitFor({ state: 'visible', timeout: 5000 })
+    const pdfCovers = page.locator('.pdf-cover-choice')
+    check(`${name} PDF 封面可选完整红事款式`, (await pdfCovers.count()) === 16)
+    const beforePreview = await page.locator('#pdf-cover-preview .ledger-cover').getAttribute('data-style')
+    await pdfCovers.nth(1).click()
+    const afterPreview = await page.locator('#pdf-cover-preview .ledger-cover').getAttribute('data-style')
+    check(`${name} PDF 封面预览跟随选择`, Boolean(beforePreview) && beforePreview !== afterPreview, `${beforePreview} → ${afterPreview}`)
+    check(`${name} PDF 封面弹窗无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    await page.screenshot({ path: join(OUT, `${name}-04b-pdf-cover.png`), fullPage: true })
+    if (name === 'phone') {
+      const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
+      await page.getByRole('button', { name: '生成 PDF', exact: true }).click()
+      const download = await downloadPromise
+      const pdfPath = join(OUT, 'phone-selected-cover.pdf')
+      await download.saveAs(pdfPath)
+      check(`${name} 选择的封面实际写入 PDF`, existsSync(pdfPath) && statSync(pdfPath).size > 10000, `${download.suggestedFilename()} ${existsSync(pdfPath) ? statSync(pdfPath).size : 0}B`)
+    } else {
+      await page.getByRole('button', { name: '取消', exact: true }).click()
+    }
+    await page.locator('#modal').waitFor({ state: 'hidden' })
+
     await page.locator('#stats-btn').click()
     await page.locator('#modal').waitFor({ state: 'visible' })
     await page.waitForTimeout(350)
@@ -301,6 +352,57 @@ for (const [name, width, height] of viewports) {
     check(`${name} 无浏览器错误`, errors.length === 0, errors.slice(0, 3).join(' | '))
   } catch (error) {
     check(`${name} 核心链路`, false, error.message.split('\n')[0])
+  } finally {
+    await context.close()
+  }
+}
+
+// 白事单独从首页进入，避免红事主链路写下的本地状态影响分类。
+for (const [name, width, height] of [['small-phone', 320, 568], ['desktop', 1440, 900]]) {
+  const context = await browser.newContext({
+    viewport: { width, height },
+    isMobile: width < 768,
+    hasTouch: width < 1024,
+  })
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem('giftbook_category', 'white')
+      localStorage.setItem('giftbook-backup-prompted', '1')
+    } catch { /* ignore */ }
+  })
+  const page = await context.newPage()
+  try {
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+    await dismissLightModals(page)
+    await ensureTemplateScreen(page)
+    const whiteTemplates = await page.locator('.tpl-card .ledger-cover').evaluateAll((nodes) => nodes.map((node) => [
+      node.dataset.style,
+      node.dataset.theme,
+      Boolean(node.querySelector('.cover-motif')),
+    ].join('|')))
+    check(
+      `${name} 白事模板封面独立且纹样完整`,
+      whiteTemplates.length === 5 && new Set(whiteTemplates).size === 5 && whiteTemplates.every((item) => item.includes('|white|true')),
+      whiteTemplates.join(' / '),
+    )
+    await page.locator('.tpl-card').first().click()
+    await page.locator('#setup-screen').waitFor({ state: 'visible' })
+    await page.locator('.setup-more-summary').click()
+    await page.locator('#cover-style-grid').waitFor({ state: 'visible' })
+    const whiteStyles = await page.locator('#cover-style-grid .cover-style-item').evaluateAll((nodes) => nodes.map((node) => [
+      node.querySelector('.ledger-cover')?.dataset.style || '',
+      node.querySelector('.ledger-cover')?.dataset.theme || '',
+      Boolean(node.querySelector('.cover-motif')),
+    ].join('|')))
+    check(
+      `${name} 白事封面 12 款完整且无串色`,
+      whiteStyles.length === 12 && new Set(whiteStyles).size === 12 && whiteStyles.every((item) => item.includes('|white|true')),
+      whiteStyles.join(' / '),
+    )
+    check(`${name} 白事封面页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    await page.screenshot({ path: join(OUT, `${name}-solemn-cover-styles.png`), fullPage: true })
+  } catch (error) {
+    check(`${name} 白事封面链路`, false, error.message.split('\n')[0])
   } finally {
     await context.close()
   }
