@@ -19,6 +19,7 @@ import (
 
 	"giftbook/internal/auth"
 	"giftbook/internal/store"
+	"giftbook/internal/update"
 )
 
 const noPassKey = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -52,7 +53,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.56"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.57"}
 	if len(extra) > 0 {
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL
@@ -193,6 +194,7 @@ func TestCrossOriginWritesRejected(t *testing.T) {
 // 反向代理改写 Host / X-Forwarded-Proto 时，浏览器明确标记的同源写请求仍应放行。
 func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
 	env := newEnv(t)
+	env.api.updater = update.New(env.dir, "2.4.57")
 	body := map[string]any{"name": "proxy", "passwordHash": noPassKey}
 	headers := map[string]string{
 		"Origin":         "https://giftbook.example",
@@ -201,6 +203,11 @@ func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
 	res, payload := env.do(t, "POST", "/api/events", body, headers)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("浏览器同源请求应放行，实际 %d %v", res.StatusCode, payload)
+	}
+
+	res, payload = env.do(t, "PUT", "/api/update/settings", map[string]any{"proxy": ""}, headers)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("代理后的更新设置应放行，实际 %d %v", res.StatusCode, payload)
 	}
 
 	headers["Origin"] = "https://evil.example"
@@ -215,6 +222,27 @@ func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
 	res, _ = env.do(t, "POST", "/api/events", body, headers)
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("同站但不同 origin 应拒绝，实际 %d", res.StatusCode)
+	}
+}
+
+func TestCrossOriginSensitiveWritesRejected(t *testing.T) {
+	env := newEnv(t)
+	cases := []struct {
+		method string
+		path   string
+		body   any
+	}{
+		{http.MethodPost, "/api/auth", map[string]any{"password": "x"}},
+		{http.MethodPut, "/api/auth", map[string]any{"enabled": false}},
+		{http.MethodDelete, "/api/auth", nil},
+		{http.MethodPut, "/api/update/settings", map[string]any{"proxy": ""}},
+		{http.MethodPost, "/api/not-registered", map[string]any{"value": "x"}},
+	}
+	for _, test := range cases {
+		res, _ := env.do(t, test.method, test.path, test.body, map[string]string{"Origin": "https://evil.example"})
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("%s %s 应拒绝跨站写入，实际 %d", test.method, test.path, res.StatusCode)
+		}
 	}
 }
 

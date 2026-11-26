@@ -113,9 +113,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("HEAD /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("GET /api/auth", s.handleAuthState)
-	mux.HandleFunc("POST /api/auth", s.handleLogin)
-	mux.HandleFunc("PUT /api/auth", s.handleUpdateAuth)
-	mux.HandleFunc("DELETE /api/auth", s.handleLogout)
+	mux.HandleFunc("POST /api/auth", s.open(s.handleLogin))
+	mux.HandleFunc("PUT /api/auth", s.open(s.handleUpdateAuth))
+	mux.HandleFunc("DELETE /api/auth", s.open(s.handleLogout))
 
 	mux.HandleFunc("GET /api/family/me", s.open(s.handleFamilyMe))
 	mux.HandleFunc("POST /api/family/login", s.open(s.handleFamilyLogin))
@@ -184,7 +184,18 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle("/", s.staticHandler())
 
-	return s.securityHeaders(s.httpsRedirect(mux))
+	// 写请求统一在路由入口处校验同源，避免新增接口漏挂站点级检查。
+	return s.securityHeaders(s.sameOriginWrites(s.httpsRedirect(mux)))
+}
+
+func (s *Server) sameOriginWrites(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.sameOrigin(r) {
+			fail(w, http.StatusForbidden, "跨站请求已被拒绝")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // middle 是 API 通用前置检查：同源 + 访问保护。

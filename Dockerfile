@@ -18,7 +18,7 @@ COPY internal/ ./internal/
 COPY embed.go ./
 RUN mkdir -p webapp/dist
 COPY --from=web /src/dist/ ./webapp/dist/
-RUN printf '{"build":"%s","version":"2.4.56"}\n' "$BUILD_ID" > webapp/dist/build.json \
+RUN printf '{"build":"%s","version":"2.4.57"}\n' "$BUILD_ID" > webapp/dist/build.json \
  && touch webapp/dist/.gitkeep \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/giftbook ./cmd/giftbook
 
