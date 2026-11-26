@@ -4,7 +4,6 @@
       <button type="button" class="back-link" @click="showHome">← 返回首页</button>
       <div class="home-hero">
         <div class="hero-copy">
-          <div class="eyebrow" id="tpl-eyebrow">{{ catText.tplEyebrow }}</div>
           <h1 id="tpl-title">选择模板</h1>
           <div class="sub" id="tpl-sub">选一个最接近的场景，名称与封面会自动带出，之后仍可随时修改。</div>
         </div>
@@ -38,11 +37,10 @@
 <script setup>
 import { computed } from 'vue'
 import { state as st } from '../store.js'
-import { CATEGORY_TEXT, templatesFor } from '../lib/content.js'
+import { templatesFor } from '../lib/content.js'
 import { renderCoverMarkup } from '../lib/cover.js'
 import { showHome, showSetup } from '../bootstrap.js'
 
-const catText = computed(() => CATEGORY_TEXT[st.homeCategory])
 const templates = computed(() => templatesFor(st.homeCategory))
 const isSolemn = computed(() => st.homeCategory === 'white')
 

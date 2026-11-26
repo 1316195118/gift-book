@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -152,6 +153,10 @@ func parseOrigin(raw string) (originParts, bool) {
 // 在超限时终止读取并关闭连接；尾部多余内容一律拒绝，避免夹带第二份 JSON。
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	defer r.Body.Close()
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || (mediaType != "application/json" && !strings.HasSuffix(mediaType, "+json")) {
+		return errors.New("请求必须使用 application/json")
+	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
 	if err := dec.Decode(dst); err != nil {
 		return err

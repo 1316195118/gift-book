@@ -57,6 +57,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 	if len(extra) > 0 {
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL
+		opts.TrustProxy = extra[0].TrustProxy
 	}
 	srvAPI := New(opts)
 	srv := httptest.NewServer(srvAPI.Handler())
@@ -222,6 +223,26 @@ func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
 	res, _ = env.do(t, "POST", "/api/events", body, headers)
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("同站但不同 origin 应拒绝，实际 %d", res.StatusCode)
+	}
+}
+
+func TestTrustedProxyMatchesForwardedOriginWithoutFetchMetadata(t *testing.T) {
+	env := newEnv(t, Options{TrustProxy: true})
+	body := map[string]any{"name": "forwarded proxy", "passwordHash": noPassKey}
+	headers := map[string]string{
+		"Origin":            "https://giftbook.example",
+		"X-Forwarded-Host":  "giftbook.example",
+		"X-Forwarded-Proto": "https",
+	}
+	res, payload := env.do(t, "POST", "/api/events", body, headers)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("可信代理的公开 Origin 应放行，实际 %d %v", res.StatusCode, payload)
+	}
+
+	headers["Origin"] = "https://evil.example"
+	res, _ = env.do(t, "POST", "/api/events", body, headers)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("可信代理不能放行其他 Origin，实际 %d", res.StatusCode)
 	}
 }
 
@@ -766,6 +787,24 @@ func TestDecodeJSONRejectsTrailingPayload(t *testing.T) {
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("尾部多余 JSON 应返回 400，实际 %d", res.StatusCode)
+	}
+}
+
+func TestJSONWritesRequireJSONContentType(t *testing.T) {
+	env := newEnv(t)
+	body := `{"name":"x","passwordHash":"` + noPassKey + `"}`
+	req, err := http.NewRequest(http.MethodPost, env.server.URL+"/api/events", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("非 JSON 写请求应返回 400，实际 %d", res.StatusCode)
 	}
 }
 

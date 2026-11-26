@@ -175,9 +175,9 @@
             <small>金额可填区间，如 100-500</small>
           </div>
 
-          <div class="ledger-summary" aria-live="polite">
-            <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span>{{ formatCurrency(displayTotal) }}</span></div>
-            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span>{{ stats.totalGivers }}</span><small class="summary-sub">{{ stats.recordCount }} 笔 · 人均 {{ formatCurrency(stats.average) }}</small></div>
+          <div class="ledger-summary" aria-live="polite" :aria-busy="!st.giftsLoaded">
+            <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span :class="{ 'summary-loading-value': !st.giftsLoaded }">{{ st.giftsLoaded ? formatCurrency(displayTotal) : '读取中…' }}</span></div>
+            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span :class="{ 'summary-loading-value': !st.giftsLoaded }">{{ st.giftsLoaded ? stats.totalGivers : '读取中…' }}</span><small v-if="st.giftsLoaded" class="summary-sub">{{ stats.recordCount }} 笔 · 人均 {{ formatCurrency(stats.average) }}</small></div>
             <div v-if="pages > 1" class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
 
@@ -201,6 +201,22 @@
               </div>
             </div>
             <div v-if="st.currentEvent && !st.giftsLoaded" class="book-skeleton" aria-busy="true" aria-label="正在加载礼簿">
+              <div class="book-loading-copy" role="status" aria-live="polite">
+                <strong>{{ st.ledgerLoadStage || '正在读取礼簿' }}</strong>
+                <span v-if="st.ledgerLoadProgress !== null">{{ st.ledgerLoadProgress }}%</span>
+                <small v-if="isPreparingKey">密钥只在本机计算；同一标签页内只需准备一次。</small>
+              </div>
+              <div
+                v-if="st.ledgerLoadProgress !== null"
+                class="book-loading-progress"
+                role="progressbar"
+                :aria-valuenow="st.ledgerLoadProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                :aria-label="st.ledgerLoadStage || '正在读取礼簿'"
+              >
+                <i :style="{ width: `${Math.max(2, st.ledgerLoadProgress)}%` }"></i>
+              </div>
               <div class="sk-block"><i class="sk-line w60"></i><i class="sk-line w40"></i><i class="sk-line w80"></i></div>
               <div class="sk-grid"><i v-for="n in 8" :key="n" class="sk-cell"></i></div>
             </div>
@@ -361,6 +377,7 @@ const pages = computed(() => totalPages())
 const stats = computed(() => computeStats(st.gifts))
 // 结簿归档与手动锁定共用一套禁用逻辑，但只读横幅单独提示、不遮住礼簿。
 const readOnly = computed(() => st.locked || isArchived())
+const isPreparingKey = computed(() => st.ledgerLoadStage.includes('加密密钥'))
 const reviewCount = computed(() => {
   reviewTick.value
   return filterReviewed(buildReviewQueue(st.gifts), st.currentEvent?.id).length

@@ -34,6 +34,7 @@ import { bootstrap } from './bootstrap.js'
 import { showTemplates, showHelpDialog } from './lib/actions.js'
 import { showHomeSettings } from './lib/home-settings.js'
 import { applyPageMeta } from './lib/page-meta.js'
+import { loadMainView } from './lib/view-loader.js'
 
 const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
 const publicPolicy = normalizedPath === '/privacy' || normalizedPath === '/terms'
@@ -44,7 +45,7 @@ const viewLoaders = {
   guest: () => import('./views/GuestScreen.vue'),
   template: () => import('./views/TemplateScreen.vue'),
   setup: () => import('./views/SetupScreen.vue'),
-  main: () => import('./views/MainScreen.vue'),
+  main: loadMainView,
 }
 
 function asyncView(loader) {

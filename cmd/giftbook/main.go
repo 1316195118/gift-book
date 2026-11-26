@@ -25,7 +25,7 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.58"
+const appVersion = "2.4.59"
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
@@ -115,6 +115,7 @@ func main() {
 		AutoRestart: envBool("GIFTBOOK_AUTO_RESTART"),
 		ForceHTTPS:  envBool("GIFTBOOK_FORCE_HTTPS"),
 		PublicURL:   strings.TrimSpace(os.Getenv("GIFTBOOK_PUBLIC_URL")),
+		TrustProxy:  trustProxy,
 	})
 	handler.StartAutoBackup()
 

@@ -131,25 +131,21 @@ export const UX_COPY = {
 
 export const CATEGORY_TEXT = {
   red: {
-    eyebrow: '礼金记录 · 统计 · 加密导出',
     title: '把每一份心意，记得清清楚楚',
     sub: '红事礼金多人同时登记，金额自动汇总，随时打印或导出。',
     kicker: '喜 事',
     cardTitle: '红事',
     cardDesc: '婚嫁 · 寿诞 · 满月 · 乔迁 · 升学',
     go: '选择场景并创建',
-    tplEyebrow: '红 事',
     theme: 'theme-festive',
   },
   white: {
-    eyebrow: '奠仪登记 · 庄重留存 · 加密保存',
     title: '把每一份敬意，稳妥记下',
     sub: '白事奠仪多人同时登记，金额自动汇总，随时打印或导出。',
     kicker: '白 事',
     cardTitle: '白事',
     cardDesc: '丧仪 · 追思 · 周年 · 迁坟',
     go: '选择场景并创建',
-    tplEyebrow: '白 事',
     theme: 'theme-solemn',
   },
 }

@@ -78,6 +78,35 @@ describe('当前账簿礼金加载', () => {
     expect(state.giftsLoaded).toBe(true)
   })
 
+  it('礼金列表与密钥派生并行，列表请求不等待派生完成', async () => {
+    const { state, api, bootstrap } = await harness()
+    const { LedgerCrypto } = await import('../../store.js')
+    const derive = deferred()
+    const listGifts = vi.spyOn(api, 'listGifts').mockResolvedValue({ success: true, data: {} })
+    vi.spyOn(LedgerCrypto, 'deriveKeysAsync').mockReturnValue(derive.promise)
+
+    state.currentEvent = {
+      ...event('secured'),
+      hasPassword: true,
+      kdf: LedgerCrypto.newKdfParams(),
+    }
+    state.currentPassword = 'secret'
+    state.giftsLoaded = false
+
+    const load = bootstrap.loadGiftsForCurrentEvent()
+    await vi.waitFor(() => expect(listGifts).toHaveBeenCalledTimes(1))
+    expect(state.giftsLoaded).toBe(false)
+
+    derive.resolve({
+      v: 2,
+      password: 'secret',
+      enc: new Uint8Array(32),
+      mac: new Uint8Array(32),
+    })
+    await load
+    expect(state.giftsLoaded).toBe(true)
+  })
+
   it('快速切簿后丢弃旧账簿晚到的结果', async () => {
     const { state, api, bootstrap } = await harness()
     const { LedgerCrypto, NO_PASSWORD_KEY } = await import('../../store.js')

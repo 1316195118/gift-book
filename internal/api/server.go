@@ -25,6 +25,7 @@ type Server struct {
 	configDir    string
 	forceHTTPS   bool
 	publicURL    string
+	trustProxy   bool
 	stream       *streamHub
 	guestLimiter *guestRateLimiter
 
@@ -66,6 +67,8 @@ type Options struct {
 	// PublicURL 是可选的外网根地址（如 https://giftbook.example.com）。
 	// 配置后 robots.txt、sitemap.xml 与社交图片始终使用该地址。
 	PublicURL string
+	// TrustProxy 表示部署在受控反向代理之后，可采信转发协议与主机。
+	TrustProxy bool
 }
 
 // New 创建 HTTP 服务。
@@ -80,6 +83,7 @@ func New(opts Options) *Server {
 		configDir:      opts.ConfigDir,
 		forceHTTPS:     opts.ForceHTTPS,
 		publicURL:      normalizePublicURL(opts.PublicURL),
+		trustProxy:     opts.TrustProxy,
 		stream:         newStreamHub(),
 		guestLimiter:   newGuestRateLimiter(),
 		stopAutoBackup: make(chan struct{}),
@@ -424,14 +428,26 @@ func (s *Server) siteOrigin(r *http.Request) string {
 		return s.publicURL
 	}
 	host := strings.TrimSpace(r.Host)
+	scheme := "http"
+	if s.trustProxy {
+		if forwardedProto := firstForwardedValue(r.Header.Get("X-Forwarded-Proto")); forwardedProto == "http" || forwardedProto == "https" {
+			scheme = forwardedProto
+		}
+		if forwardedHost := firstForwardedValue(r.Header.Get("X-Forwarded-Host")); validRequestHost(forwardedHost) {
+			host = forwardedHost
+		}
+	} else if s.isHTTPS(r) {
+		scheme = "https"
+	}
 	if !validRequestHost(host) {
 		return ""
 	}
-	scheme := "http"
-	if s.isHTTPS(r) {
-		scheme = "https"
-	}
 	return scheme + "://" + host
+}
+
+func firstForwardedValue(raw string) string {
+	value, _, _ := strings.Cut(strings.TrimSpace(raw), ",")
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func normalizePublicURL(raw string) string {

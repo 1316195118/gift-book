@@ -312,22 +312,35 @@ export async function loadGiftsForCurrentEvent() {
 
   const request = { key: requestKey, promise: null }
   request.promise = (async () => {
-    const cipher = (await ensureCipher())?.keys || null
-    if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
-    try {
+    if (generation === loadGeneration && st.currentEvent?.id === eventId) {
+      st.ledgerLoadStage = '正在读取礼簿'
+      st.ledgerLoadProgress = 0
+    }
+    // 密钥派生与礼金列表互不依赖。内网 http 只能走纯 JS PBKDF2 时，
+    // 让网络请求与派生并行，避免白白串行等待两份耗时。
+    const cipherPromise = ensureCipher()
+    const giftsPromise = (async () => {
       let fromCache = false
       let encryptedGifts
       try {
         const result = await api.listGifts(eventId)
         encryptedGifts = Object.values(result.data || {})
-        st.offlineMode = false
       } catch (error) {
         const entry = readCache().ledgers?.[eventId]
         if (!(error instanceof ApiError && error.code === 'NETWORK' && entry && Array.isArray(entry.gifts))) throw error
         encryptedGifts = entry.gifts
         fromCache = true
       }
+      return { encryptedGifts, fromCache }
+    })()
+    try {
+      const [cipherResult, giftResult] = await Promise.all([cipherPromise, giftsPromise])
+      const cipher = cipherResult?.keys || null
       if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
+      const { encryptedGifts, fromCache } = giftResult
+      if (!fromCache) st.offlineMode = false
+      st.ledgerLoadStage = encryptedGifts.length ? '正在解密礼簿' : '正在整理礼簿'
+      st.ledgerLoadProgress = encryptedGifts.length ? 0 : 100
       const decrypted = []
       const batchSize = 50
       for (let i = 0; i < encryptedGifts.length; i += batchSize) {
@@ -346,6 +359,9 @@ export async function loadGiftsForCurrentEvent() {
             })
             .filter((g) => g !== null),
         )
+        if (generation === loadGeneration && st.currentEvent?.id === eventId) {
+          st.ledgerLoadProgress = Math.min(99, Math.round(((i + batch.length) / encryptedGifts.length) * 100))
+        }
         if (i + batchSize < encryptedGifts.length) await new Promise((resolve) => setTimeout(resolve, 0))
       }
       if (generation !== loadGeneration || st.currentEvent?.id !== eventId) return
@@ -363,6 +379,7 @@ export async function loadGiftsForCurrentEvent() {
       // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
       st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
       st.giftsLoaded = true
+      st.ledgerLoadProgress = 100
       giftsLoadedEventId = eventId
       st.currentPage = Math.ceil(st.gifts.length / itemsPerPage()) || 1
       st.queueCount = pending.length
@@ -382,6 +399,11 @@ export async function loadGiftsForCurrentEvent() {
       if (generation === loadGeneration) setSyncStatus('账簿数据加载失败，请检查网络后重试。', true)
       // 后台刷新失败时保留已显示内容；只有首次加载才结束骨架状态。
       if (generation === loadGeneration && st.currentEvent?.id === eventId) st.giftsLoaded = true
+    } finally {
+      if (generation === loadGeneration && st.currentEvent?.id === eventId) {
+        st.ledgerLoadStage = ''
+        st.ledgerLoadProgress = null
+      }
     }
   })()
   giftsLoadRequest = request
@@ -502,6 +524,10 @@ export async function ensureCipher() {
     let keys = readCipherCache(event.id, password)
     if (!keys) {
       setSyncStatus('正在准备加密密钥…', false)
+      if (st.currentEvent?.id === event.id) {
+        st.ledgerLoadStage = '正在准备加密密钥'
+        st.ledgerLoadProgress = 0
+      }
       // 让浏览器先把「正在准备」画出来，再进入可能持续数秒的派生计算。
       await new Promise((resolve) => setTimeout(resolve, 30))
       try {
@@ -512,6 +538,10 @@ export async function ensureCipher() {
           if (pct - lastShown < 10) return
           lastShown = pct
           setSyncStatus(`正在准备加密密钥 ${pct}%…`, false)
+          if (st.currentEvent?.id === event.id) {
+            st.ledgerLoadStage = '正在准备加密密钥'
+            st.ledgerLoadProgress = pct
+          }
         })
       } catch (error) {
         console.error('密钥派生失败', error)
@@ -520,6 +550,7 @@ export async function ensureCipher() {
         setSyncStatus('')
       }
       writeCipherCache(event.id, password, keys)
+      if (st.currentEvent?.id === event.id) st.ledgerLoadProgress = 100
     }
     if (!st.currentEvent || st.currentEvent.id !== event.id || st.currentPassword !== password) return null
     currentCipher = { eventId: event.id, password, keys }

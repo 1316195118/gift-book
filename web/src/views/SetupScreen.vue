@@ -325,11 +325,12 @@ async function submit() {
     const result = await api.createEvent(payload)
     st.currentEvent = result.data
     st.currentPassword = form.password || NO_PASSWORD_KEY
-    await loadEvents()
     // 喜字只属于红事；白事、创建失败一律不触发，celebrate 内部还会再判一次减动效。
     if (isSolemn.value) solemnAck()
     else celebrate('囍')
     startSession()
+    // 账簿已创建，进入页面不必等待整套账簿列表重拉；列表在后台更新。
+    void loadEvents()
     // 首次建账后引导开启自动备份：等入场动画结束再弹，避免和喜字动效打架。
     setTimeout(() => { maybePromptAutoBackup() }, 900)
   } catch (error) {

@@ -48,6 +48,7 @@
 /.workbuddy-ai/
 
 # ---- 编辑器 / 系统 ----
+/.agents/
 /.claude/
 .vscode/
 .idea/

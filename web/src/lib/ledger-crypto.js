@@ -21,6 +21,8 @@
   /* ---------------- 字节与 Base64 ---------------- */
 
   const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const B64_DECODE = new Int16Array(256).fill(-1);
+  for (let i = 0; i < B64.length; i += 1) B64_DECODE[B64.charCodeAt(i)] = i;
 
   function bytesToBase64(bytes) {
     let out = "";
@@ -43,10 +45,10 @@
     let o = 0;
     for (let i = 0; i < clean.length; i += 4) {
       const n =
-        (B64.indexOf(clean[i]) << 18) |
-        (B64.indexOf(clean[i + 1]) << 12) |
-        ((B64.indexOf(clean[i + 2]) & 63) << 6) |
-        (B64.indexOf(clean[i + 3]) & 63);
+        (B64_DECODE[clean.charCodeAt(i)] << 18) |
+        (B64_DECODE[clean.charCodeAt(i + 1)] << 12) |
+        ((B64_DECODE[clean.charCodeAt(i + 2)] & 63) << 6) |
+        (B64_DECODE[clean.charCodeAt(i + 3)] & 63);
       out[o++] = (n >> 16) & 255;
       if (o < out.length) out[o++] = (n >> 8) & 255;
       if (o < out.length) out[o++] = n & 255;
@@ -346,6 +348,15 @@
   const INV_SBOX = new Uint8Array(256);
   for (let i = 0; i < 256; i += 1) INV_SBOX[SBOX[i]] = i;
 
+  // AES 轮变换只需要乘以固定的几个常数。预先列表后，加解密热路径不再在
+  // 每个字节上循环 8 次做有限域乘法；密文格式和安全性完全不变。
+  const AE_MUL = [2, 3, 9, 11, 13, 14].map((factor) => {
+    const table = new Uint8Array(256);
+    for (let value = 0; value < 256; value += 1) table[value] = gmul(value, factor);
+    return table;
+  });
+  const [MUL2, MUL3, MUL9, MUL11, MUL13, MUL14] = AE_MUL;
+
   function expandKey256(key) {
     const Nk = 8;
     const Nr = 14;
@@ -364,7 +375,7 @@
           (SBOX[(temp >>> 8) & 0xff] << 8) |
           SBOX[temp & 0xff];
         temp = (temp ^ (rcon << 24)) >>> 0;
-        rcon = gmul(rcon, 2);
+        rcon = MUL2[rcon];
       } else if (i % Nk === 4) {
         temp =
           (SBOX[(temp >>> 24) & 0xff] << 24) |
@@ -387,8 +398,7 @@
     }
   }
 
-  function encryptBlock(block, words, Nr) {
-    const s = Uint8Array.from(block);
+  function encryptBlock(s, words, Nr) {
     addRoundKey(s, words, 0);
     for (let round = 1; round <= Nr; round += 1) {
       for (let i = 0; i < 16; i += 1) s[i] = SBOX[s[i]];
@@ -400,19 +410,17 @@
         for (let c = 0; c < 4; c += 1) {
           const i = c * 4;
           const a0 = s[i], a1 = s[i + 1], a2 = s[i + 2], a3 = s[i + 3];
-          s[i] = gmul(a0, 2) ^ gmul(a1, 3) ^ a2 ^ a3;
-          s[i + 1] = a0 ^ gmul(a1, 2) ^ gmul(a2, 3) ^ a3;
-          s[i + 2] = a0 ^ a1 ^ gmul(a2, 2) ^ gmul(a3, 3);
-          s[i + 3] = gmul(a0, 3) ^ a1 ^ a2 ^ gmul(a3, 2);
+          s[i] = MUL2[a0] ^ MUL3[a1] ^ a2 ^ a3;
+          s[i + 1] = a0 ^ MUL2[a1] ^ MUL3[a2] ^ a3;
+          s[i + 2] = a0 ^ a1 ^ MUL2[a2] ^ MUL3[a3];
+          s[i + 3] = MUL3[a0] ^ a1 ^ a2 ^ MUL2[a3];
         }
       }
       addRoundKey(s, words, round);
     }
-    return s;
   }
 
-  function decryptBlock(block, words, Nr) {
-    const s = Uint8Array.from(block);
+  function decryptBlock(s, words, Nr) {
     addRoundKey(s, words, Nr);
     for (let round = Nr - 1; round >= 0; round -= 1) {
       // InvShiftRows
@@ -425,14 +433,13 @@
         for (let c = 0; c < 4; c += 1) {
           const i = c * 4;
           const a0 = s[i], a1 = s[i + 1], a2 = s[i + 2], a3 = s[i + 3];
-          s[i] = gmul(a0, 14) ^ gmul(a1, 11) ^ gmul(a2, 13) ^ gmul(a3, 9);
-          s[i + 1] = gmul(a0, 9) ^ gmul(a1, 14) ^ gmul(a2, 11) ^ gmul(a3, 13);
-          s[i + 2] = gmul(a0, 13) ^ gmul(a1, 9) ^ gmul(a2, 14) ^ gmul(a3, 11);
-          s[i + 3] = gmul(a0, 11) ^ gmul(a1, 13) ^ gmul(a2, 9) ^ gmul(a3, 14);
+          s[i] = MUL14[a0] ^ MUL11[a1] ^ MUL13[a2] ^ MUL9[a3];
+          s[i + 1] = MUL9[a0] ^ MUL14[a1] ^ MUL11[a2] ^ MUL13[a3];
+          s[i + 2] = MUL13[a0] ^ MUL9[a1] ^ MUL14[a2] ^ MUL11[a3];
+          s[i + 3] = MUL11[a0] ^ MUL13[a1] ^ MUL9[a2] ^ MUL14[a3];
         }
       }
     }
-    return s;
   }
 
   function cbcEncrypt(plain, key, iv) {
@@ -442,13 +449,11 @@
     data.set(plain);
     data.fill(padLen, plain.length);
     const out = new Uint8Array(data.length);
-    let prev = Uint8Array.from(iv);
+    const state = new Uint8Array(16);
     for (let off = 0; off < data.length; off += 16) {
-      const block = new Uint8Array(16);
-      for (let i = 0; i < 16; i += 1) block[i] = data[off + i] ^ prev[i];
-      const enc = encryptBlock(block, words, Nr);
-      out.set(enc, off);
-      prev = enc;
+      for (let i = 0; i < 16; i += 1) state[i] = data[off + i] ^ (off === 0 ? iv[i] : out[off - 16 + i]);
+      encryptBlock(state, words, Nr);
+      out.set(state, off);
     }
     return out;
   }
@@ -456,12 +461,11 @@
   function cbcDecrypt(cipher, key, iv) {
     const { words, Nr } = expandKey256(key);
     const out = new Uint8Array(cipher.length);
-    let prev = Uint8Array.from(iv);
+    const state = new Uint8Array(16);
     for (let off = 0; off < cipher.length; off += 16) {
-      const block = cipher.subarray(off, off + 16);
-      const dec = decryptBlock(block, words, Nr);
-      for (let i = 0; i < 16; i += 1) out[off + i] = dec[i] ^ prev[i];
-      prev = Uint8Array.from(block);
+      for (let i = 0; i < 16; i += 1) state[i] = cipher[off + i];
+      decryptBlock(state, words, Nr);
+      for (let i = 0; i < 16; i += 1) out[off + i] = state[i] ^ (off === 0 ? iv[i] : cipher[off - 16 + i]);
     }
     const pad = out[out.length - 1];
     if (pad < 1 || pad > 16) return null;

@@ -165,7 +165,7 @@ node scripts/build.mjs        # npm run build → webapp/dist → 写 build.json
 
 | 可选环境变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `GIFTBOOK_TRUST_PROXY=1` | 关闭 | 仅在可信反向代理后开启，允许读取 `X-Forwarded-For` / `X-Forwarded-Proto` |
+| `GIFTBOOK_TRUST_PROXY=1` | 关闭 | 仅在可信反向代理后开启，允许读取 `X-Forwarded-For` / `X-Forwarded-Host` / `X-Forwarded-Proto` |
 | `GIFTBOOK_FORCE_HTTPS=1` | 关闭 | 仅在前方已有可信 HTTPS 终止层时开启；HTTP 请求会 308 跳转，HTTPS 响应带 HSTS |
 | `GIFTBOOK_PUBLIC_URL` | 自动 | 如 `https://giftbook.example.com`，用于 `robots.txt`、`sitemap.xml` 和绝对社交分享地址 |
 | `GIFTBOOK_SETUP_TOKEN` | 空 | 首次设置管理员密码时额外要求的部署口令 |
@@ -221,9 +221,11 @@ config/
 - 响应统一带 CSP、`nosniff`、同源 Referrer 与权限策略；仅在 HTTPS 请求上发送 HSTS。
 - `GIFTBOOK_FORCE_HTTPS=1` 可把 HTTP 以 308 跳转到 HTTPS，只应在可信 HTTPS 反向代理之后开启。
 
-管理员密码用于进入所有家庭、管理家庭与整站备份，与家庭访问码、单本账簿的管理密码相互独立。首次设置默认无需额外验证，局域网内任何能打开页面的人都可以抢先设置；部署到不受信任的网络时，建议设置环境变量 `GIFTBOOK_SETUP_TOKEN`（任意足够长的口令）：设置后首次设置管理员密码必须同时提供该口令，界面会显示「设置口令」输入框。\n\n开启多家庭（创建第二个家庭）时强制要求先设置管理员密码；多家庭模式下管理员密码不能关闭。位于受信任反向代理之后时，可再设 `GIFTBOOK_TRUST_PROXY=1` 让 `X-Forwarded-For` 参与防爆破与 Cookie 的 HTTPS 判断。
+管理员密码用于进入所有家庭、管理家庭与整站备份，与家庭访问码、单本账簿的管理密码相互独立。首次设置默认无需额外验证，局域网内任何能打开页面的人都可以抢先设置；部署到不受信任的网络时，建议设置环境变量 `GIFTBOOK_SETUP_TOKEN`（任意足够长的口令）：设置后首次设置管理员密码必须同时提供该口令，界面会显示「设置口令」输入框。
 
-写接口会核对浏览器 `Origin` 的协议、主机和端口，并明确拒绝 `Sec-Fetch-Site: cross-site`。如果 HTTPS 反向代理改写了内部 `Host` 或协议，浏览器明确发送 `Sec-Fetch-Site: same-origin` 的同源请求仍可正常写入；同站但不同端口、不同域名或协议不匹配的请求不会被放行。反向代理仍建议保留原始 `Host`，并设置 `GIFTBOOK_TRUST_PROXY=1`、`X-Forwarded-Proto` 与正确的 `GIFTBOOK_PUBLIC_URL`。
+开启多家庭（创建第二个家庭）时强制要求先设置管理员密码；多家庭模式下管理员密码不能关闭。位于受信任反向代理之后时，可再设 `GIFTBOOK_TRUST_PROXY=1`，让 `X-Forwarded-For` 参与防爆破，并让 `X-Forwarded-Host` 与 `X-Forwarded-Proto` 参与 Cookie 的 HTTPS 判断和写请求同源核对。
+
+写接口会核对浏览器 `Origin` 的协议、主机和端口，并明确拒绝 `Sec-Fetch-Site: cross-site`。如果 HTTPS 反向代理改写了内部 `Host` 或协议，可信代理传入的 `X-Forwarded-Host` 与 `X-Forwarded-Proto` 会参与精确同源核对，较旧浏览器不必依赖 Fetch Metadata 也能正常创建和保存；其他来源仍会被拒绝。反向代理仍建议保留原始 `Host`，或设置 `GIFTBOOK_TRUST_PROXY=1`、正确的转发头与 `GIFTBOOK_PUBLIC_URL`。JSON 写接口还要求 `Content-Type: application/json`，以拦截跨站普通表单。
 
 ### 多家庭
 

@@ -17,7 +17,6 @@
 
       <section class="home-hero">
         <div class="hero-copy">
-          <div class="eyebrow" id="home-eyebrow">{{ catText.eyebrow }}</div>
           <h1 id="home-title">{{ catText.title }}</h1>
         </div>
         <div class="hero-support">
@@ -93,12 +92,14 @@
             :key="ev.id"
             class="recent-item"
             :class="isSolemnEvent(ev) ? 'white' : 'red'"
+            @pointerenter="preloadMainView"
           >
             <button
               type="button"
               class="recent-open"
               :aria-label="`打开账簿「${ev.name || '未命名账簿'}」`"
               @click="openEvent(ev)"
+              @focus="preloadMainView"
             ></button>
             <div class="recent-body">
               <div class="recent-top">
@@ -156,6 +157,7 @@ import { switchCategory } from '../lib/actions.js'
 import { api } from '../lib/api.js'
 import { showHomeSettings } from '../lib/home-settings.js'
 import { readQueue } from '../lib/offline.js'
+import { preloadMainView } from '../lib/view-loader.js'
 
 const recentEl = ref(null)
 function onSwitchCategory(cat) {

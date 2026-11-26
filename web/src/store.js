@@ -28,6 +28,8 @@ export const state = reactive({
   offlineMode: false,
   syncMessage: '',
   syncIsError: false,
+  ledgerLoadStage: '',
+  ledgerLoadProgress: null,
   queueCount: 0,
   netHealth: { level: 'bad', text: '检测中' },
   version: '',

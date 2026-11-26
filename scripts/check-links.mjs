@@ -5,7 +5,7 @@ import { dirname, extname, join, normalize, resolve } from 'node:path'
 
 const ROOT = resolve('.')
 const TEXT_EXT = new Set(['.md', '.html', '.vue', '.js', '.mjs'])
-const SKIP_DIRS = ['node_modules', 'dist', '.git', 'coverage']
+const SKIP_DIRS = ['node_modules', 'dist', '.git', 'coverage', '.agents', '.codex']
 const PUBLIC_ROUTES = new Set(['/', '/index.html', '/terms', '/privacy', '/404.html'])
 const checkExternal = !process.argv.includes('--offline')
 

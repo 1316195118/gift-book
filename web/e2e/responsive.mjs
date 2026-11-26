@@ -218,10 +218,10 @@ for (const [name, width, height] of viewports) {
     check(`${name} 核心工具栏可见`, await page.locator('.main-tools').isVisible())
     if (width <= 640) {
       check(
-        `${name} 手机端隐藏打印与收款码`,
-        !(await page.locator('#print-btn').isVisible()) && !(await page.locator('#qr-show-btn').isVisible()),
+        `${name} 手机端显示打印与收款码`,
+        (await page.locator('#print-btn').isVisible()) && (await page.locator('#qr-show-btn').isVisible()),
       )
-      check(`${name} 手机端保留 8 个工具入口`, (await page.locator('.main-tools .main-tool:visible').count()) === 8)
+      check(`${name} 手机端保留 10 个工具入口`, (await page.locator('.main-tools .main-tool:visible').count()) === 10)
     } else {
       check(
         `${name} 宽屏保留打印与收款码`,

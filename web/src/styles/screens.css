@@ -180,32 +180,9 @@
   width: 100%;
 }
 
-/* 眉题：前面一道朱线，像在纸上起的界栏 */
-.eyebrow,
-#home-eyebrow,
-#tpl-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--accent);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  letter-spacing: .3em;
-}
-
-.eyebrow::before,
-#home-eyebrow::before,
-#tpl-eyebrow::before {
-  content: "";
-  width: 22px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--accent);
-}
-
 #home-title,
 #tpl-title {
-  margin: var(--sp-4) 0 var(--sp-3);
+  margin: 0 0 var(--sp-3);
   color: var(--ink);
   font-family: var(--font-serif);
   font-size: clamp(32px, 3.8vw, 48px);
@@ -327,7 +304,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: rgb(255 255 255 / .74);
+  color: var(--accent-ink);
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: .38em;
@@ -688,7 +665,7 @@ body.theme-solemn .hero-book-art .book {
     scroll-behavior: smooth;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
-    padding-bottom: var(--sp-2);
+    padding: 0 2px var(--sp-2);
   }
 
   .recent-list::-webkit-scrollbar {
@@ -2063,19 +2040,10 @@ body.theme-solemn .hero-book-art .book {
 .summary-card {
   position: relative;
   padding: var(--sp-4) var(--sp-5);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--gold-soft) 42%, var(--surface));
   overflow: hidden;
-}
-
-.summary-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--gold);
-  opacity: .6;
 }
 
 .summary-card > span:first-child {
@@ -2103,13 +2071,16 @@ body.theme-solemn .hero-book-art .book {
   background: var(--accent-soft);
 }
 
-.summary-card.primary::before {
-  background: var(--accent);
-  opacity: 1;
-}
-
 .summary-card.primary > span:last-child {
   color: var(--accent);
+}
+
+.summary-card > span.summary-loading-value {
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  font-weight: 550;
+  letter-spacing: .04em;
 }
 
 /* 非主卡的数字用墨色：总额已经是朱砂了，这里再上一个彩色只会打架 */
@@ -3233,12 +3204,11 @@ body.theme-solemn .hero-book-art .book {
     font-size: 16px;
   }
 
-  /* 手机上八个功能排成 4×2 的格子：图标在上、字在下。
-     横滑的带子会把「扫描礼簿」「导出」藏在屏幕外，一排文字胶囊又要折三四行
-     把录入表单挤走。方格两行只占 ~92px，八个键一眼全在。 */
+  /* 手机上十个功能排成 5×2：图标在上、字在下。横滑会把部分入口藏在
+     屏幕外；五列两行让打印和收款码也始终可见，仍只占约 98px 高度。 */
   .main-tools {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
     width: 100%;
     overflow: visible;
@@ -3260,12 +3230,6 @@ body.theme-solemn .hero-book-art .book {
     line-height: 1.1;
     letter-spacing: 0;
     white-space: nowrap;
-  }
-
-  /* 手机端保留 8 个高频入口，打印和收款码只在宽屏工具栏显示。 */
-  .main-tools #qr-show-btn,
-  .main-tools #print-btn {
-    display: none;
   }
 
   /* 图标回到字的上方：桌面端是绝对定位在左侧的 */
