@@ -301,8 +301,8 @@ h1 {
 .policy-note {
   margin-top: 36px;
   padding: 18px 20px;
-  border-left: 3px solid #ab2b21;
-  border-radius: 0 10px 10px 0;
+  border: 1px solid color-mix(in srgb, #ab2b21 24%, var(--policy-line));
+  border-radius: 10px;
   color: #514434;
   background: #f7ecdf;
 }

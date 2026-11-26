@@ -53,7 +53,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.57"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.58"}
 	if len(extra) > 0 {
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL
@@ -194,7 +194,7 @@ func TestCrossOriginWritesRejected(t *testing.T) {
 // 反向代理改写 Host / X-Forwarded-Proto 时，浏览器明确标记的同源写请求仍应放行。
 func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
 	env := newEnv(t)
-	env.api.updater = update.New(env.dir, "2.4.57")
+	env.api.updater = update.New(env.dir, "2.4.58")
 	body := map[string]any{"name": "proxy", "passwordHash": noPassKey}
 	headers := map[string]string{
 		"Origin":         "https://giftbook.example",

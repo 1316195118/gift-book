@@ -1,7 +1,7 @@
 <template>
   <div id="template-screen" class="home-screen-wrap">
     <div class="home-inner">
-      <div class="back-link" @click="showHome">← 返回首页</div>
+      <button type="button" class="back-link" @click="showHome">← 返回首页</button>
       <div class="home-hero">
         <div class="hero-copy">
           <div class="eyebrow" id="tpl-eyebrow">{{ catText.tplEyebrow }}</div>

@@ -177,12 +177,26 @@ for (const [name, width, height] of viewports) {
     await ensureTemplateScreen(page)
     check(`${name} 模板页可见`, await page.locator('.tpl-card').first().isVisible())
     check(`${name} 模板页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const templateBack = page.getByRole('button', { name: '返回首页' })
+    const templateBackBox = await templateBack.boundingBox()
+    check(
+      `${name} 模板返回首页可键盘聚焦`,
+      (await templateBack.count()) === 1 && Boolean(templateBackBox) && templateBackBox.height >= 44,
+      templateBackBox ? `${Math.round(templateBackBox.width)}×${Math.round(templateBackBox.height)}` : 'no box',
+    )
     const templateTargets = await auditInteractiveTargets(page)
     check(`${name} 模板页触控目标不小于 44px`, templateTargets.length === 0, templateTargets.join(' | '))
 
     await ensureSetupScreen(page)
     check(`${name} 创建页可见`, await page.locator('#setup-screen').isVisible())
     check(`${name} 创建页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
+    const setupBack = page.getByRole('button', { name: '返回首页' })
+    const setupBackBox = await setupBack.boundingBox()
+    check(
+      `${name} 创建页返回首页可键盘聚焦`,
+      (await setupBack.count()) === 1 && Boolean(setupBackBox) && setupBackBox.height >= 44,
+      setupBackBox ? `${Math.round(setupBackBox.width)}×${Math.round(setupBackBox.height)}` : 'no box',
+    )
     const setupTargets = await auditInteractiveTargets(page)
     check(`${name} 创建页触控目标不小于 44px`, setupTargets.length === 0, setupTargets.join(' | '))
     await page.screenshot({ path: join(OUT, `${name}-02-setup.png`), fullPage: true })
@@ -255,6 +269,28 @@ for (const [name, width, height] of viewports) {
     await page.screenshot({ path: join(OUT, `${name}-05-stats.png`) })
     await page.locator('#modal-close').click()
     await page.waitForTimeout(250)
+
+    await page.locator('.main-back').click()
+    await page.locator('#home-screen').waitFor({ state: 'visible', timeout: 5000 })
+    const recentCard = page.locator('.recent-item').filter({ hasText: unique }).first()
+    const recentOpen = recentCard.getByRole('button', { name: `打开账簿「${unique}」` })
+    const recentStructure = await recentCard.evaluate((el) => {
+      const controls = [...el.querySelectorAll('button, a[href], [role="button"]')]
+      return {
+        outerRole: el.getAttribute('role'),
+        controlCount: controls.length,
+        nestedControl: controls.some((control) => control.parentElement?.closest('button, a[href], [role="button"]')),
+      }
+    })
+    check(
+      `${name} 最近账簿控件语义独立`,
+      (await recentOpen.count()) === 1 && recentStructure.outerRole === null && recentStructure.controlCount === 2 && !recentStructure.nestedControl,
+      JSON.stringify(recentStructure),
+    )
+    await recentOpen.focus()
+    await page.keyboard.press('Space')
+    await page.locator('#main-screen').waitFor({ state: 'visible', timeout: 5000 })
+    check(`${name} 最近账簿可用空格键打开`, await page.locator('#main-screen').isVisible())
 
     check(`${name} 无浏览器错误`, errors.length === 0, errors.slice(0, 3).join(' | '))
   } catch (error) {

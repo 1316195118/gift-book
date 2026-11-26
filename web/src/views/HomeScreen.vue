@@ -88,16 +88,18 @@
               <span class="sk-line w80"></span>
             </div>
           </div>
-          <div
+          <article
             v-for="ev in recentEvents"
             :key="ev.id"
             class="recent-item"
             :class="isSolemnEvent(ev) ? 'white' : 'red'"
-            role="button"
-            tabindex="0"
-            @click="openEvent(ev)"
-            @keydown.enter.prevent="openEvent(ev)"
           >
+            <button
+              type="button"
+              class="recent-open"
+              :aria-label="`打开账簿「${ev.name || '未命名账簿'}」`"
+              @click="openEvent(ev)"
+            ></button>
             <div class="recent-body">
               <div class="recent-top">
                 <div class="rn">{{ ev.name || '未命名账簿' }}</div>
@@ -116,14 +118,14 @@
                 <div class="recent-money">
                   <span class="rm-value" :class="{ hidden: masked.has(ev.id) }"><span class="rm-count">{{ countText(ev) }}</span><span class="rm-amount">{{ amountText(ev) }}</span></span>
                   <span class="rm-mask" :class="{ hidden: !masked.has(ev.id) }"><span>••• 人</span><span>¥••••</span></span>
-                  <button type="button" class="eye-btn" :aria-pressed="masked.has(ev.id)" :aria-label="masked.has(ev.id) ? '显示金额与人数' : '隐藏金额与人数'" @click.stop="toggleEye(ev.id)">
+                  <button type="button" class="eye-btn" :aria-pressed="masked.has(ev.id)" :aria-label="masked.has(ev.id) ? '显示金额与人数' : '隐藏金额与人数'" @click="toggleEye(ev.id)">
                     <svg v-if="!masked.has(ev.id)" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></svg>
                     <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.8M6.3 6.9A16.6 16.6 0 0 0 2 12s3.5 6 10 6a10.7 10.7 0 0 0 5.4-1.4" /></svg>
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </article>
         </div>
       </template>
 

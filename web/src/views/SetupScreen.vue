@@ -2,7 +2,7 @@
   <div id="app-container">
     <div id="setup-screen">
       <div class="setup-head">
-        <div class="back-link" @click="showHome">← 返回首页</div>
+        <button type="button" class="back-link" @click="showHome">← 返回首页</button>
         <div class="setup-badge">{{ isSolemn ? '白 事' : '红 事' }}</div>
       </div>
       <h1 class="setup-title">创建新账簿</h1>
