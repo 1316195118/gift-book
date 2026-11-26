@@ -231,6 +231,12 @@ for (const [name, width, height] of viewports) {
     check(`${name} 首页与记账页无横向溢出`, (await horizontalOverflow(page)) <= 1, String(await horizontalOverflow(page)))
     const mainTargets = await auditInteractiveTargets(page)
     check(`${name} 记账页触控目标不小于 44px`, mainTargets.length === 0, mainTargets.join(' | '))
+    check(
+      `${name} 空账簿不同时显示页码与空白明细`,
+      (await page.locator('.book-empty').isVisible())
+        && !(await page.locator('.book-navigation').isVisible())
+        && !(await page.locator('.book-scroll').isVisible()),
+    )
     const submit = page.locator('#submit-gift-btn')
     await submit.scrollIntoViewIfNeeded()
     const blocker = await submit.evaluate(blockerInfo)

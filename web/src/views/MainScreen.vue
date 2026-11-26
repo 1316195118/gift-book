@@ -187,7 +187,7 @@
                 <h2>{{ copy.bookTitle }}</h2>
                 <p>传统竖排 · 数字留痕</p>
               </div>
-              <div class="book-navigation">
+              <div v-if="st.giftsLoaded && st.gifts.length" class="book-navigation">
                 <button class="page-edge" type="button" aria-label="第一页" title="第一页（Home）" :disabled="st.currentPage <= 1" @click="jumpPage(1)">«</button>
                 <button id="prev-page-btn" type="button" aria-label="上一页" title="上一页（←）" :disabled="st.currentPage <= 1" @click="pageBy(-1)">‹</button>
                 <button type="button" class="book-page-label" title="点击输入页码" @click="startPageEdit">
@@ -220,9 +220,9 @@
               <div class="sk-block"><i class="sk-line w60"></i><i class="sk-line w40"></i><i class="sk-line w80"></i></div>
               <div class="sk-grid"><i v-for="n in 8" :key="n" class="sk-cell"></i></div>
             </div>
-            <div v-if="!st.gifts.length" class="book-empty">这本账簿还没有记录，从左边录入第一笔吧。</div>
-            <div v-else-if="!pageRange" class="book-empty">这一页没有记录。<button type="button" class="gb-link-btn" @click="jumpPage(1)">回到第一页</button></div>
-            <div class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动">
+            <div v-if="st.giftsLoaded && !st.gifts.length" class="book-empty">这本账簿还没有记录，从左边录入第一笔吧。</div>
+            <div v-else-if="st.giftsLoaded && !pageRange" class="book-empty">这一页没有记录。<button type="button" class="gb-link-btn" @click="jumpPage(1)">回到第一页</button></div>
+            <div v-if="st.giftsLoaded && pageRange" class="book-scroll" tabindex="0" aria-label="礼簿明细，可横向滚动">
               <div id="gift-book-content" v-html="book"></div>
             </div>
             <p class="book-note">{{ copy.bookNote }}</p>
