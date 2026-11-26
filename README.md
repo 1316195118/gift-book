@@ -168,11 +168,10 @@ node scripts/build.mjs        # npm run build → webapp/dist → 写 build.json
 | `GIFTBOOK_TRUST_PROXY=1` | 关闭 | 仅在可信反向代理后开启，允许读取 `X-Forwarded-For` / `X-Forwarded-Proto` |
 | `GIFTBOOK_FORCE_HTTPS=1` | 关闭 | 仅在前方已有可信 HTTPS 终止层时开启；HTTP 请求会 308 跳转，HTTPS 响应带 HSTS |
 | `GIFTBOOK_PUBLIC_URL` | 自动 | 如 `https://giftbook.example.com`，用于 `robots.txt`、`sitemap.xml` 和绝对社交分享地址 |
-| `GIFTBOOK_STRICT_ORIGIN=1` | 关闭 | 写请求的 `Origin` 必须与当前 `host:port` 完全一致 |
 | `GIFTBOOK_SETUP_TOKEN` | 空 | 首次设置管理员密码时额外要求的部署口令 |
 | `GIFTBOOK_UPDATE_PROXY` | 空 | 容器内检查/下载更新所用的 HTTP 代理 |
 
-局域网直接通过 `http://10.x.x.x:8099` 访问时不要开启 `GIFTBOOK_FORCE_HTTPS`，否则浏览器会被重定向到一个没有 HTTPS 监听的地址。只有反向代理确实提供 HTTPS 时才开启。
+局域网直接通过 `http://10.x.x.x:8099` 访问时不要开启 `GIFTBOOK_FORCE_HTTPS`，否则浏览器会被重定向到一个没有 HTTPS 监听的地址。同一实例既需要局域网 HTTP 直连、又偶尔通过 HTTPS 反向代理访问时，也应保持 `GIFTBOOK_FORCE_HTTPS` 为空；反向代理应传递原始 `Host` 与 `X-Forwarded-Proto`，写请求会同时兼容直连和代理后的同源访问。只有所有访问都固定经过 HTTPS 代理时，才开启强制 HTTPS。
 
 **旧版 `rundata/` 自动迁移**：使用默认目录启动时，若可执行文件旁存在旧的 `rundata/`，且 `data/events.json` 尚不存在，启动时会把 `events.json`、`gifts_*.json`、`.trash/` 复制到 `data/`，把认证状态、自动备份设置、`backups/` 等其余文件复制到 `config/`。迁移只复制、不删除、不覆盖已有文件，`rundata/` 原样保留，确认无误后可自行归档；之后每次启动检测到 `data/events.json` 已存在就自动跳过。显式指定 `-data` / `-config` 或对应环境变量时视为自定义部署，不自动迁移，需自行把旧文件放进对应目录。
 
@@ -224,7 +223,7 @@ config/
 
 管理员密码用于进入所有家庭、管理家庭与整站备份，与家庭访问码、单本账簿的管理密码相互独立。首次设置默认无需额外验证，局域网内任何能打开页面的人都可以抢先设置；部署到不受信任的网络时，建议设置环境变量 `GIFTBOOK_SETUP_TOKEN`（任意足够长的口令）：设置后首次设置管理员密码必须同时提供该口令，界面会显示「设置口令」输入框。\n\n开启多家庭（创建第二个家庭）时强制要求先设置管理员密码；多家庭模式下管理员密码不能关闭。位于受信任反向代理之后时，可再设 `GIFTBOOK_TRUST_PROXY=1` 让 `X-Forwarded-For` 参与防爆破与 Cookie 的 HTTPS 判断。
 
-写接口的同源校验默认沿用旧版行为（只比主机名、忽略端口），方便同机不同端口的前端与开发代理。如果这台机器上还跑着其他不可信的 Web 服务，可设 `GIFTBOOK_STRICT_ORIGIN=1` 收紧为 `host:port` 完全一致，堵住同机跨端口的跨站写请求；开启后，从其他端口访问的前端必须经反向代理（或由开发代理改写 `Origin`）才能写入。
+写接口会核对浏览器 `Origin` 的协议、主机和端口，并明确拒绝 `Sec-Fetch-Site: cross-site`。如果 HTTPS 反向代理改写了内部 `Host` 或协议，浏览器明确发送 `Sec-Fetch-Site: same-origin` 的同源请求仍可正常写入；同站但不同端口、不同域名或协议不匹配的请求不会被放行。反向代理仍建议保留原始 `Host`，并设置 `GIFTBOOK_TRUST_PROXY=1`、`X-Forwarded-Proto` 与正确的 `GIFTBOOK_PUBLIC_URL`。
 
 ### 多家庭
 

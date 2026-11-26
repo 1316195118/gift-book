@@ -52,7 +52,7 @@ func newEnv(t *testing.T, extra ...Options) *testEnv {
 		"build.json":  {Data: []byte(`{"build":"test"}`)},
 		"assets/x.js": {Data: []byte("console.log(1)")},
 	}
-	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.55"}
+	opts := Options{Store: st, Auth: authMgr, Assets: assets, Build: "test", Version: "2.4.56"}
 	if len(extra) > 0 {
 		opts.ForceHTTPS = extra[0].ForceHTTPS
 		opts.PublicURL = extra[0].PublicURL
@@ -187,6 +187,34 @@ func TestCrossOriginWritesRejected(t *testing.T) {
 	})
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("Sec-Fetch-Site cross-site should be rejected, got %d", res.StatusCode)
+	}
+}
+
+// 反向代理改写 Host / X-Forwarded-Proto 时，浏览器明确标记的同源写请求仍应放行。
+func TestSameOriginFetchAcceptedBehindRewritingProxy(t *testing.T) {
+	env := newEnv(t)
+	body := map[string]any{"name": "proxy", "passwordHash": noPassKey}
+	headers := map[string]string{
+		"Origin":         "https://giftbook.example",
+		"Sec-Fetch-Site": "same-origin",
+	}
+	res, payload := env.do(t, "POST", "/api/events", body, headers)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("浏览器同源请求应放行，实际 %d %v", res.StatusCode, payload)
+	}
+
+	headers["Origin"] = "https://evil.example"
+	headers["Sec-Fetch-Site"] = "cross-site"
+	res, _ = env.do(t, "POST", "/api/events", body, headers)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("代理配置不能放行其他 origin，实际 %d", res.StatusCode)
+	}
+
+	headers["Origin"] = "https://giftbook.example"
+	headers["Sec-Fetch-Site"] = "same-site"
+	res, _ = env.do(t, "POST", "/api/events", body, headers)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("同站但不同 origin 应拒绝，实际 %d", res.StatusCode)
 	}
 }
 

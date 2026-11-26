@@ -88,12 +88,14 @@ func failCode(w http.ResponseWriter, status int, code, message string) {
 }
 
 // sameOrigin 拒绝带 Origin 头的跨站写请求；无 Origin（curl、旧浏览器）照常放行。
-// Origin 必须与当前请求的协议、主机和端口一致，避免同机另一端口借简单请求跨站写入。
+// 优先核对服务端看到的协议、主机和端口；反向代理改写这些信息时，
+// 再接受浏览器明确标记为 same-origin 的请求，但仍拒绝 cross-site / same-site。
 func (s *Server) sameOrigin(r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 		return true
 	}
-	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "cross-site") {
+	fetchSite := strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")))
+	if fetchSite == "cross-site" {
 		return false
 	}
 	origin := r.Header.Get("Origin")
@@ -105,7 +107,13 @@ func (s *Server) sameOrigin(r *http.Request) bool {
 	if !expectedOK || !actualOK {
 		return false
 	}
-	return expected == actual
+	if expected == actual {
+		return true
+	}
+	// HTTPS 反向代理通常会改写内部 Host 或协议，导致服务端看到的 origin
+	// 与浏览器不同。该请求头由浏览器控制且页面脚本无法伪造，可证明前端与
+	// API 在浏览器侧仍是同一 origin；cross-site 已在上面明确拒绝。
+	return fetchSite == "same-origin"
 }
 
 type originParts struct {
