@@ -9,7 +9,7 @@ import { api } from './api.js'
 import { decryptData, setSyncStatus } from '../bootstrap.js'
 import { openModal, alert as showAlert } from './modal.js'
 import { escapeHtml, formatCurrency } from './crypto.js'
-import { categoryForEvent } from './content.js'
+import { isHumanLedgerEvent } from './content.js'
 
 export async function openCrossSummary() {
   let events = []
@@ -22,7 +22,7 @@ export async function openCrossSummary() {
     return showAlert('无法读取账簿列表', error.message || '请检查网络后重试。')
   }
   // 跨账簿人情汇总只纳入红白事；自定义收款有独立用途，不能混进人情往来。
-  events = events.filter((ev) => categoryForEvent(ev, st.homeCategory) !== 'custom')
+  events = events.filter(isHumanLedgerEvent)
   if (!events.length) return showAlert('没有账簿', '当前还没有任何账簿。')
 
   // 没有礼金的账簿直接跳过，避免上百次空请求。

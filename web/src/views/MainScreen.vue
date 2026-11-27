@@ -42,7 +42,7 @@
             <button id="review-btn" class="main-tool" type="button" title="核对金额、同名、大额与低置信度记录" @click="openReviewQueue">
               核对<span v-if="reviewCount" class="main-tool-badge">{{ reviewCount > 99 ? '99+' : reviewCount }}</span>
             </button>
-            <button id="guest-profile-btn" class="main-tool" type="button" title="查看来宾在本会话已解锁账簿中的往来" @click="openGuestProfiles">档案</button>
+            <button v-if="canUseGuestProfiles" id="guest-profile-btn" class="main-tool" type="button" title="查看来宾在本会话已解锁账簿中的往来" @click="openGuestProfiles">档案</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
             <button id="print-btn" class="main-tool" type="button" :title="`打印${copy.bookTitle}（可选字号与页边距）`" @click="openPrint">打印</button>
             <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? `扫描${copy.bookTitle}` : '当前部署未内置 OCR'" @click="openOcr">{{ canReturn ? '扫描礼簿' : '扫描' }}</button>
@@ -267,7 +267,7 @@ import { computed, ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } 
 import { state as st, updateSessionEvent } from '../store.js'
 import { api } from '../lib/api.js'
 import { openModal } from '../lib/modal.js'
-import { categoryForEvent, copyOf } from '../lib/content.js'
+import { categoryForEvent, copyOf, isHumanLedgerEvent } from '../lib/content.js'
 import { formatCurrency, formatDate } from '../lib/crypto.js'
 import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
 import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verifyLedgerPassword } from '../lib/actions.js'
@@ -371,6 +371,7 @@ watch(
 
 const copy = computed(() => copyOf(st.currentEvent, st.homeCategory))
 const canReturn = computed(() => categoryForEvent(st.currentEvent, st.homeCategory) === 'red')
+const canUseGuestProfiles = computed(() => isHumanLedgerEvent(st.currentEvent))
 const version = computed(() => versionLabel())
 const queueCount = computed(() => queueFor(st.currentEvent?.id).length)
 const items = computed(() => pageItems())

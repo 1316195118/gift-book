@@ -27,7 +27,7 @@ function returnsEmptyMessage(copy) {
 const XLSX_THEMES = {
   festive: { accent: 'FFAB2B21', soft: 'FFF9EAE4', paper: 'FFFAF4E9', line: 'FFE9DDC7', ink: 'FF241C14' },
   solemn: { accent: 'FF33475A', soft: 'FFEAEEF2', paper: 'FFF2F3F2', line: 'FFDDE1E1', ink: 'FF1A1F21' },
-  custom: { accent: 'FF3F6655', soft: 'FFE8F0E9', paper: 'FFF6F3E9', line: 'FFDDD8C9', ink: 'FF1F2824' },
+  custom: { accent: 'FF7D4036', soft: 'FFF2E1D8', paper: 'FFF7F0E5', line: 'FFE3D3C0', ink: 'FF281F1A' },
 }
 const xlsxTheme = (ev) => XLSX_THEMES[categoryForEvent(ev, st.homeCategory)] || XLSX_THEMES.festive
 
@@ -449,8 +449,8 @@ export function exportToWord() {
   const copy = copyOf(ev, st.homeCategory)
   if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
   const category = categoryForEvent(ev, st.homeCategory)
-  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#315545' : '#a3261e'
-  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#edf2ed' : '#fbeceb'
+  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#7d4036' : '#a3261e'
+  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#f4e8e0' : '#fbeceb'
   const dateStr = formatDate(ev.startDateTime)
   const stats = computeLedgerStats(scopeGifts())
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''

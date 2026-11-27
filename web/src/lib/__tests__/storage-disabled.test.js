@@ -35,6 +35,7 @@ describe('浏览器禁用存储', () => {
     denyStorage('localStorage')
     const { state } = await import('../../store.js')
     expect(state.homeCategory).toBe('red')
+    expect(state.enabledCategories).toEqual(['red', 'white', 'custom'])
   })
 
   it('请求客户端标识仍可生成', async () => {

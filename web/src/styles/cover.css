@@ -1548,64 +1548,64 @@
 }
 
 /* --------------------------------------------------------------------------
-   自定义封面：米白织面、松烟墨与青绿细线，不借用红白事符号
+   自定义封面：暖米织面、胭脂褐、赭石与黄铜，不借用红白事符号
    -------------------------------------------------------------------------- */
 
 .ledger-cover[data-theme="custom"] {
-  --cover-bg: #d8e0d8;
-  --cover-bg-deep: #bcc8be;
-  --cover-bg-lit: #eef1e8;
-  --cover-ink: #23352d;
-  --cover-line: rgb(53 83 67 / .32);
-  --cover-gold: #8e7b53;
-  --cover-gold-deep: #6e5c38;
-  --cover-faint: rgb(35 53 45 / .68);
-  --cover-stitch: rgb(53 83 67 / .34);
-  --cover-seal-bg: #3f6655;
+  --cover-bg: #d7c1ad;
+  --cover-bg-deep: #bca18b;
+  --cover-bg-lit: #f0e0d0;
+  --cover-ink: #39251e;
+  --cover-line: rgb(108 63 49 / .32);
+  --cover-gold: #b28c5b;
+  --cover-gold-deep: #87653f;
+  --cover-faint: rgb(57 37 30 / .68);
+  --cover-stitch: rgb(108 63 49 / .34);
+  --cover-seal-bg: #7d4036;
   background-color: var(--cover-bg);
   background-image:
     radial-gradient(118% 88% at 62% 16%, var(--cover-bg-lit), transparent 64%),
     radial-gradient(130% 110% at 20% 108%, var(--cover-bg-deep), transparent 58%);
   box-shadow:
-    inset 0 0 0 1px rgb(49 76 61 / .2),
-    inset 0 0 34px rgb(41 65 52 / .08);
+    inset 0 0 0 1px rgb(101 57 43 / .2),
+    inset 0 0 34px rgb(87 44 34 / .09);
 }
 
 .ledger-cover[data-theme="custom"] .cover-art {
-  opacity: .22;
-  filter: grayscale(.72) sepia(.08) saturate(.55) brightness(1.18);
+  opacity: .24;
+  filter: grayscale(.62) sepia(.2) saturate(.72) brightness(1.08);
 }
 
 .ledger-cover[data-theme="custom"] .cover-art-wash {
-  background: rgb(232 237 226 / .68);
+  background: rgb(241 229 216 / .68);
   mix-blend-mode: normal;
 }
 
 .ledger-cover[data-theme="custom"] .cover-art-vignette {
   background:
-    linear-gradient(90deg, rgb(62 87 71 / .08), transparent 16% 84%, rgb(62 87 71 / .06)),
-    linear-gradient(180deg, rgb(255 255 255 / .24), transparent 25% 72%, rgb(52 76 61 / .08));
-  box-shadow: inset 0 0 0 1px rgb(57 86 68 / .2);
+    linear-gradient(90deg, rgb(112 61 47 / .08), transparent 16% 84%, rgb(112 61 47 / .06)),
+    linear-gradient(180deg, rgb(255 250 239 / .24), transparent 25% 72%, rgb(91 45 34 / .08));
+  box-shadow: inset 0 0 0 1px rgb(112 61 47 / .2);
 }
 
 .ledger-cover[data-theme="custom"] .cover-art-grain {
   opacity: .08;
   background:
-    repeating-linear-gradient(45deg, rgb(255 255 255 / .16) 0 1px, transparent 1px 7px),
-    repeating-linear-gradient(-45deg, rgb(39 66 51 / .04) 0 1px, transparent 1px 8px);
+    repeating-linear-gradient(45deg, rgb(255 250 239 / .16) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgb(91 45 34 / .045) 0 1px, transparent 1px 8px);
   mix-blend-mode: multiply;
 }
 
 .ledger-cover[data-theme="custom"]::after {
   background-image:
-    repeating-linear-gradient(45deg, rgb(255 255 255 / .16) 0 1px, transparent 1px 7px),
-    repeating-linear-gradient(-45deg, rgb(44 70 55 / .035) 0 1px, transparent 1px 8px);
+    repeating-linear-gradient(45deg, rgb(255 250 239 / .16) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgb(91 45 34 / .04) 0 1px, transparent 1px 8px);
   opacity: .72;
 }
 
 .ledger-cover[data-theme="custom"]::before {
-  border-image: linear-gradient(135deg, #b8b29f, #667d6c 28%, #d8d2bf 55%, #526b5a 78%, #aaa58f) 1;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .35);
+  border-image: linear-gradient(135deg, #ead7c4, #b77762 28%, #f0dfcf 55%, #94604d 78%, #c5a98d) 1;
+  box-shadow: inset 0 0 0 1px rgb(255 250 239 / .38);
 }
 
 .ledger-cover[data-theme="custom"] .cover-corner,
@@ -1624,100 +1624,100 @@
 }
 
 .ledger-cover[data-theme="custom"] .cover-medallion {
-  color: #f6f3e7;
-  text-shadow: 0 1px 0 #29483a;
+  color: #fff7e9;
+  text-shadow: 0 1px 0 #573029;
   background:
-    radial-gradient(circle at 50% 45%, rgb(255 255 255 / .24), transparent 55%),
-    repeating-conic-gradient(from 0deg, rgb(53 83 67 / .2) 0deg 3deg, transparent 3deg 11.25deg);
+    radial-gradient(circle at 50% 45%, rgb(255 250 239 / .24), transparent 55%),
+    repeating-conic-gradient(from 0deg, rgb(108 63 49 / .2) 0deg 3deg, transparent 3deg 11.25deg);
   box-shadow:
-    inset 0 0 0 1px #ae9b70,
-    inset 0 0 0 5px rgb(244 242 230 / .78),
-    inset 0 0 0 6px rgb(53 83 67 / .42),
-    0 0 0 1px rgb(53 83 67 / .2);
+    inset 0 0 0 1px #c3a06d,
+    inset 0 0 0 5px rgb(250 240 226 / .8),
+    inset 0 0 0 6px rgb(108 63 49 / .42),
+    0 0 0 1px rgb(108 63 49 / .2);
 }
 
 .ledger-cover[data-theme="custom"] .cover-medallion::before {
-  border-color: rgb(70 96 80 / .45);
+  border-color: rgb(124 71 55 / .45);
   background:
-    radial-gradient(circle at 38% 28%, rgb(255 255 255 / .28), transparent 48%),
-    rgb(57 91 71 / .84);
-  box-shadow: inset 0 0 12px rgb(26 48 36 / .18);
+    radial-gradient(circle at 38% 28%, rgb(255 250 239 / .28), transparent 48%),
+    rgb(125 64 54 / .86);
+  box-shadow: inset 0 0 12px rgb(70 31 25 / .2);
 }
 
 .ledger-cover[data-theme="custom"] .cover-name,
 .ledger-cover[data-theme="custom"] .cover-title-panel .cover-name {
-  color: #26372f;
-  text-shadow: 0 1px 0 rgb(255 255 255 / .72);
+  color: #3a2820;
+  text-shadow: 0 1px 0 rgb(255 250 239 / .72);
 }
 
 .ledger-cover[data-theme="custom"] .cover-title-panel {
-  border-color: rgb(91 111 92 / .5);
+  border-color: rgb(128 76 59 / .5);
   background:
-    linear-gradient(110deg, rgb(255 255 255 / .32), transparent 24% 76%, rgb(255 255 255 / .2)),
-    rgb(243 241 229 / .9);
+    linear-gradient(110deg, rgb(255 250 239 / .34), transparent 24% 76%, rgb(255 246 234 / .22)),
+    rgb(247 236 223 / .92);
   box-shadow:
-    inset 0 0 0 3px rgb(255 255 255 / .34),
-    inset 0 0 22px rgb(58 86 69 / .06),
-    0 3px 10px rgb(46 69 55 / .11);
+    inset 0 0 0 3px rgb(255 250 239 / .36),
+    inset 0 0 22px rgb(114 62 47 / .065),
+    0 3px 10px rgb(92 44 34 / .12);
 }
 
 .ledger-cover[data-theme="custom"] .cover-title-panel::before,
 .ledger-cover[data-theme="custom"] .cover-title-panel::after {
-  border-color: rgb(75 97 81 / .38);
+  border-color: rgb(128 76 59 / .38);
   background: none;
 }
 
 .ledger-cover[data-theme="custom"] .cover-title-panel .cover-edition {
-  color: rgb(43 65 53 / .7);
+  color: rgb(79 51 41 / .72);
 }
 
 .ledger-cover[data-theme="custom"] .cover-title-panel .cover-blessing {
-  color: rgb(67 79 67 / .78);
+  color: rgb(105 74 61 / .78);
 }
 
 .ledger-cover[data-theme="custom"] .cover-meta {
-  border-top-color: rgb(57 82 66 / .22);
-  color: rgb(39 57 47 / .7);
-  background: linear-gradient(180deg, transparent, rgb(217 224 213 / .28));
+  border-top-color: rgb(108 63 49 / .22);
+  color: rgb(66 44 35 / .72);
+  background: linear-gradient(180deg, transparent, rgb(231 210 193 / .3));
   text-shadow: none;
 }
 
 .ledger-cover[data-theme="custom"] .cover-spine {
   background:
     linear-gradient(90deg,
-      rgb(42 68 53 / .16) 0%,
-      rgb(53 81 64 / .06) 36%,
-      rgb(255 255 255 / .52) 65%,
-      rgb(49 76 60 / .09) 100%);
-  border-right-color: rgb(53 81 64 / .16);
-  box-shadow: inset -1px 0 0 rgb(47 72 57 / .08);
+      rgb(91 45 34 / .16) 0%,
+      rgb(108 63 49 / .06) 36%,
+      rgb(255 248 236 / .52) 65%,
+      rgb(91 45 34 / .09) 100%);
+  border-right-color: rgb(108 63 49 / .16);
+  box-shadow: inset -1px 0 0 rgb(91 45 34 / .08);
 }
 
 .ledger-cover[data-theme="custom"] .cover-seal {
-  color: #f6f3e7;
-  background: #3f6655;
+  color: #fff7e9;
+  background: #7d4036;
   box-shadow:
-    inset 0 0 0 2px #f1eee1,
-    inset 0 0 0 3px #3f6655,
-    0 1px 4px rgb(31 52 40 / .22);
+    inset 0 0 0 2px #f7eadc,
+    inset 0 0 0 3px #7d4036,
+    0 1px 4px rgb(70 31 25 / .22);
 }
 
 .ledger-cover[data-theme="custom"][data-style="custom-bamboo"] {
-  --cover-bg: #ccd9cc;
-  --cover-bg-deep: #afc1b2;
-  --cover-bg-lit: #e7ede3;
+  --cover-bg: #c7aa93;
+  --cover-bg-deep: #ac8b75;
+  --cover-bg-lit: #e5d0bf;
 }
 
 .ledger-cover[data-theme="custom"][data-style="custom-cloud"] {
-  --cover-bg: #ddd9ca;
-  --cover-bg-deep: #c4bfae;
-  --cover-bg-lit: #f0ecdf;
+  --cover-bg: #d8c8b7;
+  --cover-bg-deep: #bfa991;
+  --cover-bg-lit: #f0e5d8;
 }
 
 .ledger-cover[data-theme="custom"][data-style="custom-silk"] {
-  --cover-bg: #e3e1d5;
-  --cover-bg-deep: #cbc8ba;
-  --cover-bg-lit: #f4f1e7;
+  --cover-bg: #d9beb0;
+  --cover-bg-deep: #bf9e8e;
+  --cover-bg-lit: #f1ded2;
 }
 
 /* --------------------------------------------------------------------------

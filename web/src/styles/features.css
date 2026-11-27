@@ -603,6 +603,98 @@
   color: #b03024;
 }
 
+/* 首页分类显示开关：设备级偏好，只决定首页入口是否出现。 */
+.gb-category-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.gb-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gb-category-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.gb-category-option:hover {
+  border-color: var(--accent);
+}
+
+.gb-category-option.is-hidden {
+  opacity: .72;
+}
+
+.gb-category-seal {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+
+.gb-category-seal.is-white {
+  color: var(--ink-2);
+}
+
+.gb-category-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gb-category-copy b {
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.gb-category-copy small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.gb-category-option .switch:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.gb-category-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.gb-category-foot .gb-picker-hint {
+  margin: 0;
+}
+
+.gb-category-foot .gb-link-btn {
+  flex: none;
+}
+
 /* 家庭设置里的危险区 */
 .gb-danger-zone {
   margin-top: var(--sp-4);
@@ -1207,6 +1299,13 @@
   gap: var(--sp-2);
 }
 
+.gb-guest-validity {
+  margin: var(--sp-2) 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
 .gb-guest-link input {
   flex: 1;
   min-width: 0;
@@ -1215,15 +1314,76 @@
 
 .gb-guest-qr {
   flex-direction: column;
+  padding: var(--sp-2) 0;
+  animation: gb-guest-success 220ms ease-out;
+}
+
+.gb-guest-qr-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(450px, 100%);
+  padding: 14px 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0, color-mix(in srgb, var(--gold-soft) 78%, transparent), transparent 45%),
+    linear-gradient(155deg, var(--surface), var(--surface-sunken));
+  box-shadow: 0 14px 38px rgb(45 27 17 / .13);
+  text-align: center;
 }
 
 .gb-guest-qr img {
-  width: 320px;
+  display: block;
+  width: min(400px, 100%);
   max-width: 100%;
   height: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(45 27 17 / .1);
+  -webkit-touch-callout: default;
+}
+
+.gb-guest-qr-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.gb-guest-qr-download:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.gb-guest-qr-hint {
+  margin: 0;
+  max-width: 360px;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+}
+
+.gb-guest-qr-hint b {
+  color: var(--ink);
+}
+
+.gb-guest-qr-validity {
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
 }
 
 .gb-snapshot-section-title {
@@ -1237,6 +1397,18 @@
   .gb-guest-done,
   .gb-guest-submit[aria-busy="true"]::before {
     animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .gb-guest-qr-card {
+    gap: 9px;
+    padding: 10px 10px 14px;
+    border-radius: 14px;
+  }
+
+  .gb-guest-qr img {
+    width: min(320px, 100%);
   }
 }
 

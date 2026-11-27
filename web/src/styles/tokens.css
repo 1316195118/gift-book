@@ -242,42 +242,42 @@ body.theme-solemn,
 }
 
 /* ==========================================================================
-   自定义 · 米白宣纸 / 松烟墨 / 青绿 / 黄铜
-   用于红白事之外的通用收款项，不借用喜字、奠字或红金配色
+   自定义 · 暖米宣纸 / 胭脂褐 / 赭石 / 黄铜
+   用于红白事之外的通用收款项，与红事同一暖色体系，但不借用喜字与喜庆符号
    ========================================================================== */
 
 body.theme-custom,
 #print-view.theme-custom {
-  --paper: #f6f3e9;
-  --paper-deep: #ebe5d6;
-  --surface: #fffcf4;
-  --surface-sunken: #f1ecdf;
+  --paper: #f7f0e5;
+  --paper-deep: #eee3d3;
+  --surface: #fffaf1;
+  --surface-sunken: #f4eadb;
 
-  --ink: #1f2824;
-  --ink-2: #46524b;
-  --muted: #5f6b63;
-  --faint: #65716a;
-  --faint-deco: #9aa59d;
-  --placeholder: #606d65;
+  --ink: #281f1a;
+  --ink-2: #504139;
+  --muted: #66574b;
+  --faint: #685a4c;
+  --faint-deco: #a79887;
+  --placeholder: #6d5d4e;
 
-  --line: #ddd8c9;
-  --line-strong: #c7c0ae;
+  --line: #e3d3c0;
+  --line-strong: #cdb69e;
 
-  --accent: #3f6655;
-  --accent-hover: #315545;
-  --accent-press: #254536;
-  --accent-ink: #fbfdf9;
-  --accent-soft: #e8f0e9;
-  --accent-soft-2: #d5e3d8;
+  --accent: #7d4036;
+  --accent-hover: #67342c;
+  --accent-press: #542a24;
+  --accent-ink: #fffaf3;
+  --accent-soft: #f2e1d8;
+  --accent-soft-2: #e8cbbf;
 
-  --gold: #9a8254;
-  --gold-bright: #bfa875;
-  --gold-soft: #eee7d5;
-  --gold-text: #6e5d35;
+  --gold: #a98250;
+  --gold-bright: #c4a06b;
+  --gold-soft: #f2e6d0;
+  --gold-text: #76552e;
 
-  --azure: #456d67;
-  --azure-soft: #e5efec;
-  --azure-line: #c7d8d2;
+  --azure: #8a644f;
+  --azure-soft: #f4e7dc;
+  --azure-line: #e3cdbd;
 
   --ok: #416b52;
   --ok-soft: #eaf1eb;
@@ -286,35 +286,35 @@ body.theme-custom,
   --danger: #8a4b3e;
   --danger-soft: #f4e9e5;
 
-  --shadow-1: 0 1px 2px rgb(35 46 39 / .06);
-  --shadow-2: 0 8px 26px rgb(35 46 39 / .08);
-  --shadow-3: 0 28px 70px rgb(24 35 29 / .2);
-  --ring: 0 0 0 3px rgb(63 102 85 / .16);
+  --shadow-1: 0 1px 2px rgb(62 37 27 / .06);
+  --shadow-2: 0 8px 26px rgb(62 37 27 / .08);
+  --shadow-3: 0 28px 70px rgb(46 25 19 / .2);
+  --ring: 0 0 0 3px rgb(125 64 54 / .16);
 
-  --selection: rgb(63 102 85 / .16);
+  --selection: rgb(125 64 54 / .16);
 
-  --fleck-1: rgb(154 130 84 / .32);
-  --fleck-2: rgb(191 168 117 / .24);
-  --fleck-3: rgb(63 102 85 / .08);
-  --paper-glow: rgb(154 130 84 / .14);
-  --paper-glow-2: rgb(63 102 85 / .035);
+  --fleck-1: rgb(169 130 80 / .34);
+  --fleck-2: rgb(196 160 107 / .26);
+  --fleck-3: rgb(125 64 54 / .08);
+  --paper-glow: rgb(196 160 107 / .16);
+  --paper-glow-2: rgb(125 64 54 / .04);
 
-  --print-paper: #fffdf7;
-  --print-ink: #19221d;
-  --print-ink-2: #354139;
-  --print-faint: #6f796f;
-  --print-title: #315545;
-  --print-rule: rgb(49 85 69 / .4);
-  --print-rule-strong: rgb(49 85 69 / .5);
-  --print-band: #edf2ed;
+  --print-paper: #fffaf2;
+  --print-ink: #241b16;
+  --print-ink-2: #493a31;
+  --print-faint: #76685b;
+  --print-title: #743a31;
+  --print-rule: rgb(116 58 49 / .4);
+  --print-rule-strong: rgb(116 58 49 / .5);
+  --print-band: #f4e8e0;
 
-  --hero-book: #3f5b4d;
-  --hero-book-2: #2e463b;
-  --hero-book-page: #f4eedf;
-  --hero-book-edge: #d4c9b4;
-  --hero-book-line: rgb(218 199 159 / .54);
-  --hero-book-ink: #f1e5cb;
-  --hero-book-spine: #263d32;
+  --hero-book: #8c5144;
+  --hero-book-2: #6f3b32;
+  --hero-book-page: #f6eddc;
+  --hero-book-edge: #d8c8b2;
+  --hero-book-line: rgb(219 190 147 / .56);
+  --hero-book-ink: #f5e7cd;
+  --hero-book-spine: #5c302a;
 }
 
 /* 旧变量名统一接到新令牌，避免历史规则取到过期值 */

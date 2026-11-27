@@ -35,8 +35,8 @@ export function openSignInSheet() {
   const list = sortForSignIn(st.gifts)
   if (!list.length) return showAlert('无法生成签到表', `当前账簿还没有${copy.recordNoun}记录。`)
   const category = categoryForEvent(ev, st.homeCategory)
-  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#315545' : '#a3261e'
-  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#edf2ed' : '#f7efee'
+  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#7d4036' : '#a3261e'
+  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#f4e8e0' : '#f7efee'
   const dateStr = formatDate(ev.startDateTime) || '未设置'
   const pages = buildSignInPages(list, { eventName: ev.name, dateStr, location: ev.location, total: list.length, theme: category })
   const css = `

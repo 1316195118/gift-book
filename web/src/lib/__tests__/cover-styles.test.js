@@ -6,7 +6,9 @@ import {
   RED_TEMPLATES,
   TEMPLATE_DEFAULT_STYLE,
   WHITE_TEMPLATES,
+  categoryForEvent,
   getCoverStyle,
+  isHumanLedgerEvent,
 } from '../content.js'
 import { renderCoverMarkup } from '../cover.js'
 import { COVER_STYLE_ARTWORK, coverArtworkFor } from '../cover-art.js'
@@ -46,6 +48,35 @@ describe('封面款式目录', () => {
     expect(html).toContain('data-style="custom-paper"')
     expect(html).toContain('活动收款')
     expect(html).not.toContain('活动收款礼簿')
+  })
+
+  it('已保存账簿按自身数据归属，不继承首页当前分类', () => {
+    const red = { id: 'red-ledger', name: '婚宴', template: '婚宴', coverStyle: 'shuangxi' }
+    const white = { id: 'white-ledger', name: '追思会', coverStyle: 'sujuan' }
+    const custom = { id: 'custom-ledger', name: '活动收款', template: '活动收款', coverStyle: 'custom-paper' }
+
+    expect(categoryForEvent(red, 'custom')).toBe('red')
+    expect(categoryForEvent(white, 'custom')).toBe('white')
+    expect(categoryForEvent(custom, 'red')).toBe('custom')
+    expect(categoryForEvent({ id: 'legacy-custom', coverStyle: 'custom-bamboo' }, 'red')).toBe('custom')
+    expect(categoryForEvent({ id: 'legacy-white', coverStyle: 'baiju' }, 'red')).toBe('white')
+  })
+
+  it('只有未保存的新建预览才使用首页当前分类兜底', () => {
+    expect(categoryForEvent({ name: '正在编辑' }, 'custom')).toBe('custom')
+    expect(categoryForEvent({ name: '正在编辑' }, 'white')).toBe('white')
+  })
+
+  it('自定义账簿不进入人情往来统计', () => {
+    expect(isHumanLedgerEvent({ id: 'custom', category: 'custom' })).toBe(false)
+    expect(isHumanLedgerEvent({ id: 'red', category: 'red' })).toBe(true)
+    expect(isHumanLedgerEvent({ id: 'white', category: 'white' })).toBe(true)
+  })
+
+  it('旧白事账簿即使缺少分类也保留肃穆封面语义', () => {
+    const html = renderCoverMarkup({ id: 'legacy-white', coverStyle: 'sujuan' }, true)
+    expect(html).toContain('data-theme="white"')
+    expect(html).toContain('ledger-cover solemn')
   })
 
   it('每款封面都使用已登记的原创绘画底图且保留可替换的书名', () => {

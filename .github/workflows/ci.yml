@@ -118,6 +118,18 @@ jobs:
           BASE_URL: http://127.0.0.1:18199
         run: npm run e2e:responsive
 
+      - name: Run custom ledger and guest QR E2E
+        working-directory: web
+        env:
+          BASE_URL: http://127.0.0.1:18199
+        run: npm run e2e:custom
+
+      - name: Run category settings E2E
+        working-directory: web
+        env:
+          BASE_URL: http://127.0.0.1:18199
+        run: npm run e2e:categories
+
       - name: Run family code E2E
         working-directory: web
         env:

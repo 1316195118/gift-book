@@ -1,7 +1,7 @@
 {
   "name": "giftbook-web",
   "private": true,
-  "version": "2.4.64",
+  "version": "2.4.65",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "e2e:smoke": "node e2e/smoke.mjs",
     "e2e:responsive": "node e2e/responsive.mjs",
     "e2e:custom": "node e2e/custom-template.mjs",
+    "e2e:categories": "node e2e/category-settings.mjs",
     "e2e:family-code": "node e2e/family-code.mjs",
     "e2e:admin-family": "node e2e/admin-family.mjs",
     "e2e:article": "node e2e/article-pages.mjs",

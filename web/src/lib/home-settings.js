@@ -5,7 +5,7 @@ import { showAutoBackupModal, showAccessModal, logout } from './actions.js'
 import { showTrashModal } from './trash.js'
 import { showFamilyAdmin } from './family-admin.js'
 import { showFamilyBackup } from './family-backup.js'
-import { showFamilySettings, showFamilyArchives, showFamilyOverview, showAuditLog, showAboutPanel, showBackupHealth } from './home-panels.js'
+import { showFamilySettings, showFamilyArchives, showFamilyOverview, showAuditLog, showAboutPanel, showBackupHealth, showCategorySettings } from './home-panels.js'
 import { escapeHtml } from './crypto.js'
 
 const ICONS = {
@@ -19,6 +19,7 @@ const ICONS = {
   family: '<circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M15 20c0-2 2-4 5-4"/>',
   overview: '<rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="5"/><rect x="13" y="10" width="8" height="11"/><rect x="3" y="13" width="8" height="8"/>',
   audit: '<path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  category: '<path d="M4 5h16v5H4z"/><path d="M7 10v9M17 10v9"/><path d="M10 19h4"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/>',
 }
 
@@ -44,6 +45,17 @@ export function showHomeSettings() {
   const family = st.family || {}
   const isAdmin = Boolean(family.admin)
   const groups = []
+
+  const categoryNames = st.enabledCategories
+    .map((key) => ({ red: '红事', white: '白事', custom: '自定义' })[key])
+    .filter(Boolean)
+    .join('、')
+  groups.push({
+    title: '界面',
+    items: [
+      item('categories', '首页分类', `本机显示：${categoryNames}`, 'category'),
+    ],
+  })
 
   const dataItems = []
   dataItems.push(item('backuphealth', '备份健康中心', '检查最近备份、任务错误、备份数量与磁盘余量', 'shield'))
@@ -139,6 +151,7 @@ export function showHomeSettings() {
         if (act === 'family') showFamilyAdmin()
         if (act === 'overview') showFamilyOverview()
         if (act === 'audit') showAuditLog()
+        if (act === 'categories') showCategorySettings()
         if (act === 'about') showAboutPanel()
       }, 140)
     })

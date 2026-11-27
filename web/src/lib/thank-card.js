@@ -32,10 +32,10 @@ function drawCard(canvas, gift) {
   const solemn = category === 'white'
   const custom = category === 'custom'
   const copy = copyOf(event, st.homeCategory)
-  const ink = solemn ? '#1F2E33' : custom ? '#1F2824' : '#4A2C1A'
-  const accent = solemn ? '#3A5560' : custom ? '#315545' : '#A43A2B'
-  const paper = solemn ? '#F3F2EC' : custom ? '#F6F3E9' : '#FBF7EE'
-  const muted = solemn ? '#54656B' : custom ? '#52655B' : '#8A5A3C'
+  const ink = solemn ? '#1F2E33' : custom ? '#281F1A' : '#4A2C1A'
+  const accent = solemn ? '#3A5560' : custom ? '#7D4036' : '#A43A2B'
+  const paper = solemn ? '#F3F2EC' : custom ? '#F7F0E5' : '#FBF7EE'
+  const muted = solemn ? '#54656B' : custom ? '#6A594D' : '#8A5A3C'
 
   ctx.fillStyle = paper
   ctx.fillRect(0, 0, W, H)

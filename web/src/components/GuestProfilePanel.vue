@@ -82,6 +82,7 @@ import { api } from '../lib/api.js'
 import { decryptData } from '../bootstrap.js'
 import { buildGuestProfiles, searchGuestProfiles } from '../lib/guest-profile.js'
 import { formatCurrency, formatDateTime } from '../lib/format.js'
+import { isHumanLedgerEvent } from '../lib/content.js'
 
 const loading = ref(true)
 const progress = ref(4)
@@ -100,7 +101,7 @@ function statusLabel(status) {
 }
 
 function appendCurrent(rows) {
-  if (!st.currentEvent) return
+  if (!st.currentEvent || !isHumanLedgerEvent(st.currentEvent)) return
   st.gifts.forEach((gift) => {
     if (!gift?.data || gift.data.kind === 'blank') return
     rows.push({
@@ -115,7 +116,7 @@ function appendCurrent(rows) {
 async function loadProfiles() {
   const rows = []
   appendCurrent(rows)
-  scannedEvents.value = st.currentEvent ? 1 : 0
+  scannedEvents.value = st.currentEvent && isHumanLedgerEvent(st.currentEvent) ? 1 : 0
   let events = []
   try {
     const result = await api.listEvents()
@@ -124,7 +125,11 @@ async function loadProfiles() {
   } catch (error) {
     errors.value.push({ name: '账簿列表', reason: error.message || '读取失败' })
   }
-  const candidates = events.filter((event) => event.id !== st.currentEvent?.id && Number(event.giftCount || 0) > 0)
+  const candidates = events.filter((event) => (
+    isHumanLedgerEvent(event) &&
+    event.id !== st.currentEvent?.id &&
+    Number(event.giftCount || 0) > 0
+  ))
   for (let index = 0; index < candidates.length; index += 1) {
     const event = candidates[index]
     progress.value = Math.min(92, 10 + Math.round(((index + 1) / Math.max(1, candidates.length + 1)) * 82))

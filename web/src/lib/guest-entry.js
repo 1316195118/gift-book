@@ -2,13 +2,39 @@
 // 明文登记只在服务端暂存，确认时用当前账簿密码加密成正式礼金，再删掉明文。
 import { state as st } from '../store.js'
 import { api } from './api.js'
-import { openModal, closeModal, afterModalRender, alert as showAlert } from './modal.js'
+import { openModal, closeModal, afterModalRender, alert as showAlert, confirm as showConfirm } from './modal.js'
 import { escapeHtml, newRequestId } from './crypto.js'
 import { encryptData, loadEvents } from '../bootstrap.js'
 import { notify } from './notify.js'
+import { categoryForEvent } from './content.js'
+import { guestQrPosterInfo, renderGuestQrPoster } from './guest-qr-poster.js'
 
 let info = null
 let pending = []
+
+function guestLink() {
+  if (!info?.url) return ''
+  // 保留当前部署路径，兼容反向代理挂在 /giftbook/ 这类子路径的情况。
+  const target = new URL(info.url, window.location.origin)
+  const base = new URL('.', window.location.href)
+  base.search = target.search
+  base.hash = ''
+  return base.href
+}
+
+function guestExpiryText(expiresAt = info?.expiresAt) {
+  if (!expiresAt) return '长期有效，关闭扫码登记时失效'
+  const at = new Date(expiresAt)
+  if (!Number.isFinite(at.getTime())) return '有效期跟随账簿结束时间'
+  return `有效至 ${at.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })}`
+}
 
 async function refresh(ev) {
   const [status, list] = await Promise.all([api.guestToggle(ev.id, true), api.guestPending(ev.id)])
@@ -17,7 +43,7 @@ async function refresh(ev) {
 }
 
 function bodyHtml() {
-  const link = info?.url ? `${window.location.origin}${info.url}` : ''
+  const link = guestLink()
   const rows = pending.length
     ? pending
         .map((item) => `
@@ -43,12 +69,89 @@ function bodyHtml() {
         <button type="button" class="gb-link-btn" data-guest-copy>复制链接</button>
       </div>
       <div class="gb-guest-tools">
-        <button type="button" class="gb-link-btn" data-guest-share>获取二维码</button>
+        <button type="button" class="gb-link-btn" data-guest-share>生成二维码</button>
       </div>
+      <p class="gb-guest-validity">${escapeHtml(guestExpiryText())}</p>
       <h4 class="gb-snapshot-section-title">待确认登记（${pending.length}）</h4>
       ${pending.length ? '<div class="gb-guest-bulk"><button type="button" class="gb-link-btn" data-guest-all>全选</button><button type="button" class="gb-link-btn" data-guest-confirm-all>确认所选</button></div>' : ''}
       ${rows}
     </div>`
+}
+
+async function confirmRegenerate(ev) {
+  showConfirm(
+    '重新生成二维码',
+    '确定生成新的宾客登记二维码吗？\n旧二维码和旧链接会立即失效，已经收到的待确认登记不受影响。',
+    async () => {
+      try {
+        const result = await api.guestToggle(ev.id, true, { regenerate: true })
+        info = result.data || {}
+        notify.success('二维码已重新生成', '旧二维码已经失效。')
+        await showGuestQr(ev)
+      } catch (error) {
+        showAlert('重新生成失败', error.message || '请稍后再试')
+      }
+    },
+  )
+}
+
+async function showGuestQr(ev) {
+  const link = guestLink()
+  if (!link) return showAlert('无法生成二维码', '登记链接尚未开启，请重新打开扫码登记。')
+  try {
+    // 二维码库只在真正分享时加载，避免拖慢首屏与日常记账。
+    const { default: QRCode } = await import('qrcode')
+    const category = categoryForEvent(ev, st.homeCategory)
+    const posterInfo = guestQrPosterInfo(ev, category)
+    const qr = await QRCode.toDataURL(link, {
+      width: 720,
+      margin: 3,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#281f1a', light: '#fffaf1' },
+    })
+    const poster = await renderGuestQrPoster({
+      qrDataUrl: qr,
+      info: posterInfo,
+      expiryText: guestExpiryText(),
+    })
+    const posterAlt = `宾客登记二维码海报：${posterInfo.eventName}，${posterInfo.timeLabel}${posterInfo.time}，地点${posterInfo.location}`
+    const downloadName = `${posterInfo.eventName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) || '宾客登记'}-扫码登记.png`
+    openModal('宾客登记二维码', {
+      type: 'html',
+      html: `
+        <div class="gb-guest-qr">
+          <div class="gb-guest-qr-card">
+            <img
+              id="gb-guest-qr-poster"
+              src="${poster}"
+              alt="${escapeHtml(posterAlt)}"
+              width="1200"
+              height="1800"
+              loading="eager"
+              decoding="async"
+              data-title="${escapeHtml(posterInfo.eventName)}"
+              data-time="${escapeHtml(posterInfo.time)}"
+              data-location="${escapeHtml(posterInfo.location)}"
+              aria-describedby="gb-guest-qr-save-hint"
+            />
+            <a class="gb-guest-qr-download" href="${poster}" download="${escapeHtml(downloadName)}">下载图片</a>
+            <p id="gb-guest-qr-save-hint" class="gb-guest-qr-hint"><b>手机长按海报保存到相册</b><br />电脑可点「下载图片」或右键另存；发给宾客后即可扫码填写。</p>
+            <span class="gb-guest-qr-validity">${escapeHtml(guestExpiryText())}</span>
+          </div>
+          <p class="gb-picker-hint">登记内容会先进入待确认区，主家确认后才加密入簿。</p>
+        </div>`,
+    }, [
+      { text: '关闭', class: 'modal-btn-primary' },
+      {
+        text: '重新生成二维码',
+        class: 'modal-btn-ghost',
+        keepOpen: true,
+        handler: () => confirmRegenerate(ev),
+      },
+    ], { dismissable: true })
+  } catch (error) {
+    showAlert('二维码生成失败', error.message || '请复制页面上的链接')
+  }
 }
 
 async function confirmOne(ev, id) {
@@ -113,18 +216,7 @@ function show(ev) {
         return
       }
       if (event.target.closest('[data-guest-share]')) {
-        try {
-          const link = window.location.origin + (info?.url || '')
-          // 二维码库只在用户真正分享时加载，避免拖慢首屏与日常记账。
-          const { default: QRCode } = await import('qrcode')
-          const qr = await QRCode.toDataURL(link, { width: 320, margin: 2 })
-          openModal('宾客登记二维码', {
-            type: 'html',
-            html: `<div class="gb-guest-qr"><img src="${qr}" alt="宾客登记二维码" width="320" height="320" loading="lazy" decoding="async" /><p class="gb-picker-hint">让宾客扫码后填写，登记内容会先进入待确认区。</p></div>`,
-          }, [{ text: '关闭', class: 'modal-btn-primary' }], { dismissable: true })
-        } catch (err) {
-          showAlert('二维码生成失败', err.message || '请复制页面上的链接')
-        }
+        await showGuestQr(ev)
         return
       }
       if (event.target.closest('[data-guest-all]')) {

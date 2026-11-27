@@ -21,13 +21,20 @@ export function toggleLargeText() {
 
 export function switchCategory(next) {
   if (next === st.homeCategory) return
+  if (!st.enabledCategories?.includes(next)) return
   const label = next === 'white' ? '白事' : next === 'custom' ? '自定义' : '红事'
-  showConfirm('切换分类', `确定切换到「${label}」吗？\n切换后首页配色和最近账簿会随之变化。`, async () => {
-    setHomeCategory(next)
-    st.homeCategory = next
-    afterPaint(() => playTheme(next === 'white'))
-    await loadEvents()
-  })
+  showConfirm(
+    '切换分类',
+    `确定切换到「${label}」吗？\n分类只改变首页浏览范围，不会把当前账簿带入新分类。`,
+    async () => {
+      // 分类是首页的浏览范围，不是当前账簿的状态；切换时清掉上一本账簿的会话。
+      if (st.currentEvent || st.currentPassword) endSession()
+      setHomeCategory(next)
+      st.homeCategory = next
+      afterPaint(() => playTheme(next === 'white'))
+      await loadEvents()
+    },
+  )
 }
 
 export function showHelpDialog() {

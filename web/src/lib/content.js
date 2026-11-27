@@ -276,7 +276,7 @@ export const COVER_STYLES = [
   { id: 'qiusheng', name: '秋声', theme: 'white', frame: 'strip', corners: 'chrysanthemum', medallion: true, tassel: false, layout: 'vertical' },
   { id: 'huaien', name: '怀恩', theme: 'white', frame: 'double', corners: 'moon', medallion: false, tassel: false, layout: 'center' },
   { id: 'custom-paper', name: '素笺通用', theme: 'custom', frame: 'single', corners: 'scroll', medallion: true, tassel: false, layout: 'center', weave: true },
-  { id: 'custom-bamboo', name: '青竹通用', theme: 'custom', frame: 'double', corners: 'pine', medallion: true, tassel: false, layout: 'vertical', weave: false },
+  { id: 'custom-bamboo', name: '赭竹通用', theme: 'custom', frame: 'double', corners: 'pine', medallion: true, tassel: false, layout: 'vertical', weave: false },
   { id: 'custom-cloud', name: '行云通用', theme: 'custom', frame: 'thick', corners: 'cloud', medallion: false, tassel: false, layout: 'center', weave: true },
   { id: 'custom-silk', name: '素绸通用', theme: 'custom', frame: 'none', corners: 'vine', medallion: true, tassel: false, layout: 'center', weave: false },
 ]
@@ -327,6 +327,9 @@ export function isSolemnEvent(ev, homeCategory = 'red') {
   if (whiteKeys.has(template)) return true
   if (ev.theme === 'theme-festive') return false
   if (redKeys.has(template)) return false
+  const coverStyle = String(ev.coverStyle || '').trim()
+  const styleTheme = COVER_STYLES.find((item) => item.id === coverStyle)?.theme
+  if (styleTheme) return styleTheme === 'white'
   return /丧|白事|追思|周年|迁坟/.test(ev.name || '')
 }
 
@@ -334,11 +337,30 @@ export function categoryForEvent(ev, homeCategory = 'red') {
   if (ev?.category === 'custom' || ev?.theme === 'theme-custom') return 'custom'
   if (ev?.category === 'white' || ev?.theme === 'theme-solemn') return 'white'
   if (ev?.category === 'red' || ev?.theme === 'theme-festive') return 'red'
-  // 新建、预览和测试可能只传模板键，还没有落库的 category/theme。
-  if (String(ev?.template || '').trim() === 'custom') return 'custom'
+
+  const template = String(ev?.template || '').trim()
+  const matches = (list) => list.some((item) => item.key === template || item.name === template)
+  const coverStyle = String(ev?.coverStyle || '').trim()
+  const styleTheme = COVER_STYLES.find((item) => item.id === coverStyle)?.theme
+  // 旧账簿可能没有 category/theme，模板与封面样式仍能可靠判断归属。
+  if (template === 'custom' || matches(CUSTOM_TEMPLATES)) return 'custom'
+  if (matches(WHITE_TEMPLATES)) return 'white'
+  if (matches(RED_TEMPLATES)) return 'red'
+  if (styleTheme) return styleTheme
+
+  // 已落库账簿不能继承首页当前分类，否则切到自定义后旧红事簿会被误收进来。
+  const persisted = Boolean(ev && typeof ev === 'object' && (
+    ev.id || ev.createdAt || ev.startDateTime || ev.endDateTime || ev.coverStyle
+  ))
+  if (persisted) return 'red'
+
+  // 仅未保存的新建页预览才使用当前分类作为兜底。
   if (homeCategory === 'custom') return 'custom'
+  if (homeCategory === 'white') return 'white'
   return isSolemnEvent(ev, homeCategory) ? 'white' : 'red'
 }
+
+export const isHumanLedgerEvent = (ev) => categoryForEvent(ev) !== 'custom'
 
 export function eventTheme(ev, homeCategory = 'red') {
   const category = categoryForEvent(ev, homeCategory)

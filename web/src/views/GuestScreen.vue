@@ -4,6 +4,7 @@
       <div class="gb-guest-seal" aria-hidden="true">{{ guestSeal }}</div>
       <h1>{{ info?.name || guestLabels.title }}</h1>
       <p class="gb-guest-intro">{{ info ? guestLabels.intro : (loading ? '正在读取登记信息…' : '暂时无法打开登记入口。') }}</p>
+      <p v-if="info && expiresText" class="gb-guest-validity">{{ expiresText }}</p>
 
       <form v-if="info && !done" class="gb-guest-form" novalidate @submit.prevent="submit">
         <label class="field-label" for="guest-name">{{ guestLabels.name }}</label>
@@ -98,6 +99,19 @@ const guestLabels = computed(() => {
   }
 })
 const guestSeal = computed(() => info.value?.category === 'custom' ? '记' : info.value?.category === 'white' ? '奠' : '礼')
+const expiresText = computed(() => {
+  if (!info.value?.expiresAt) return ''
+  const at = new Date(info.value.expiresAt)
+  if (!Number.isFinite(at.getTime())) return ''
+  return `登记入口有效至 ${at.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })}`
+})
 
 async function loadInfo() {
   loading.value = true

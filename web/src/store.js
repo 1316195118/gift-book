@@ -3,8 +3,11 @@ import { reactive } from 'vue'
 import {
   NO_PASSWORD_HASH, NO_PASSWORD_KEY, LedgerCrypto, hashPassword, ledgerKeyFor,
 } from './lib/crypto.js'
-import { getHomeCategory, isLargeText, saveLargeText } from './lib/prefs.js'
+import { getEnabledCategories, getHomeCategory, isLargeText, saveLargeText } from './lib/prefs.js'
 import { readCache } from './lib/offline.js'
+
+const initialEnabledCategories = getEnabledCategories()
+const initialHomeCategory = getHomeCategory()
 
 export const state = reactive({
   // 数据
@@ -22,7 +25,8 @@ export const state = reactive({
 
   // 界面
   route: 'home', // home | template | setup | main
-  homeCategory: getHomeCategory(),
+  homeCategory: initialEnabledCategories.includes(initialHomeCategory) ? initialHomeCategory : initialEnabledCategories[0],
+  enabledCategories: initialEnabledCategories,
   largeText: isLargeText(),
   locked: false,
   offlineMode: false,

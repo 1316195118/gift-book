@@ -237,7 +237,8 @@ export const api = {
 
   familyActivity: () => apiRequest('/api/families/activity'),
 
-  guestToggle: (id, enabled) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest`, 'POST', { enabled }),
+  guestToggle: (id, enabled, { regenerate = false } = {}) =>
+    apiRequest(`/api/events/${encodeURIComponent(id)}/guest`, 'POST', { enabled, regenerate: Boolean(regenerate) }),
   guestPending: (id) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest/pending`),
   guestDismiss: (id, entry) => apiRequest(`/api/events/${encodeURIComponent(id)}/guest/pending/${encodeURIComponent(entry)}`, 'DELETE'),
   guestInfo: (token) => apiRequest(`/api/guest/${encodeURIComponent(token)}`),

@@ -33,3 +33,7 @@ export function showAboutPanel() {
 export function showBackupHealth() {
   return openComponent('BackupHealthCenter', '备份健康中心', 'large')
 }
+
+export function showCategorySettings() {
+  return openComponent('CategorySettingsPanel', '首页分类')
+}

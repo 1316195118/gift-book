@@ -3,10 +3,18 @@
     <div class="home-inner">
       <header class="home-topbar">
         <div class="home-brand"><span class="seal">{{ isCustom ? '记' : '礼' }}</span><span>{{ isCustom ? '电子账簿' : '电子礼簿' }}</span></div>
-        <div class="cat-switch" id="cat-switch" role="tablist" aria-label="事项分类">
-          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'red' }" role="tab" :aria-selected="st.homeCategory === 'red'" data-cat="red" @click="onSwitchCategory('red')">红事</button>
-          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'white' }" role="tab" :aria-selected="st.homeCategory === 'white'" data-cat="white" @click="onSwitchCategory('white')">白事</button>
-          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'custom' }" role="tab" :aria-selected="st.homeCategory === 'custom'" data-cat="custom" @click="onSwitchCategory('custom')">自定义</button>
+        <div v-if="categoryOptions.length > 1" class="cat-switch" id="cat-switch" role="tablist" aria-label="事项分类">
+          <button
+            v-for="option in categoryOptions"
+            :key="option.key"
+            type="button"
+            class="cat-btn"
+            :class="{ active: st.homeCategory === option.key }"
+            role="tab"
+            :aria-selected="st.homeCategory === option.key"
+            :data-cat="option.key"
+            @click="onSwitchCategory(option.key)"
+          >{{ option.label }}</button>
         </div>
         <div class="home-top-actions">
           <button type="button" class="home-help-btn" id="home-settings-btn" @click="showHomeSettings">设置</button>
@@ -150,7 +158,7 @@
 
 <script setup>
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { state as st } from '../store.js'
+import { state as st, CATEGORY_LABEL } from '../store.js'
 import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, CUSTOM_TEMPLATES, copyOf, categoryForEvent } from '../lib/content.js'
 import { ceremonyLabel, daysUntilText } from '../lib/ceremony.js'
 import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from '../lib/actions.js'
@@ -168,6 +176,7 @@ function onSwitchCategory(cat) {
 // 默认展示金额与人数；点眼睛才遮起来，隐私由用户自己控制
 const masked = reactive(new Set())
 
+const categoryOptions = computed(() => st.enabledCategories.map((key) => ({ key, label: CATEGORY_LABEL[key] })))
 const catText = computed(() => CATEGORY_TEXT[st.homeCategory])
 const copy = computed(() => copyOf(null, st.homeCategory))
 const isSolemn = computed(() => st.homeCategory === 'white')

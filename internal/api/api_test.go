@@ -687,6 +687,60 @@ func TestGuestRateLimiter(t *testing.T) {
 	}
 }
 
+func TestGuestTokenRotationAndLedgerExpiry(t *testing.T) {
+	env := newEnv(t)
+	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
+	res, payload := env.do(t, "POST", "/api/events", map[string]any{
+		"name":          "二维码轮换",
+		"passwordHash":  noPassKey,
+		"startDateTime": time.Now().Add(-time.Hour).Format("2006-01-02T15:04"),
+		"endDateTime":   time.Now().Add(24 * time.Hour).Format("2006-01-02T15:04"),
+	}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("建账失败: %d %v", res.StatusCode, payload)
+	}
+	eventID := payload["data"].(map[string]any)["id"].(string)
+
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/guest", map[string]any{"enabled": true}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("开启失败: %d %v", res.StatusCode, payload)
+	}
+	first := payload["data"].(map[string]any)
+	oldToken := first["token"].(string)
+	if first["expiresAt"] == "" {
+		t.Fatal("二维码应返回账簿结束时间")
+	}
+
+	res, payload = env.do(t, "POST", "/api/events/"+eventID+"/guest", map[string]any{"enabled": true, "regenerate": true}, map[string]string{"Cookie": cookie})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("重新生成失败: %d %v", res.StatusCode, payload)
+	}
+	newToken := payload["data"].(map[string]any)["token"].(string)
+	if newToken == "" || newToken == oldToken {
+		t.Fatalf("重新生成后应更换令牌: old=%q new=%q", oldToken, newToken)
+	}
+	res, _ = env.do(t, "GET", "/api/guest/"+oldToken, nil, nil)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("重新生成后旧二维码应立即失效: %d", res.StatusCode)
+	}
+	res, _ = env.do(t, "GET", "/api/guest/"+newToken, nil, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("新二维码应有效: %d", res.StatusCode)
+	}
+
+	err := env.store.WithEvents(func(events map[string]store.Record) (bool, error) {
+		events[eventID]["endDateTime"] = time.Now().Add(-time.Minute).Format("2006-01-02T15:04")
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, _ = env.do(t, "GET", "/api/guest/"+newToken, nil, nil)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("账簿结束后二维码应失效: %d", res.StatusCode)
+	}
+}
+
 // 单本账簿导出必须是一个完整可解压的 zip，且长度头与实际内容一致。
 func TestExportEventZipIsComplete(t *testing.T) {
 	env := newEnv(t)

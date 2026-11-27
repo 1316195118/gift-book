@@ -3,6 +3,8 @@ const VOICE_OPTIONS_KEY = 'giftbook_voice_options.v1'
 const LARGE_TEXT_KEY = 'giftbook_large_text.v1'
 const PRINT_OPTIONS_KEY = 'giftbook_print_options.v1'
 const CATEGORY_KEY = 'giftbook_category'
+const ENABLED_CATEGORIES_KEY = 'giftbook_enabled_categories.v1'
+export const CATEGORY_KEYS = ['red', 'white', 'custom']
 
 export const getHomeCategory = () => {
   try {
@@ -19,6 +21,32 @@ export const setHomeCategory = (cat) => {
   } catch {
     /* 隐私模式或禁用存储时只影响本机偏好，不阻断进入 */
   }
+}
+
+function normalizeEnabledCategories(value) {
+  if (!Array.isArray(value)) return [...CATEGORY_KEYS]
+  const picked = CATEGORY_KEYS.filter((cat) => value.includes(cat))
+  // 首页至少要有一个可进入的分类，避免全部关闭后没有创建入口。
+  return picked.length ? picked : [...CATEGORY_KEYS]
+}
+
+export function getEnabledCategories() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ENABLED_CATEGORIES_KEY) || 'null')
+    return normalizeEnabledCategories(parsed)
+  } catch {
+    return [...CATEGORY_KEYS]
+  }
+}
+
+export function saveEnabledCategories(categories) {
+  const next = normalizeEnabledCategories(categories)
+  try {
+    localStorage.setItem(ENABLED_CATEGORIES_KEY, JSON.stringify(next))
+  } catch {
+    /* 隐私模式或禁用存储时只在本次页面内生效 */
+  }
+  return next
 }
 
 export function getVoiceOptions() {
