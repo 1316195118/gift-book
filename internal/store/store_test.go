@@ -528,3 +528,241 @@ func TestReplaceAllRejectsUnserializableData(t *testing.T) {
 		t.Fatalf("旧数据被破坏: %v", events)
 	}
 }
+
+// 备份快照必须在单锁内读到一致的 events/gifts，不能出现账簿存在但礼金文件缺失的撕裂。
+func TestBackupBundleConsistentUnderWrites(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithEvents(func(events map[string]Record) (bool, error) {
+		events["e1"] = Record{"name": "宴", "familyId": DefaultFamilyID}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithGifts("e1", func(gifts map[string]Record) (bool, error) {
+		gifts["g1"] = Record{"amount": 100.0}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 100; i += 1 {
+			_ = st.WithEvents(func(events map[string]Record) (bool, error) {
+				e := events["e1"]
+				e["name"] = "宴"
+				events["e1"] = e
+				return true, nil
+			})
+			_ = st.WithGifts("e1", func(gifts map[string]Record) (bool, error) {
+				gifts["g1"] = Record{"amount": float64(i)}
+				return true, nil
+			})
+		}
+	}()
+
+	for i := 0; i < 50; i += 1 {
+		bundle, err := st.ReadBackupBundle("")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := bundle.Events["e1"]; !ok {
+			t.Fatal("快照中账簿丢失")
+		}
+		if len(bundle.Gifts["e1"]) == 0 {
+			t.Fatal("快照中礼金缺失")
+		}
+	}
+	<-done
+}
+
+// 模拟切换中途崩溃：旧文件已进 trash、新文件已写入，重启后应自动回滚。
+func TestRecoverPendingImport(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithEvents(func(events map[string]Record) (bool, error) {
+		events["e1"] = Record{"name": "原始账簿"}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithGifts("e1", func(gifts map[string]Record) (bool, error) {
+		gifts["g1"] = Record{"amount": 100.0}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 手工制造崩溃现场：events.json 已被新的替换，旧的在 .trash 里。
+	trash := filepath.Join(dir, ".trash", "import-crash")
+	if err := os.MkdirAll(trash, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(dir, "events.json"), filepath.Join(trash, "events.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "events.json"), []byte(`{"new": {"name": "新账簿"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	marker := pendingImport{
+		Trash: trash,
+		Moves: []importMove{{filepath.Join(trash, "events.json"), filepath.Join(dir, "events.json")}},
+	}
+	raw, _ := json.MarshalIndent(marker, "", "  ")
+	if err := os.WriteFile(st.pendingImportPath(), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 重新打开应自动回滚
+	st2, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := st2.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("回滚后应只剩原账簿，实际 %v", events)
+	}
+	if _, ok := events["e1"]; !ok {
+		t.Fatalf("原账簿未恢复: %v", events)
+	}
+	if _, err := os.Stat(st2.pendingImportPath()); !os.IsNotExist(err) {
+		t.Fatal("回滚成功后应清除标记")
+	}
+}
+
+// ReplaceFamily 的 trash 是副本，回滚后副本必须仍在，便于人工取回。
+func TestRecoverPendingImportCopyBack(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backupPath := filepath.Join(dir, "gift_backup.json")
+	if err := os.WriteFile(backupPath, []byte(`{"g1":{"amount":100}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	trash := filepath.Join(dir, ".trash", "family-restore-crash")
+	if err := os.MkdirAll(trash, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	copyPath := filepath.Join(trash, "gifts_e1.json")
+	if err := os.WriteFile(copyPath, []byte(`{"g1":{"amount":100}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// 主目录里是崩溃时写入的新数据
+	target := filepath.Join(dir, "gifts_e1.json")
+	if err := os.WriteFile(target, []byte(`{"g2":{"amount":999}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	marker := pendingImport{
+		Trash:    trash,
+		Moves:    []importMove{{copyPath, target}},
+		CopyBack: true,
+	}
+	raw, _ := json.MarshalIndent(marker, "", "  ")
+	if err := os.WriteFile(st.pendingImportPath(), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	st2, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := st2.ReadGifts("e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["g1"]; !ok {
+		t.Fatalf("副本回滚失败: %v", got)
+	}
+	if _, ok := got["g2"]; ok {
+		t.Fatal("新数据应被旧副本覆盖")
+	}
+	if _, err := os.Stat(copyPath); err != nil {
+		t.Fatal("回滚后 trash 副本应保留")
+	}
+	if _, err := os.Stat(st2.pendingImportPath()); !os.IsNotExist(err) {
+		t.Fatal("应清除标记")
+	}
+}
+
+// 写入后缓存应命中：直接改磁盘文件（模拟外部进程）不会被读到，
+// 直到 mtime/size 变化触发失效。
+func TestGiftCacheHitAndInvalidate(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithGifts("e1", func(g map[string]Record) (bool, error) {
+		g["g1"] = Record{"amount": 100.0}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// 缓存命中：读到写入的值
+	gifts, err := st.ReadGifts("e1")
+	if err != nil || len(gifts) != 1 {
+		t.Fatalf("缓存读取失败: %v %v", gifts, err)
+	}
+	// 返回的副本被修改不应污染缓存
+	gifts["g2"] = Record{"amount": 999.0}
+	gifts2, _ := st.ReadGifts("e1")
+	if len(gifts2) != 1 {
+		t.Fatal("返回的 map 被外部修改污染了缓存")
+	}
+	// 外部改写文件后，失效再读应拿到新内容
+	st.invalidateGiftCache()
+	if err := st.WithGifts("e1", func(g map[string]Record) (bool, error) {
+		g["g3"] = Record{"amount": 300.0}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	gifts3, _ := st.ReadGifts("e1")
+	if len(gifts3) != 2 {
+		t.Fatalf("失效后应读到 2 条，实际 %d", len(gifts3))
+	}
+}
+
+// 回收站归档会让礼金文件移走，缓存必须失效，否则还能读到已删除的账簿礼金。
+func TestGiftCacheInvalidateOnTrash(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithEvents(func(events map[string]Record) (bool, error) {
+		events["e1"] = Record{"name": "宴"}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithGifts("e1", func(g map[string]Record) (bool, error) {
+		g["g1"] = Record{"amount": 100.0}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.TrashEvent("e1", Record{"name": "宴"}); err != nil {
+		t.Fatal(err)
+	}
+	gifts, err := st.ReadGifts("e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gifts) != 0 {
+		t.Fatalf("归档后不应再缓存旧礼金，实际 %v", gifts)
+	}
+}

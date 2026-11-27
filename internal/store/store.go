@@ -36,6 +36,16 @@ type Store struct {
 	mu         sync.RWMutex
 	countMu    sync.RWMutex
 	giftCounts map[string]giftCountEntry
+	// giftCache 缓存已解析的礼金 map，避免每次写入都反序列化整份 JSON。
+	// 与 giftCounts 一样用 size+mtime 校验；任何外部改写（还原/删除/归档）都会整表失效。
+	cacheMu   sync.RWMutex
+	giftCache map[string]giftCacheEntry
+}
+
+type giftCacheEntry struct {
+	size       int64
+	modTimeNan int64
+	items      map[string]Record
 }
 
 // Open 打开（必要时创建）数据目录。
@@ -43,7 +53,12 @@ func Open(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o775); err != nil {
 		return nil, fmt.Errorf("创建数据目录失败: %w", err)
 	}
-	return &Store{dir: dir, giftCounts: make(map[string]giftCountEntry)}, nil
+	s := &Store{dir: dir, giftCounts: make(map[string]giftCountEntry), giftCache: make(map[string]giftCacheEntry)}
+	// 上次切换中途崩溃时，先把旧数据从 .trash 放回去。
+	if err := s.recoverPendingImport(); err != nil {
+		return nil, fmt.Errorf("恢复未完成的导入失败: %w", err)
+	}
+	return s, nil
 }
 
 // Dir 返回数据目录的绝对路径。
@@ -85,7 +100,7 @@ func (s *Store) WithEvents(fn func(events map[string]Record) (bool, error)) erro
 func (s *Store) ReadGifts(eventID string) (map[string]Record, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return readMap(s.giftsPath(eventID))
+	return s.readGiftsCached(eventID)
 }
 
 // ViewTx 在同一把共享读锁内复制账簿与礼金快照，解锁后再执行查询回调。
@@ -96,7 +111,7 @@ func (s *Store) ViewTx(eventID string, fn func(events map[string]Record, gifts m
 	events, err := readMap(s.eventsPath())
 	if err == nil {
 		var gifts map[string]Record
-		gifts, err = readMap(s.giftsPath(eventID))
+		gifts, err = s.readGiftsCached(eventID)
 		s.mu.RUnlock()
 		if err != nil {
 			return err
@@ -111,7 +126,7 @@ func (s *Store) ViewTx(eventID string, fn func(events map[string]Record, gifts m
 func (s *Store) WithGifts(eventID string, fn func(gifts map[string]Record) (bool, error)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	gifts, err := readMap(s.giftsPath(eventID))
+	gifts, err := s.writableGifts(eventID)
 	if err != nil {
 		return err
 	}
@@ -120,7 +135,12 @@ func (s *Store) WithGifts(eventID string, fn func(gifts map[string]Record) (bool
 		return err
 	}
 	if changed {
-		return writeJSON(s.giftsPath(eventID), gifts)
+		if err := writeJSON(s.giftsPath(eventID), gifts); err != nil {
+			return err
+		}
+		s.putGiftsCache(eventID, gifts)
+		s.refreshGiftCount(eventID, len(gifts))
+		return nil
 	}
 	return nil
 }
@@ -137,7 +157,7 @@ func (s *Store) Tx(eventID string, withGiftFile bool, fn func(events map[string]
 	}
 	var gifts map[string]Record
 	if withGiftFile {
-		gifts, err = readMap(s.giftsPath(eventID))
+		gifts, err = s.readGiftsCached(eventID)
 		if err != nil {
 			return err
 		}
@@ -152,6 +172,8 @@ func (s *Store) Tx(eventID string, withGiftFile bool, fn func(events map[string]
 		if err := writeJSON(s.giftsPath(eventID), gifts); err != nil {
 			return err
 		}
+		s.putGiftsCache(eventID, gifts)
+		s.refreshGiftCount(eventID, len(gifts))
 	}
 	if writeEv {
 		if err := writeJSON(s.eventsPath(), events); err != nil {
@@ -186,6 +208,7 @@ func (s *Store) trashEventLocked(eventID string, event Record) (string, error) {
 		if err := os.Rename(s.giftsPath(eventID), filepath.Join(dir, "gifts.json")); err != nil {
 			return "", err
 		}
+		s.invalidateGiftCache()
 	}
 	return dir, nil
 }
@@ -231,6 +254,7 @@ func (s *Store) restoreTrashedGiftsLocked(eventID, trashDir string) {
 	src := filepath.Join(trashDir, "gifts.json")
 	if _, err := os.Stat(src); err == nil {
 		_ = os.Rename(src, s.giftsPath(eventID))
+		s.invalidateGiftCache()
 	}
 }
 
@@ -489,6 +513,7 @@ func (s *Store) RestoreTrash(name string) (string, string, error) {
 			if writeErr := writeFileAtomic(s.giftsPath(id), giftRaw); writeErr != nil {
 				return false, writeErr
 			}
+			s.invalidateGiftCache()
 		}
 		events[id] = event
 		return true, nil
@@ -500,20 +525,30 @@ func (s *Store) RestoreTrash(name string) (string, string, error) {
 	return id, eventName, nil
 }
 
-// BackupAll 读取全部账簿与礼金，按 ID 排序返回，用于整库备份导出。
+// BackupAll 在单把读锁内读取全部账簿与礼金，保证快照一致。
 func (s *Store) BackupAll() (map[string]Record, map[string]map[string]Record, error) {
-	events, err := s.ReadEvents()
+	return s.backupSnapshot(func(string) bool { return true })
+}
+
+// backupSnapshot 在同一把 RLock 内读 events 与每本礼金/来访/待确认数据。
+// 并发写入会被这把锁挡住，备份不会出现「账簿来自 t1、礼金来自 t2」的撕裂。
+func (s *Store) backupSnapshot(accept func(string) bool) (map[string]Record, map[string]map[string]Record, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	events, err := readMap(s.eventsPath())
 	if err != nil {
 		return nil, nil, err
 	}
 	ids := make([]string, 0, len(events))
 	for id := range events {
-		ids = append(ids, id)
+		if accept(id) {
+			ids = append(ids, id)
+		}
 	}
 	sort.Strings(ids)
 	gifts := make(map[string]map[string]Record, len(ids))
 	for _, id := range ids {
-		items, err := s.ReadGifts(id)
+		items, err := s.readGiftsCached(id)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -536,8 +571,11 @@ func eventFamilyID(event Record) string {
 
 // BackupFamily 读取指定家庭的账簿与礼金，按 ID 排序返回，用于家庭级备份导出。
 func (s *Store) BackupFamily(familyID string) (map[string]Record, map[string]map[string]Record, error) {
-	all, err := s.ReadEvents()
+	// 先在同一把锁内读出该家庭的账簿与礼金快照。
+	s.mu.RLock()
+	all, err := readMap(s.eventsPath())
 	if err != nil {
+		s.mu.RUnlock()
 		return nil, nil, err
 	}
 	events := make(map[string]Record)
@@ -552,12 +590,14 @@ func (s *Store) BackupFamily(familyID string) (map[string]Record, map[string]map
 	sort.Strings(ids)
 	gifts := make(map[string]map[string]Record, len(ids))
 	for _, id := range ids {
-		items, err := s.ReadGifts(id)
+		items, err := s.readGiftsCached(id)
 		if err != nil {
+			s.mu.RUnlock()
 			return nil, nil, err
 		}
 		gifts[id] = items
 	}
+	s.mu.RUnlock()
 	return events, gifts, nil
 }
 
@@ -620,6 +660,7 @@ func (s *Store) ReplaceFamily(familyID string, events map[string]Record, gifts m
 			src := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
 			if oldExisted[id] {
 				_ = os.Rename(src, s.giftsPath(id))
+				s.invalidateGiftCache()
 			} else {
 				_ = os.Remove(s.giftsPath(id))
 			}
@@ -654,17 +695,52 @@ func (s *Store) ReplaceFamily(familyID string, events map[string]Record, gifts m
 		}
 		ready = append(ready, staged{s.giftsPath(id), tmp})
 	}
+	// 标记只在所有临时文件写好、即将切换时落盘；staging 阶段失败不会遗留标记。
+	// events.json 也纳入标记，避免重启后「新事件 + 旧礼金」的版本错配。
+	familyMoves := make([]importMove, 0, len(oldIDs)+1)
+	if len(oldExisted) > 0 {
+		for _, id := range oldIDs {
+			if oldExisted[id] {
+				familyMoves = append(familyMoves, importMove{
+					filepath.Join(trash, "gifts_"+SanitizeID(id)+".json"), s.giftsPath(id),
+				})
+			}
+		}
+	}
+	eventsCopy := filepath.Join(trash, "events-before.json")
+	if raw, readErr := os.ReadFile(s.eventsPath()); readErr == nil {
+		if writeErr := writeFileAtomic(eventsCopy, raw); writeErr == nil {
+			familyMoves = append(familyMoves, importMove{eventsCopy, s.eventsPath()})
+		}
+	}
+	marked := false
+	if len(familyMoves) > 0 {
+		if err := s.writePendingImport(pendingImport{Trash: trash, Moves: familyMoves, CopyBack: true}); err != nil {
+			for _, item := range ready {
+				_ = os.Remove(item.tmp)
+			}
+			return err
+		}
+		marked = true
+	}
+
 	for _, item := range ready {
 		if err := os.Rename(item.tmp, item.final); err != nil {
 			for _, other := range ready {
 				_ = os.Remove(other.tmp)
 			}
 			rollback()
+			if marked {
+				s.clearPendingImport()
+			}
 			return err
 		}
 	}
 	if err := writeJSON(s.eventsPath(), next); err != nil {
 		rollback()
+		if marked {
+			s.clearPendingImport()
+		}
 		return err
 	}
 	// 备份里没有的旧账簿：礼金文件已在 trash 里，删除主目录副本。
@@ -675,6 +751,7 @@ func (s *Store) ReplaceFamily(familyID string, events map[string]Record, gifts m
 	}
 	// trash 不删：家庭还原会覆盖本家庭全部账簿，和整站还原一样留一份快照，
 	// 万一选错了备份包还能从 .trash/family-restore-* 人工取回。
+	s.clearPendingImport()
 	return nil
 }
 
@@ -866,32 +943,34 @@ func (s *Store) replaceAllLocked(events map[string]Record, gifts map[string]map[
 	}
 	// 旧数据只要有任何一部分会被覆盖，就先整体挪进 .trash 再切换：
 	// 切换阶段出错能原样放回，成功后也留下一份可人工取回的快照。
+	// 关键：在动第一个旧文件之前写下回滚标记，进程中途崩溃也能自愈。
+	var plan []importMove
 	if len(existing) > 0 || len(giftIDs) > 0 || familiesExist {
-		if err := os.MkdirAll(trash, 0o770); err != nil {
-			// 旧数据没地方放时绝不切换，否则后续出错就再也无法回滚。
-			dropTemps()
-			return err
-		}
 		if _, err := os.Stat(s.eventsPath()); err == nil {
-			dst := filepath.Join(trash, "events.json")
-			if os.Rename(s.eventsPath(), dst) == nil {
-				backedUp = append(backedUp, moved{dst, s.eventsPath()})
-			}
+			plan = append(plan, importMove{filepath.Join(trash, "events.json"), s.eventsPath()})
 		}
 		for _, id := range giftIDs {
 			src := s.giftsPath(id)
-			if _, err := os.Stat(src); err != nil {
-				continue
-			}
-			dst := filepath.Join(trash, "gifts_"+SanitizeID(id)+".json")
-			if os.Rename(src, dst) == nil {
-				backedUp = append(backedUp, moved{dst, src})
+			if _, err := os.Stat(src); err == nil {
+				plan = append(plan, importMove{filepath.Join(trash, "gifts_"+SanitizeID(id)+".json"), src})
 			}
 		}
 		if familiesExist {
-			dst := filepath.Join(trash, "families.json")
-			if os.Rename(s.familiesPath(), dst) == nil {
-				backedUp = append(backedUp, moved{dst, s.familiesPath()})
+			plan = append(plan, importMove{filepath.Join(trash, "families.json"), s.familiesPath()})
+		}
+	}
+	if len(plan) > 0 {
+		if err := os.MkdirAll(trash, 0o770); err != nil {
+			dropTemps()
+			return err
+		}
+		if err := s.writePendingImport(pendingImport{Trash: trash, Moves: plan}); err != nil {
+			dropTemps()
+			return err
+		}
+		for _, item := range plan {
+			if err := os.Rename(item.To, item.From); err == nil {
+				backedUp = append(backedUp, moved{item.From, item.To})
 			}
 		}
 	}
@@ -906,11 +985,14 @@ func (s *Store) replaceAllLocked(events map[string]Record, gifts map[string]map[
 				_ = os.Rename(old.from, old.to)
 			}
 			dropTemps()
+			s.clearPendingImport() // 已手动回滚，标记不再需要
+			s.invalidateGiftCache()
 			return err
 		}
 		switched = append(switched, item.final)
 	}
-	dropTemps() // 已改名的临时文件不再存在，Remove 无副作用
+	dropTemps()            // 已改名的临时文件不再存在，Remove 无副作用
+	s.clearPendingImport() // 全部切换成功，清除回滚标记
 	return nil
 }
 
@@ -956,8 +1038,10 @@ func readMap(path string) (map[string]Record, error) {
 	return out, nil
 }
 
+// writeJSON 用紧凑序列化：数据文件是机器读取的密文，缩进只会放大体积和
+// 序列化耗时（1000 条约多花 11ms）。备份导出会单独用 MarshalIndent 保证可读性。
 func writeJSON(path string, value any) error {
-	payload, err := json.MarshalIndent(value, "", "  ")
+	payload, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
@@ -1021,4 +1105,64 @@ func syncDir(dir string) {
 	}
 	_ = f.Sync()
 	_ = f.Close()
+}
+
+// BackupBundle 是在同一把读锁内取得的完整备份快照。
+// 所有写入都由 mu 串行化，因此 events/gifts/families/inbox 来自同一时刻。
+type BackupBundle struct {
+	Events     map[string]Record
+	Gifts      map[string]map[string]Record
+	Families   map[string]Record
+	GuestInbox map[string][]GuestEntry
+}
+
+// ReadBackupBundle 供备份导出使用：一次加锁读完所有数据文件。
+func (s *Store) ReadBackupBundle(familyID string) (*BackupBundle, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	bundle := &BackupBundle{}
+	events, err := readMap(s.eventsPath())
+	if err != nil {
+		return nil, err
+	}
+	bundle.Events = map[string]Record{}
+	ids := make([]string, 0, len(events))
+	for id, event := range events {
+		if familyID != "" && eventFamilyID(event) != familyID {
+			continue
+		}
+		bundle.Events[id] = event
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	bundle.Gifts = make(map[string]map[string]Record, len(ids))
+	for _, id := range ids {
+		items, err := s.readGiftsCached(id)
+		if err != nil {
+			return nil, err
+		}
+		bundle.Gifts[id] = items
+	}
+	bundle.Families, err = readMap(s.familiesPath())
+	if err != nil {
+		return nil, err
+	}
+	inbox, err := s.readGuestInboxLocked()
+	if err != nil {
+		return nil, err
+	}
+	bundle.GuestInbox = map[string][]GuestEntry{}
+	for id, items := range inbox {
+		if familyID != "" {
+			if event, ok := bundle.Events[id]; !ok || eventFamilyMatchesID(event, familyID) == false {
+				continue
+			}
+		}
+		bundle.GuestInbox[id] = items
+	}
+	return bundle, nil
+}
+
+func eventFamilyMatchesID(event Record, familyID string) bool {
+	return eventFamilyID(event) == familyID
 }

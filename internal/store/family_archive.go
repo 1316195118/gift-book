@@ -97,6 +97,8 @@ func (s *Store) ListFamilyArchives() ([]FamilyArchive, error) {
 // RestoreFamilyArchive 把一份家庭归档恢复成一个新的开放家庭。
 // 原家庭 ID 若已被占用，会生成新的家庭 ID；账簿 ID 冲突时拒绝恢复。
 func (s *Store) RestoreFamilyArchive(name string) (FamilyArchive, error) {
+	// 恢复过程会搬动礼金文件（含失败回滚），统一在函数退出时清缓存。
+	defer s.invalidateGiftCache()
 	dir, err := s.familyArchivePath(name)
 	if err != nil {
 		return FamilyArchive{}, err

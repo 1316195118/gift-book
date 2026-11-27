@@ -33,3 +33,18 @@ describe('gift-order 登记顺序', () => {
     expect([noTime, withTime].sort(compareGiftsByRegistration)).toEqual([withTime, noTime])
   })
 })
+
+import { sortGiftsByRegistration } from '../gift-order.js'
+
+describe('sortGiftsByRegistration', () => {
+  it('预计算排序结果与比较函数一致', () => {
+    const a = { id: 'zzz', data: { name: '乙', timestamp: '2026-01-02T10:00:00Z' } }
+    const b = { id: 'aaa', data: { name: '甲', timestamp: '2026-01-01T10:00:00Z' } }
+    expect(sortGiftsByRegistration([a, b])).toEqual([b, a])
+  })
+  it('无时间戳时保持原顺序', () => {
+    const a = { id: 'b', data: { name: '乙' } }
+    const b = { id: 'a', data: { name: '甲' } }
+    expect(sortGiftsByRegistration([a, b])).toEqual([a, b])
+  })
+})

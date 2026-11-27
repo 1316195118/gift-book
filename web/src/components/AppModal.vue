@@ -4,7 +4,7 @@
     <div
       id="modal"
       class="modal-card"
-      :class="{ 'modal-large': modal.size === 'large', 'modal-unlock': modal.size === 'unlock', 'theme-solemn': modal.theme === 'theme-solemn', 'theme-festive': modal.theme === 'theme-festive', 'theme-custom': modal.theme === 'theme-custom' }"
+      :class="{ 'modal-large': modal.size === 'large', 'modal-unlock': modal.size === 'unlock', 'theme-solemn': modal.theme === 'theme-solemn', 'theme-festive': modal.theme === 'theme-festive', 'theme-custom': modal.theme === 'theme-custom', 'has-overflow': hasOverflow }"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="modal.title ? 'modal-title' : undefined"
@@ -16,6 +16,10 @@
       </div>
       <div id="modal-content" class="modal-content">
         <component :is="view" v-if="modal.body" :content="modal.body" />
+      </div>
+      <div v-if="hasOverflow" class="modal-scroll-hint" aria-hidden="true">
+        <span>向下滚动查看全部内容</span>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div id="modal-actions" class="modal-actions">
         <button v-for="(action, index) in modal.actions" :key="index" type="button" :class="action.class || 'modal-btn-ghost'" @click="runAction(action)">
@@ -34,6 +38,7 @@ import ModalContent from './ModalContent.vue'
 
 const view = ModalContent
 const rootEl = ref(null)
+const hasOverflow = ref(false)
 let lastFocused = null
 let overflowTimer = 0
 
@@ -42,6 +47,21 @@ let overflowTimer = 0
 // 这里若再补一次 padding，反而会把整页左移 15px（按钮边框闪一下就是这个原因）。
 // 只有不支持 scrollbar-gutter 的浏览器才做宽度补偿。
 const supportsGutter = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('scrollbar-gutter', 'stable')
+
+// 内容超出可视区时给弹窗加标记，用底部渐隐提示「下面还有内容」；
+// 滚到底自动消失，避免用户以为按钮栏截断了内容。
+function updateOverflow() {
+  const el = rootEl.value?.querySelector('#modal-content')
+  if (!el) {
+    hasOverflow.value = false
+    return
+  }
+  hasOverflow.value = el.scrollTop + el.clientHeight < el.scrollHeight - 4
+}
+
+function onModalScroll(event) {
+  if (event.target?.id === 'modal-content') updateOverflow()
+}
 
 function lockBodyScroll() {
   document.body.style.overflow = 'hidden'
@@ -110,6 +130,7 @@ watch(
       lockBodyScroll()
       lastFocused = document.activeElement
       await nextTick()
+      updateOverflow()
       // 打开瞬间不聚焦：focus 会触发整棵弹窗的无障碍树计算，实测让
       // 「点击 → 弹窗出现」多花约 250ms。改到空闲时执行；若用户已经点进弹窗则不抢焦点。
       const target = rootEl.value?.querySelector('#modal-close') || rootEl.value?.querySelector('#modal')
@@ -135,9 +156,13 @@ watch(
 // 用户按键、以及 async watch 交错时监听器残留。
 onMounted(() => {
   document.addEventListener('keydown', onKeydown, true)
+  document.addEventListener('scroll', onModalScroll, true)
+  window.addEventListener('resize', updateOverflow)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown, true)
+  document.removeEventListener('scroll', onModalScroll, true)
+  window.removeEventListener('resize', updateOverflow)
   document.body.style.overflow = ''
   document.body.style.paddingRight = ''
 })

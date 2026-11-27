@@ -2367,3 +2367,33 @@ body.theme-solemn #modal-container {
     animation: none;
   }
 }
+
+/* 弹窗内容可滚动时，在按钮栏上方给出明确提示；滚到底自动消失。 */
+.modal-scroll-hint {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.modal-scroll-hint svg { width: 13px; height: 13px; }
+
+/* 弹窗内容可滚动时，在按钮栏上方给出明确提示；滚到底自动消失。 */
+.modal-scroll-hint {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.modal-scroll-hint svg { width: 13px; height: 13px; }

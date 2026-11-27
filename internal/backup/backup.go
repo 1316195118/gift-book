@@ -51,39 +51,21 @@ func sha256Hex(payload []byte) string {
 // Write 把全部账簿以 zip 格式流式写入 w，内存占用与数据量无关。
 // 服务端定时备份走这里，避免整库 zip 全部驻留内存。
 func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, authState []byte) (Manifest, error) {
-	events, gifts, err := st.BackupAll()
+	// 单锁快照：events/gifts/families/inbox 必须来自同一时刻。
+	bundle, err := st.ReadBackupBundle("")
 	if err != nil {
-		return Manifest{}, fmt.Errorf("读取账簿失败: %w", err)
+		return Manifest{}, fmt.Errorf("读取备份快照失败: %w", err)
 	}
-	families, err := st.ReadFamilies()
-	if err != nil {
-		return Manifest{}, fmt.Errorf("读取家庭失败: %w", err)
-	}
-	inbox, err := st.BackupGuestInbox()
-	if err != nil {
-		return Manifest{}, fmt.Errorf("读取待确认登记失败: %w", err)
-	}
-	return writeArchive(w, events, gifts, families, buildLabel, authEnabled, authState, "", "", "", inbox)
+	return writeArchive(w, bundle.Events, bundle.Gifts, bundle.Families, buildLabel, authEnabled, authState, "", "", "", bundle.GuestInbox)
 }
 
 // WriteFamily 只打包指定家庭的账簿与礼金，不含管理员密码状态。
 func WriteFamily(w io.Writer, st *store.Store, familyID, familyName, buildLabel string) (Manifest, error) {
-	events, gifts, err := st.BackupFamily(familyID)
+	bundle, err := st.ReadBackupBundle(familyID)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("读取家庭账簿失败: %w", err)
+		return Manifest{}, fmt.Errorf("读取家庭备份快照失败: %w", err)
 	}
-	inbox, err := st.BackupGuestInbox()
-	if err != nil {
-		return Manifest{}, fmt.Errorf("读取待确认登记失败: %w", err)
-	}
-	// 家庭备份只保留属于该家庭账簿的待确认条目。
-	scoped := map[string][]store.GuestEntry{}
-	for id, items := range inbox {
-		if event, ok := events[id]; ok && eventFamilyMatches(event, familyID) {
-			scoped[id] = items
-		}
-	}
-	return writeArchive(w, events, gifts, nil, buildLabel, false, nil, "family", familyID, familyName, scoped)
+	return writeArchive(w, bundle.Events, bundle.Gifts, nil, buildLabel, false, nil, "family", familyID, familyName, bundle.GuestInbox)
 }
 
 // eventFamilyMatches 判断账簿是否属于指定家庭。

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"giftbook/internal/update"
 )
@@ -148,8 +149,8 @@ func (s *Server) handleUpdateSettingsSave(w http.ResponseWriter, r *http.Request
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.audit(r, "修改更新代理", "", body.Proxy)
-	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{"proxy": mgr.Proxy()}})
+	s.audit(r, "修改更新代理", "", maskProxy(body.Proxy))
+	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{"proxy": maskProxy(mgr.Proxy())}})
 }
 
 // maskProxy 对代理地址里的凭据脱敏，避免 status 接口泄露 user:pass。
@@ -158,7 +159,17 @@ func maskProxy(raw string) string {
 		return ""
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.User == nil {
+	if err != nil {
+		// 解析失败的地址可能仍含凭据，只保留 scheme://host 部分。
+		if idx := strings.LastIndex(raw, "@"); idx >= 0 {
+			if scheme := strings.Index(raw, "://"); scheme >= 0 {
+				return raw[:scheme+3] + "***@" + raw[idx+1:]
+			}
+			return "***@" + raw[idx+1:]
+		}
+		return raw
+	}
+	if u.User == nil {
 		return raw
 	}
 	user := u.User.Username()

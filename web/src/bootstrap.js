@@ -11,7 +11,7 @@ import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeTex
 import { ledgerKeyForEvent } from './store.js'
 import { startNetworkMonitor } from './lib/network.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './lib/modal.js'
-import { compareGiftsByRegistration } from './lib/gift-order.js'
+import { sortGiftsByRegistration } from './lib/gift-order.js'
 import { itemsPerPage } from './lib/page-size.js'
 import { clearRecentEntry } from './lib/recent-entry.js'
 import { resetExportScope } from './lib/export-scope.js'
@@ -228,7 +228,9 @@ function restoreSession() {
     clearSession()
     return false
   }
-  if (!savedAt || Date.now() - Number(savedAt) > 10 * 60 * 1000) {
+  const sessionAge = Date.now() - Number(savedAt)
+  // 时钟回拨时 sessionAge 为负，不能因此让会话永不过期。
+  if (!savedAt || !Number.isFinite(sessionAge) || sessionAge < 0 || sessionAge > 10 * 60 * 1000) {
     clearSession()
     return false
   }
@@ -377,7 +379,7 @@ export async function loadGiftsForCurrentEvent() {
       // 礼簿按登记先后排，不能按 ID 排：礼金 ID 是随机十六进制，
       // 服务端的 sort.Strings 等于打乱顺序，印出来的簿子会前后错乱。
       // 时间戳在密文里，只有解开之后才排得了；修改记录不会改变登记顺序。
-      st.gifts = decrypted.concat(pending).sort(compareGiftsByRegistration)
+      st.gifts = sortGiftsByRegistration(decrypted.concat(pending))
       st.giftsLoaded = true
       st.ledgerLoadProgress = 100
       giftsLoadedEventId = eventId

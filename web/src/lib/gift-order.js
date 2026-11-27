@@ -20,3 +20,18 @@ export function compareGiftsByRegistration(a, b) {
   if (Number.isFinite(ta) !== Number.isFinite(tb)) return Number.isFinite(ta) ? -1 : 1
   return String(a?.id ?? '').localeCompare(String(b?.id ?? ''))
 }
+
+// 预计算排序键后一次排序：1000 条时只做 1000 次 Date.parse，
+// 而不是比较函数里的约 10000 次×2。
+export function sortGiftsByRegistration(list) {
+  return list
+    .map((gift, index) => ({ gift, index, ts: registeredAtOf(gift) }))
+    .sort((a, b) => {
+      const aOk = Number.isFinite(a.ts)
+      const bOk = Number.isFinite(b.ts)
+      if (aOk && bOk && a.ts !== b.ts) return a.ts - b.ts
+      if (aOk !== bOk) return aOk ? -1 : 1
+      return a.index - b.index
+    })
+    .map((entry) => entry.gift)
+}
