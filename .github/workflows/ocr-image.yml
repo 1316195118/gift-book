@@ -97,5 +97,4 @@ jobs:
           go run ./cmd/oci-push \
             -file "/tmp/giftbook-${{ matrix.arch }}" \
             -tag "update-v${{ steps.release.outputs.version }}-${{ matrix.arch }}" \
-            -repo "1316195118/gift-book" \
-            -token "$GITHUB_TOKEN"
+            -repo "1316195118/gift-book"

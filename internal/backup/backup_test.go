@@ -178,3 +178,39 @@ func mkdirAll(path string) error          { return os.MkdirAll(path, 0o775) }
 func writeFile(path string, data []byte) error {
 	return os.WriteFile(path, data, 0o600)
 }
+
+func TestBackupIncludesGuestInbox(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WithEvents(func(events map[string]store.Record) (bool, error) {
+		events["e1"] = store.Record{"name": "宴"}
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddGuestEntry("e1", store.GuestEntry{ID: "g1", Name: "张三", Amount: 200}); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if _, err := Write(&buf, st, "test", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range reader.File {
+		if f.Name == "data/guest-inbox.json" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("备份包应包含 data/guest-inbox.json")
+	}
+}

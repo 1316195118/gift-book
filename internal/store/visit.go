@@ -80,7 +80,10 @@ func (s *Store) AddVisit(eventID string, visit Visit) error {
 		}
 		for _, old := range current {
 			if old.Name == visit.Name {
-				if created, err := time.Parse(time.RFC3339, old.CreatedAt); err == nil && time.Since(created) < 5*time.Minute {
+				if created, err := time.Parse(time.RFC3339, old.CreatedAt); err == nil && func() bool {
+					d := time.Since(created)
+					return d >= 0 && d < 5*time.Minute
+				}() {
 					return false, nil
 				}
 			}

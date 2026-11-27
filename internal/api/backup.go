@@ -118,12 +118,13 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 
 // parsedBackup 是解析并校验后的备份包内容。
 type parsedBackup struct {
-	manifest  backupManifest
-	events    map[string]store.Record
-	gifts     map[string]map[string]store.Record
-	families  map[string]store.Record
-	authState []byte
-	checksums map[string]string
+	manifest   backupManifest
+	events     map[string]store.Record
+	gifts      map[string]map[string]store.Record
+	families   map[string]store.Record
+	authState  []byte
+	guestInbox map[string][]store.GuestEntry
+	checksums  map[string]string
 }
 
 func (p *parsedBackup) accept(name string, content []byte) error {
@@ -153,6 +154,10 @@ func (p *parsedBackup) accept(name string, content []byte) error {
 			p.gifts = map[string]map[string]store.Record{}
 		}
 		p.gifts[id] = items
+	case name == "data/guest-inbox.json":
+		if err := json.Unmarshal(content, &p.guestInbox); err != nil {
+			return errors.New("待确认登记数据损坏")
+		}
 	case name == "config/auth-state.json":
 		p.authState = content
 	}
@@ -342,6 +347,12 @@ func (s *Server) applyBackup(p *parsedBackup) (map[string]any, error) {
 	if err := s.store.ReplaceAllWithFamilies(p.events, p.gifts, p.families); err != nil {
 		return nil, errors.New("导入失败：" + err.Error())
 	}
+	// 旧备份没有 guest-inbox.json 时保持现有待确认数据，不主动清空。
+	if p.guestInbox != nil {
+		if err := s.store.ReplaceGuestInbox(p.guestInbox); err != nil {
+			return nil, errors.New("待确认登记导入失败：" + err.Error())
+		}
+	}
 	if len(p.authState) > 0 {
 		if err := s.auth.ImportState(p.authState); err != nil {
 			return nil, errors.New("访问保护状态导入失败：" + err.Error())
@@ -480,7 +491,14 @@ func (s *Server) readBackupUpload(w http.ResponseWriter, r *http.Request) (*pars
 			fail(w, http.StatusBadRequest, errBackupPassword.Error())
 			return nil, "", false
 		}
-		plain, createErr := os.CreateTemp("", "giftbook-decrypted-*.zip")
+		// 明文临时文件放在受限目录（0700），不落系统公共 /tmp；
+		// 进程崩溃时也不会让解密后的礼簿备份暴露给同机其他用户。
+		plainDir := filepath.Join(s.configDir, ".decrypt-tmp")
+		if err := os.MkdirAll(plainDir, 0o700); err != nil {
+			fail(w, http.StatusInternalServerError, "无法创建解密临时目录")
+			return nil, "", false
+		}
+		plain, createErr := os.CreateTemp(plainDir, "giftbook-decrypted-*.zip")
 		if createErr != nil {
 			fail(w, http.StatusInternalServerError, "无法处理加密备份包")
 			return nil, "", false

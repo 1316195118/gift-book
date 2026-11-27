@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +94,14 @@ func New(opts Options) *Server {
 	}
 	if opts.ConfigDir != "" {
 		s.updater = update.New(opts.ConfigDir, opts.Version)
+		// 清理上次异常退出时残留的解密明文备份。
+		if entries, err := os.ReadDir(filepath.Join(opts.ConfigDir, ".decrypt-tmp")); err == nil {
+			for _, entry := range entries {
+				if strings.HasPrefix(entry.Name(), "giftbook-decrypted-") {
+					_ = os.Remove(filepath.Join(opts.ConfigDir, ".decrypt-tmp", entry.Name()))
+				}
+			}
+		}
 	}
 	// 升级兼容：没有 families.json 时创建默认家庭，并把旧账簿归入默认家庭。
 	s.initFamilies()

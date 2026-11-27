@@ -166,6 +166,7 @@ node scripts/build.mjs        # npm run build → webapp/dist → 写 build.json
 | 可选环境变量 | 默认 | 说明 |
 | --- | --- | --- |
 | `GIFTBOOK_TRUST_PROXY=1` | 关闭 | 仅在可信反向代理后开启，允许读取 `X-Forwarded-For` / `X-Forwarded-Host` / `X-Forwarded-Proto` |
+| `GIFTBOOK_TRUST_PROXY_HOPS` | 1 | 可信代理层数。`X-Forwarded-For` 从右往左取第 N 个地址；单层反代保持默认，CDN → Nginx → 应用这类两层链路设为 2 |
 | `GIFTBOOK_FORCE_HTTPS=1` | 关闭 | 仅在前方已有可信 HTTPS 终止层时开启；HTTP 请求会 308 跳转，HTTPS 响应带 HSTS |
 | `GIFTBOOK_PUBLIC_URL` | 自动 | 如 `https://giftbook.example.com`，用于 `robots.txt`、`sitemap.xml` 和绝对社交分享地址 |
 | `GIFTBOOK_SETUP_TOKEN` | 空 | 首次设置管理员密码时额外要求的部署口令 |

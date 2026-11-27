@@ -59,7 +59,11 @@ func Write(w io.Writer, st *store.Store, buildLabel string, authEnabled bool, au
 	if err != nil {
 		return Manifest{}, fmt.Errorf("读取家庭失败: %w", err)
 	}
-	return writeArchive(w, events, gifts, families, buildLabel, authEnabled, authState, "", "", "")
+	inbox, err := st.BackupGuestInbox()
+	if err != nil {
+		return Manifest{}, fmt.Errorf("读取待确认登记失败: %w", err)
+	}
+	return writeArchive(w, events, gifts, families, buildLabel, authEnabled, authState, "", "", "", inbox)
 }
 
 // WriteFamily 只打包指定家庭的账簿与礼金，不含管理员密码状态。
@@ -68,10 +72,30 @@ func WriteFamily(w io.Writer, st *store.Store, familyID, familyName, buildLabel 
 	if err != nil {
 		return Manifest{}, fmt.Errorf("读取家庭账簿失败: %w", err)
 	}
-	return writeArchive(w, events, gifts, nil, buildLabel, false, nil, "family", familyID, familyName)
+	inbox, err := st.BackupGuestInbox()
+	if err != nil {
+		return Manifest{}, fmt.Errorf("读取待确认登记失败: %w", err)
+	}
+	// 家庭备份只保留属于该家庭账簿的待确认条目。
+	scoped := map[string][]store.GuestEntry{}
+	for id, items := range inbox {
+		if event, ok := events[id]; ok && eventFamilyMatches(event, familyID) {
+			scoped[id] = items
+		}
+	}
+	return writeArchive(w, events, gifts, nil, buildLabel, false, nil, "family", familyID, familyName, scoped)
 }
 
-func writeArchive(w io.Writer, events map[string]store.Record, gifts map[string]map[string]store.Record, families map[string]store.Record, buildLabel string, authEnabled bool, authState []byte, scope, familyID, familyName string) (Manifest, error) {
+// eventFamilyMatches 判断账簿是否属于指定家庭。
+func eventFamilyMatches(event store.Record, familyID string) bool {
+	id, _ := event["familyId"].(string)
+	if id == "" {
+		id = store.DefaultFamilyID
+	}
+	return id == familyID
+}
+
+func writeArchive(w io.Writer, events map[string]store.Record, gifts map[string]map[string]store.Record, families map[string]store.Record, buildLabel string, authEnabled bool, authState []byte, scope, familyID, familyName string, inbox ...map[string][]store.GuestEntry) (Manifest, error) {
 	total := 0
 	for _, items := range gifts {
 		total += len(items)
@@ -88,6 +112,13 @@ func writeArchive(w io.Writer, events map[string]store.Record, gifts map[string]
 		return Manifest{}, err
 	}
 	files = append(files, archiveFile{"data/events.json", eventsPayload})
+	if len(inbox) > 0 && len(inbox[0]) > 0 {
+		inboxPayload, err := json.MarshalIndent(inbox[0], "", "  ")
+		if err != nil {
+			return Manifest{}, err
+		}
+		files = append(files, archiveFile{"data/guest-inbox.json", inboxPayload})
+	}
 	if len(families) > 0 {
 		familiesPayload, err := json.MarshalIndent(families, "", "  ")
 		if err != nil {

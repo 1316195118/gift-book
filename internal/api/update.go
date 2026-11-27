@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"giftbook/internal/update"
 )
@@ -10,6 +11,11 @@ import (
 // handleUpdateCheck 检查是否有新版本。只读操作，任何已登录用户都能看，
 // 但结果不含可写路径等敏感信息。
 func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	// 检查接口只读且首页可见，但会请求 GHCR，按 IP 限流防止公开访客刷爆。
+	if ok, retry := s.guestLimiter.allow(s.guestIPRateKey(r, "update-check-ip"), guestInfoLimit, guestInfoIPWindow); !ok {
+		writeGuestRateLimit(w, retry, "检查更新太频繁，请稍后再试")
+		return
+	}
 	mgr := s.updateManager()
 	if mgr == nil {
 		writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{"available": false, "reason": "unsupported"}})
@@ -93,7 +99,7 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if mgr := s.updateManager(); mgr != nil {
 		data["target"] = mgr.TargetPath()
-		data["proxy"] = mgr.Proxy()
+		data["proxy"] = maskProxy(mgr.Proxy())
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: data})
 }
@@ -115,8 +121,8 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{
-		"proxy": mgr.Proxy(),
-		"auto":  cfg.Proxy,
+		"proxy": maskProxy(mgr.Proxy()),
+		"auto":  maskProxy(cfg.Proxy),
 	}})
 }
 
@@ -144,4 +150,28 @@ func (s *Server) handleUpdateSettingsSave(w http.ResponseWriter, r *http.Request
 	}
 	s.audit(r, "修改更新代理", "", body.Proxy)
 	writeJSON(w, http.StatusOK, response{Success: true, Data: map[string]any{"proxy": mgr.Proxy()}})
+}
+
+// maskProxy 对代理地址里的凭据脱敏，避免 status 接口泄露 user:pass。
+func maskProxy(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	user := u.User.Username()
+	_, hasPassword := u.User.Password()
+	// 直接拼字符串，避免 url.URL.String 把 * 编码成 %2A。
+	scheme := u.Scheme + "://"
+	host := u.Host
+	tail := u.Path
+	if u.RawQuery != "" {
+		tail += "?" + u.RawQuery
+	}
+	if hasPassword {
+		return scheme + user + ":" + "****" + "@" + host + tail
+	}
+	return scheme + user + "@" + host + tail
 }

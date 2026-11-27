@@ -101,8 +101,10 @@ func New(configDir, currentVersion string) *Manager {
 		_ = m.SetProxy(cfg.Proxy)
 	}
 	if envProxy := strings.TrimSpace(os.Getenv("GIFTBOOK_UPDATE_PROXY")); envProxy != "" {
-		_ = m.SetProxy(envProxy)
-		m.proxy = envProxy
+		// 只有设置成功才记录，避免无效地址让 UI 误以为代理已生效。
+		if err := m.SetProxy(envProxy); err != nil {
+			fmt.Fprintf(os.Stderr, "GIFTBOOK_UPDATE_PROXY 无效（%v），将直连 GHCR\n", err)
+		}
 	}
 	return m
 }

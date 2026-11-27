@@ -964,9 +964,29 @@ func writeJSON(path string, value any) error {
 	return writeFileAtomic(path, payload)
 }
 
+func writeJSONMode(path string, value any, mode os.FileMode) error {
+	payload, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomicMode(path, payload, mode)
+}
+
 func writeFileAtomic(path string, payload []byte) error {
+	// 含明文个人信息的落盘文件收紧权限：events.json 含来访名单，
+	// guest-inbox.json 含待确认礼金；其余礼金为密文，保持默认权限兼容共享。
+	mode := os.FileMode(0o664)
+	base := filepath.Base(path)
+	if base == "events.json" || base == "guest-inbox.json" {
+		mode = 0o600
+	}
+	return writeFileAtomicMode(path, payload, mode)
+}
+
+// writeFileAtomicMode 支持指定权限；含明文个人信息的落盘文件用 0600。
+func writeFileAtomicMode(path string, payload []byte, mode os.FileMode) error {
 	tmp := path + "." + randomSuffix() + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o664)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}

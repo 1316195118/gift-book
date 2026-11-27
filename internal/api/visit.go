@@ -75,6 +75,8 @@ func (s *Server) handleVisitToggle(w http.ResponseWriter, r *http.Request, id st
 		} else {
 			event["visitEnabled"] = false
 			delete(event, "visitToken")
+			// 有意保留已登记的来访名单：关闭只是停止新登记，
+			// 到场统计与名单仍可查看，需清除时可逐条删除。
 		}
 		return true, nil
 	})

@@ -87,13 +87,16 @@ func (s *Store) AddGuestEntry(eventID string, entry GuestEntry) error {
 	// 同名同金额 5 分钟内重复提交直接忽略，避免宾客连点或刷新造成重复。
 	for _, old := range current {
 		if old.Name == entry.Name && old.Amount == entry.Amount {
-			if created, parseErr := time.Parse(time.RFC3339, old.CreatedAt); parseErr == nil && time.Since(created) < 5*time.Minute {
+			if created, parseErr := time.Parse(time.RFC3339, old.CreatedAt); parseErr == nil && func() bool {
+				d := time.Since(created)
+				return d >= 0 && d < 5*time.Minute
+			}() {
 				return nil
 			}
 		}
 	}
 	items[eventID] = append(current, entry)
-	return writeJSON(s.guestInboxPath(), items)
+	return writeJSONMode(s.guestInboxPath(), items, 0o600)
 }
 
 // RemoveGuestEntry 主家确认或忽略后删除明文条目。
@@ -118,7 +121,7 @@ func (s *Store) RemoveGuestEntry(eventID, entryID string) error {
 		return errors.New("这条登记已被处理")
 	}
 	items[eventID] = kept
-	return writeJSON(s.guestInboxPath(), items)
+	return writeJSONMode(s.guestInboxPath(), items, 0o600)
 }
 
 // ClearGuestInbox 删除账簿的所有待确认登记（关闭扫码登记或删除账簿时调用）。
@@ -130,7 +133,7 @@ func (s *Store) ClearGuestInbox(eventID string) error {
 		return err
 	}
 	delete(items, eventID)
-	return writeJSON(s.guestInboxPath(), items)
+	return writeJSONMode(s.guestInboxPath(), items, 0o600)
 }
 
 func RandomGuestID() string {
@@ -139,4 +142,25 @@ func RandomGuestID() string {
 		return time.Now().Format("20060102150405.000000000")
 	}
 	return hex.EncodeToString(buf)
+}
+
+// BackupGuestInbox 返回全部待确认登记，用于备份。
+func (s *Store) BackupGuestInbox() (map[string][]GuestEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items, err := s.readGuestInboxLocked()
+	if err != nil {
+		return nil, err
+	}
+	return map[string][]GuestEntry(items), nil
+}
+
+// ReplaceGuestInbox 在还原备份时整体替换待确认登记。
+func (s *Store) ReplaceGuestInbox(items map[string][]GuestEntry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if items == nil {
+		items = guestInbox{}
+	}
+	return writeJSONMode(s.guestInboxPath(), items, 0o600)
 }

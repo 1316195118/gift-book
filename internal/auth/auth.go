@@ -48,10 +48,11 @@ func statFile(path string) fileStamp {
 // 状态与防爆破表在进程内缓存，按文件 stamp 失效：自身写入立即刷新缓存，
 // 外部改动（例如手工替换配置文件）也能被下一次 stat 发现，不会读到过期状态。
 type Manager struct {
-	configDir  string
-	trustProxy bool
-	setupToken string
-	mu         sync.Mutex
+	configDir      string
+	trustProxy     bool
+	trustProxyHops int
+	setupToken     string
+	mu             sync.Mutex
 	// 进程内随机密钥只用于防爆破表中的“同一失败请求”去重，避免持久化口令摘要。
 	throttleAttemptKey []byte
 
@@ -71,6 +72,11 @@ type Options struct {
 	// TrustProxy 为 true 时才允许使用 X-Forwarded-For / X-Forwarded-Proto。
 	// 仅在应用确实位于受信任的反向代理之后时开启；直接暴露时保持 false。
 	TrustProxy bool
+	// TrustProxyHops 是可信反向代理的层数，默认 1。
+	// ClientIP 从 X-Forwarded-For 右端向左数第 Hops 个地址作为客户端真实 IP：
+	// 最右端由紧邻应用的反代写入，客户端伪造只能出现在更左侧，因此不会被采信。
+	// 若链路为 CDN → Nginx → 应用（两层），设为 2。
+	TrustProxyHops int
 	// SetupToken 非空时，从「未开启访问保护」到「开启」这一步需要提供同样的口令，
 	// 防止局域网内任何人抢先把访问保护打开并设置密码。留空则保持旧行为（无额外校验）。
 	SetupToken string
@@ -103,6 +109,7 @@ func NewWithOptions(configDir string, opts Options) (*Manager, error) {
 	return &Manager{
 		configDir:          configDir,
 		trustProxy:         opts.TrustProxy,
+		trustProxyHops:     opts.TrustProxyHops,
 		setupToken:         opts.SetupToken,
 		throttleAttemptKey: attemptKey,
 	}, nil
@@ -392,13 +399,24 @@ func newSecret() string {
 }
 
 // 只有开启 TrustProxy 后才读取 X-Forwarded-For。
+// 从右端向左数第 Hops 个地址：最右端由紧邻应用的反代追加，
+// 客户端自带的伪造值只会出现在更左边，不会被当作真实客户端 IP。
 func (m *Manager) ClientIP(r *http.Request) string {
 	if m.trustProxy {
 		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-			if idx := strings.IndexByte(fwd, ','); idx > 0 {
-				return strings.TrimSpace(fwd[:idx])
+			parts := strings.Split(fwd, ",")
+			hops := m.trustProxyHops
+			if hops < 1 {
+				hops = 1
 			}
-			return strings.TrimSpace(fwd)
+			// 先去掉空项，再取从右往左第 hops 个。
+			idx := len(parts) - hops
+			if idx < 0 {
+				idx = 0
+			}
+			if ip := strings.TrimSpace(parts[idx]); ip != "" {
+				return ip
+			}
 		}
 	}
 	return remoteIP(r.RemoteAddr)
@@ -495,4 +513,14 @@ func validateState(st State) error {
 		}
 	}
 	return nil
+}
+
+// RotateSecret 轮换 Cookie 签名密钥，使所有已签发的会话立即失效。
+// 用于退出登录：无状态 Cookie 仅靠密钥签名，不轮换就无法真正吊销。
+func (m *Manager) RotateSecret() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	st := m.loadState()
+	st.Secret = newSecret()
+	return m.saveState(st)
 }

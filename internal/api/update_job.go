@@ -46,6 +46,12 @@ func (s *Server) beginUpdateJob(version, tag string) (*updateJob, bool) {
 	if s.updateJob != nil && s.updateJob.State == "running" {
 		return cloneUpdateJob(s.updateJob), false
 	}
+	// 更新成功后进程即将重启，短时间内不再接受新的更新任务，避免竞态。
+	select {
+	case <-s.RestartChannel():
+		return nil, false
+	default:
+	}
 	s.updateJob = &updateJob{
 		ID:        strconv.FormatInt(time.Now().UnixNano(), 10),
 		State:     "running",

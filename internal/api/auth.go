@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -140,6 +141,10 @@ func (s *Server) handleUpdateAuth(w http.ResponseWriter, r *http.Request) {
 // ---- DELETE /api/auth 退出登录 ----
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// 轮换签名密钥，让已签发的无状态 Cookie 立即失效，避免退出后仍可复用。
+	if err := s.auth.RotateSecret(); err != nil {
+		log.Printf("退出时轮换会话密钥失败: %v", err)
+	}
 	s.auth.ClearCookie(w, r)
 	writeJSON(w, http.StatusOK, response{Success: true})
 }

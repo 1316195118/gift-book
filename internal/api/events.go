@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -495,6 +496,11 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request, id st
 		}
 		fail(w, http.StatusInternalServerError, "删除失败")
 		return
+	}
+	// 删除账簿后清掉该账簿的明文待确认登记，避免姓名/金额长期残留。
+	// 清理失败不影响账簿已删除的结果，只记录日志。
+	if err := s.store.ClearGuestInbox(id); err != nil {
+		log.Printf("删除账簿 %s 后清理待确认登记失败: %v", id, err)
 	}
 	s.notifyChange(r, "event", "deleted", id, "")
 	writeJSON(w, http.StatusOK, response{Success: true})

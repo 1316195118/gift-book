@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,9 +23,12 @@ const defaultRegistry = "https://ghcr.io"
 
 // Client 是一个只读的 OCI registry 客户端。
 type Client struct {
-	registry string
-	repo     string
-	http     *http.Client
+	registry   string
+	repo       string
+	http       *http.Client
+	tokenMu    sync.Mutex
+	cachedTok  string
+	tokExpires time.Time
 }
 
 func New(repo string) *Client {
@@ -54,6 +58,10 @@ func (c *Client) SetProxy(raw string) error {
 		transport.Proxy = http.ProxyURL(u)
 	}
 	c.http = &http.Client{Timeout: 5 * time.Minute, Transport: transport}
+	c.tokenMu.Lock()
+	c.cachedTok = ""
+	c.tokExpires = time.Time{}
+	c.tokenMu.Unlock()
 	return nil
 }
 
@@ -67,11 +75,20 @@ func NewFromRegistryForTest(reg, repo string) *Client {
 }
 
 type tokenResponse struct {
-	Token string `json:"token"`
+	Token     string `json:"token"`
+	ExpiresIn int    `json:"expires_in"`
 }
 
 // token 取匿名 pull token；公开包不需要凭据。
 func (c *Client) token() (string, error) {
+	c.tokenMu.Lock()
+	if c.cachedTok != "" && time.Now().Before(c.tokExpires) {
+		tok := c.cachedTok
+		c.tokenMu.Unlock()
+		return tok, nil
+	}
+	c.tokenMu.Unlock()
+
 	q := url.Values{}
 	q.Set("scope", "repository:"+c.repo+":pull")
 	q.Set("service", strings.TrimPrefix(strings.TrimPrefix(c.registry, "https://"), "http://"))
@@ -90,6 +107,18 @@ func (c *Client) token() (string, error) {
 	if tr.Token == "" {
 		return "", fmt.Errorf("token 为空")
 	}
+	// 留 30 秒安全余量，公开的 token 过期时间缺省按 5 分钟。
+	ttl := time.Duration(tr.ExpiresIn) * time.Second
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	if ttl > 30*time.Second {
+		ttl -= 30 * time.Second
+	}
+	c.tokenMu.Lock()
+	c.cachedTok = tr.Token
+	c.tokExpires = time.Now().Add(ttl)
+	c.tokenMu.Unlock()
 	return tr.Token, nil
 }
 

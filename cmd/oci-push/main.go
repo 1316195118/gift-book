@@ -30,15 +30,15 @@ func main() {
 	file := flag.String("file", "", "要推送的二进制文件")
 	tag := flag.String("tag", "", "OCI 标签，如 update-v2.4.33-amd64")
 	repo := flag.String("repo", "1316195118/gift-book", "目标仓库")
-	token := flag.String("token", "", "GHCR token，缺省从 GITHUB_TOKEN 读")
 	flag.Parse()
 
-	tok := *token
+	// token 只从环境变量读，避免出现在本机 ps / CI 日志的命令行里。
+	tok := strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
 	if tok == "" {
-		tok = os.Getenv("GITHUB_TOKEN")
+		tok = strings.TrimSpace(os.Getenv("GHCR_TOKEN"))
 	}
 	if *file == "" || *tag == "" || tok == "" {
-		fmt.Fprintln(os.Stderr, "需要 -file、-tag 和 token")
+		fmt.Fprintln(os.Stderr, "需要 -file、-tag，并设置 GITHUB_TOKEN 或 GHCR_TOKEN 环境变量")
 		os.Exit(1)
 	}
 

@@ -68,7 +68,7 @@ export function openStats() {
       <div class="space-y-4">
         <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsGivers}:</span><span class="font-bold themed-text">${stats.uniqueGivers} 人</span></div>
         <div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-bold">${copy.statsTotal}:</span><span class="font-bold themed-text">${formatCurrency(stats.totalAmount)}</span></div>
-        <div class="stats-block"><h4 class="font-semibold mb-2">按收款方式</h4><ul class="space-y-1.5">${Object.entries(stats.byType).map(([type, amount]) => `<li class="stat-line"><span>${type}</span> <span>${formatCurrency(amount)}</span></li>`).join('')}</ul></div>
+        <div class="stats-block"><h4 class="font-semibold mb-2">按收款方式</h4><ul class="space-y-1.5">${Object.entries(stats.byType).map(([type, amount]) => `<li class="stat-line"><span>${escapeHtml(type)}</span> <span>${formatCurrency(amount)}</span></li>`).join('')}</ul></div>
         <div class="stats-block"><h4 class="font-semibold mb-2">按关系</h4><ul class="space-y-1.5">${Object.entries(stats.byRelation).sort((a, b) => b[1] - a[1]).map(([relation, amount]) => `<li class="stat-line"><span>${escapeHtml(relation)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
         ${returnSection}
         ${visits.length ? `<div class="stats-block"><h4 class="font-semibold mb-2">到场统计</h4><ul class="space-y-1.5">

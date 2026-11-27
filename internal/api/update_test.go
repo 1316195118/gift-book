@@ -35,3 +35,17 @@ func TestUpdateStatusNoUpdaterWithoutConfig(t *testing.T) {
 		t.Fatalf("状态接口失败: %v", payload)
 	}
 }
+
+func TestMaskProxy(t *testing.T) {
+	cases := map[string]string{
+		"":                                  "",
+		"http://10.10.10.254:7890":          "http://10.10.10.254:7890",
+		"http://user:pass@proxy.local:8080": "http://user:****@proxy.local:8080",
+		"http://user@proxy.local:8080":      "http://user@proxy.local:8080",
+	}
+	for in, want := range cases {
+		if got := maskProxy(in); got != want {
+			t.Errorf("maskProxy(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

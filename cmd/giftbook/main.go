@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -25,7 +26,9 @@ import (
 	"giftbook/internal/store"
 )
 
-const appVersion = "2.4.66"
+// appVersion 允许通过 -ldflags "-X main.appVersion=X.Y.Z" 覆盖；
+// 默认从嵌入的 build.json 读取，保证版本号只有「构建产物」一个来源。
+var appVersion = ""
 
 var (
 	flagPort    = flag.Int("port", 8099, "监听端口")
@@ -38,6 +41,7 @@ var (
 
 func main() {
 	flag.Parse()
+	appVersion = resolveAppVersion()
 	if *flagVersion {
 		fmt.Printf("giftbook %s (%s/%s)\n", appVersion, runtime.GOOS, runtime.GOARCH)
 		return
@@ -90,9 +94,18 @@ func main() {
 		log.Fatalf("无法打开数据目录 %s: %v", dataDir, err)
 	}
 	trustProxy := envBool("GIFTBOOK_TRUST_PROXY")
+	trustProxyHops := 1
+	if raw := strings.TrimSpace(os.Getenv("GIFTBOOK_TRUST_PROXY_HOPS")); raw != "" {
+		if n, parseErr := strconv.Atoi(raw); parseErr == nil && n >= 1 && n <= 8 {
+			trustProxyHops = n
+		} else {
+			log.Printf("GIFTBOOK_TRUST_PROXY_HOPS 无效（%q），使用默认 1", raw)
+		}
+	}
 	authMgr, err := auth.NewWithOptions(configDir, auth.Options{
-		TrustProxy: trustProxy,
-		SetupToken: strings.TrimSpace(os.Getenv("GIFTBOOK_SETUP_TOKEN")),
+		TrustProxy:     trustProxy,
+		TrustProxyHops: trustProxyHops,
+		SetupToken:     strings.TrimSpace(os.Getenv("GIFTBOOK_SETUP_TOKEN")),
 	})
 	if err != nil {
 		log.Fatalf("无法打开配置目录 %s: %v", configDir, err)
@@ -183,19 +196,40 @@ func executableDir() string {
 	return filepath.Dir(exe)
 }
 
-// buildLabel 返回嵌入前端的构建号（ui/build.json 里的 build 字段）。
-func buildLabel() string {
+// buildInfo 读取嵌入的 build.json，返回构建号与版本号。
+func buildInfo() (build, version string) {
 	raw, err := fs.ReadFile(giftbook.Assets, giftbook.Dist+"/build.json")
 	if err != nil {
-		return "dev"
+		return "dev", ""
 	}
 	var info struct {
-		Build string `json:"build"`
+		Build   string `json:"build"`
+		Version string `json:"version"`
 	}
-	if err := json.Unmarshal(raw, &info); err != nil || info.Build == "" {
+	if err := json.Unmarshal(raw, &info); err != nil {
+		return "dev", ""
+	}
+	if info.Build == "" {
+		info.Build = "dev"
+	}
+	return info.Build, info.Version
+}
+
+func buildLabel() string {
+	build, _ := buildInfo()
+	return build
+}
+
+// resolveAppVersion 优先用 ldflags 注入值，否则用 build.json 的 version。
+func resolveAppVersion() string {
+	if v := strings.TrimSpace(appVersion); v != "" {
+		return v
+	}
+	_, version := buildInfo()
+	if version == "" {
 		return "dev"
 	}
-	return info.Build
+	return version
 }
 
 func envOr(key, fallback string) string {

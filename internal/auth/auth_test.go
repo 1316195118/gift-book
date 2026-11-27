@@ -220,8 +220,47 @@ func TestClientIP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := proxied.ClientIP(req); got != "203.0.113.9" {
-		t.Fatalf("信任代理时应取 XFF 首个地址，得到 %s", got)
+	// 默认 1 跳：取最右端（由紧邻应用的反代写入），左侧伪造值不被采信。
+	if got := proxied.ClientIP(req); got != "10.0.0.1" {
+		t.Fatalf("信任代理时应取 XFF 最右地址，得到 %s", got)
+	}
+
+	// 两层反代（CDN → Nginx → 应用）：取从右往左第 2 个。
+	twoHops, err := NewWithOptions(t.TempDir(), Options{TrustProxy: true, TrustProxyHops: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := twoHops.ClientIP(req); got != "203.0.113.9" {
+		t.Fatalf("两跳应取倒数第二个地址，得到 %s", got)
+	}
+}
+
+// 客户端伪造的 XFF 左侧地址不应覆盖反代写入的真实客户端 IP。
+func TestClientIPIgnoresSpoofedLeftmost(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.5:1234"
+	// 攻击者发来 X-Forwarded-For: 1.2.3.4，反代追加真实来源 198.51.100.7
+	req.Header.Set("X-Forwarded-For", "1.2.3.4, 198.51.100.7")
+	m, err := NewWithOptions(t.TempDir(), Options{TrustProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.ClientIP(req); got != "198.51.100.7" {
+		t.Fatalf("伪造的左侧 IP 不应被采信，得到 %s", got)
+	}
+}
+
+// 反代使用覆盖模式（XFF 只有一个地址）时，行为应与原来一致。
+func TestClientIPSingleHop(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.5:1234"
+	req.Header.Set("X-Forwarded-For", "198.51.100.9")
+	m, err := NewWithOptions(t.TempDir(), Options{TrustProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.ClientIP(req); got != "198.51.100.9" {
+		t.Fatalf("单地址 XFF 应直接使用，得到 %s", got)
 	}
 }
 

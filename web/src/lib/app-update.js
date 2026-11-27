@@ -253,7 +253,17 @@ async function pollUpdateJob(token, info) {
       } else {
         render({ ...info, checking: false, job, current: job.current || info.current })
         if (job.state === 'succeeded' && job.restart && !reloadTimer) {
-          reloadTimer = setTimeout(() => window.location.reload(), 8000)
+          // 轮询探活，容器真正起来（健康检查通过）后再刷新，避免 8 秒硬等待打到旧连接。
+          reloadTimer = setTimeout(async () => {
+            for (let i = 0; i < 30; i += 1) {
+              try {
+                const res = await fetch('/api/ping', { cache: 'no-store' })
+                if (res.ok) { window.location.reload(); return }
+              } catch { /* 容器仍在重启 */ }
+              await new Promise((r) => setTimeout(r, 1000))
+            }
+            reloadTimer = null
+          }, 1000)
         }
         break
       }

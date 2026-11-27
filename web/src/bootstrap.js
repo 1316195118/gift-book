@@ -429,22 +429,20 @@ let cipherPending = null
 // 换密码或换账簿自然失效；关掉页面即清空（sessionStorage）。
 const CIPHER_CACHE_PREFIX = 'gb-cipher-'
 
-// 只存密码的 sha256 指纹用于比对，缓存里不放明文密码。
-const cipherFingerprint = (password) => LedgerCrypto.sha256(String(password ?? ''))
+// 指纹用「已派生的 mac 作为密钥 + 随机盐」做 HMAC，而不是密码的无盐 sha256：
+// 即使缓存被读取，也无法拿指纹离线爆破弱口令；换密码/换账簿自然不匹配。
+const cipherFingerprint = (keys, salt) => LedgerCrypto.hmacSha256Hex2(keys.mac, salt)
 
 function readCipherCache(eventId, password) {
   try {
     const raw = sessionStorage.getItem(CIPHER_CACHE_PREFIX + eventId)
     if (!raw) return null
     const entry = JSON.parse(raw)
-    if (entry.fp !== cipherFingerprint(password)) return null
-    if (!entry.enc || !entry.mac) return null
-    return {
-      v: 2,
-      password,
-      enc: Uint8Array.from(atob(entry.enc), (c) => c.charCodeAt(0)),
-      mac: Uint8Array.from(atob(entry.mac), (c) => c.charCodeAt(0)),
-    }
+    if (!entry.salt || !entry.enc || !entry.mac) return null
+    const enc = Uint8Array.from(atob(entry.enc), (c) => c.charCodeAt(0))
+    const mac = Uint8Array.from(atob(entry.mac), (c) => c.charCodeAt(0))
+    if (entry.fp !== cipherFingerprint({ mac }, entry.salt)) return null
+    return { v: 2, password, enc, mac }
   } catch {
     return null
   }
@@ -453,8 +451,11 @@ function readCipherCache(eventId, password) {
 function writeCipherCache(eventId, password, keys) {
   try {
     const b64 = (bytes) => btoa(String.fromCharCode(...bytes))
+    const salt = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, '0')).join('')
     sessionStorage.setItem(CIPHER_CACHE_PREFIX + eventId, JSON.stringify({
-      fp: cipherFingerprint(password),
+      salt,
+      fp: cipherFingerprint(keys, salt),
       enc: b64(keys.enc),
       mac: b64(keys.mac),
     }))
