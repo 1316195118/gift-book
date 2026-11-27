@@ -54,6 +54,7 @@ export const state = reactive({
 
   // 弹窗
   guestToken: '',
+  visitToken: '',
   modal: { open: false, title: '', size: 'default', theme: '', content: null, actions: [] },
 })
 

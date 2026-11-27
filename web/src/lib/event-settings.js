@@ -15,6 +15,7 @@ import { label, hintIcon, shell, ICON_PIN, ICON_NOTE, ICON_MONEY } from './field
 import { ceremonyLabel, ceremonyInputs } from './ceremony.js'
 import { totalPagesFor } from './page-size.js'
 import { openGuestPanel } from './guest-entry.js'
+import { openVisitPanel } from './visit-panel.js'
 import { notify } from './notify.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
@@ -217,6 +218,7 @@ export function openSettings({ section = 'general' } = {}) {
       <section class="settings-section">
         <h4 class="settings-title">数据${hintIcon('导出的是当前账簿的密文数据，可在首页「备份」里还原；要备份全部账簿请用首页的备份。')}</h4>
         <button type="button" id="edit-guest-btn" class="themed-button-secondary field-action">宾客扫码登记…</button>
+        <button type="button" id="edit-visit-btn" class="themed-button-secondary field-action">来访签到登记…</button>
         ${st.family?.admin ? '<button type="button" id="edit-move-family-btn" class="themed-button-secondary field-action">转移到其他家庭</button>' : ''}
         <button type="button" id="edit-backup-btn" class="themed-button-secondary field-action">导出这本账簿</button>
         <button type="button" id="edit-delete-btn" class="field-danger">删除这本账簿</button>
@@ -319,6 +321,10 @@ export function openSettings({ section = 'general' } = {}) {
     document.getElementById('edit-guest-btn')?.addEventListener('click', () => {
       closeModal()
       setTimeout(() => openGuestPanel(ev), 150)
+    })
+    document.getElementById('edit-visit-btn')?.addEventListener('click', () => {
+      closeModal()
+      setTimeout(() => openVisitPanel(ev), 150)
     })
     document.getElementById('edit-move-family-btn')?.addEventListener('click', () => {
       closeModal()

@@ -244,6 +244,13 @@ export const api = {
   guestInfo: (token) => apiRequest(`/api/guest/${encodeURIComponent(token)}`),
   guestSubmit: (token, body) => apiRequest(`/api/guest/${encodeURIComponent(token)}/gifts`, 'POST', body),
 
+  visitToggle: (id, enabled, { regenerate = false } = {}) =>
+    apiRequest(`/api/events/${encodeURIComponent(id)}/visit`, 'POST', { enabled, regenerate: Boolean(regenerate) }),
+  visitList: (id) => apiRequest(`/api/events/${encodeURIComponent(id)}/visit`),
+  visitDelete: (id, visitID) => apiRequest(`/api/events/${encodeURIComponent(id)}/visit/${encodeURIComponent(visitID)}`, 'DELETE'),
+  visitInfo: (token) => apiRequest(`/api/visit/${encodeURIComponent(token)}`),
+  visitSubmit: (token, body) => apiRequest(`/api/visit/${encodeURIComponent(token)}`, 'POST', body),
+
   listFamilyArchives: () => apiRequest('/api/family/archives'),
 
   restoreFamilyArchive: (name) => apiRequest(`/api/family/archives/restore/${encodeURIComponent(name)}`, 'POST', {}),

@@ -3,7 +3,8 @@
     <PolicyScreen v-if="publicPolicy" :kind="publicPolicy" />
     <template v-else>
       <ActivityBar />
-      <GuestScreen v-if="st.guestToken" />
+      <VisitScreen v-if="st.visitToken" />
+      <GuestScreen v-else-if="st.guestToken" />
       <template v-else>
         <FamilyGate v-if="st.familyGate" />
         <AuthGate v-if="st.authGate" :mode="st.authGateMode" @submitted="onAuthSuccess" @cancel="st.authGate = false" />
@@ -43,6 +44,7 @@ const publicPolicy = normalizedPath === '/privacy' || normalizedPath === '/terms
 
 const viewLoaders = {
   guest: () => import('./views/GuestScreen.vue'),
+  visit: () => import('./views/VisitScreen.vue'),
   template: () => import('./views/TemplateScreen.vue'),
   setup: () => import('./views/SetupScreen.vue'),
   main: loadMainView,
@@ -59,13 +61,14 @@ function asyncView(loader) {
 }
 
 const GuestScreen = asyncView(viewLoaders.guest)
+const VisitScreen = asyncView(viewLoaders.visit)
 const TemplateScreen = asyncView(viewLoaders.template)
 const SetupScreen = asyncView(viewLoaders.setup)
 const MainScreen = asyncView(viewLoaders.main)
 const PolicyScreen = asyncView(() => import('./views/PolicyScreen.vue'))
 
 const currentView = computed(() => (
-  st.guestToken ? GuestScreen : ({
+  st.visitToken ? VisitScreen : st.guestToken ? GuestScreen : ({
     home: HomeScreen,
     template: TemplateScreen,
     setup: SetupScreen,
@@ -74,7 +77,7 @@ const currentView = computed(() => (
 ))
 
 watch(
-  () => publicPolicy || (st.guestToken ? 'guest' : st.route),
+  () => publicPolicy || (st.visitToken ? 'visit' : st.guestToken ? 'guest' : st.route),
   (route) => applyPageMeta(route),
   { immediate: true },
 )
@@ -95,6 +98,11 @@ onMounted(() => {
   const giftToken = new URLSearchParams(window.location.search).get('gift')
   if (giftToken) {
     st.guestToken = giftToken
+    return
+  }
+  const visitToken = new URLSearchParams(window.location.search).get('visit')
+  if (visitToken) {
+    st.visitToken = visitToken
     return
   }
   bootstrap().then(runInitialAction)

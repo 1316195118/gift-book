@@ -50,6 +50,9 @@ export function openStats() {
   const stats = computeStats(st.gifts)
   const copy = copyOf(st.currentEvent, st.homeCategory)
   const category = categoryForEvent(st.currentEvent, st.homeCategory)
+  // 来访名单跟随账簿 stored，明文、不含金额，不进入任何礼金统计。
+  const visits = Array.isArray(st.currentEvent?.visits) ? st.currentEvent.visits : []
+  const visitPeople = visits.reduce((sum, v) => sum + (Number(v.count) || 0), 0)
   // 回礼只属于红事；白事与自定义收款不展示人情往来。
   const returnSection = category === 'red' ? `<div class="stats-block"><h4 class="font-semibold mb-2">人情往来</h4><ul class="space-y-2">
           <li class="stat-line"><span>已回礼</span> <span>${formatCurrency(stats.totalReturned)}（${stats.returnedCount} 笔）</span></li>
@@ -68,6 +71,10 @@ export function openStats() {
         <div class="stats-block"><h4 class="font-semibold mb-2">按收款方式</h4><ul class="space-y-1.5">${Object.entries(stats.byType).map(([type, amount]) => `<li class="stat-line"><span>${type}</span> <span>${formatCurrency(amount)}</span></li>`).join('')}</ul></div>
         <div class="stats-block"><h4 class="font-semibold mb-2">按关系</h4><ul class="space-y-1.5">${Object.entries(stats.byRelation).sort((a, b) => b[1] - a[1]).map(([relation, amount]) => `<li class="stat-line"><span>${escapeHtml(relation)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
         ${returnSection}
+        ${visits.length ? `<div class="stats-block"><h4 class="font-semibold mb-2">到场统计</h4><ul class="space-y-1.5">
+          <li class="stat-line"><span>到场人数</span> <span class="themed-text">${visitPeople} 人</span></li>
+          <li class="stat-line"><span>登记户数</span> <span>${visits.length} 户</span></li>
+        </ul></div>` : ''}
         <div class="stats-block"><h4 class="font-semibold mb-2">概览</h4><ul class="space-y-2">
           <li class="stat-line"><span>记录笔数</span> <span>${stats.recordCount} 笔</span></li>
           <li class="stat-line"><span>人均${escapeHtml(copy.recordNoun)}</span> <span>${formatCurrency(stats.average)}</span></li>
@@ -81,7 +88,16 @@ export function openStats() {
       <div class="stats-chart"><h4>按收款方式</h4><div class="bar-chart" id="stats-by-type-chart"></div></div>
       <div class="stats-chart"><h4>按关系</h4><div class="bar-chart" id="stats-by-relation-chart"></div></div>
       <div class="stats-chart"><h4>按录入日期（近 14 天）</h4><div class="bar-chart" id="stats-by-day-chart"></div></div>
-    </div>`
+    </div>
+    ${visits.length ? `<div class="gb-visit-stats">
+      <h4 class="gb-snapshot-section-title">来访名单（${visits.length} 户 / ${visitPeople} 人）</h4>
+      <div class="gb-visit-stats-list">${visits.map((v) => `
+        <div class="gb-visit-stats-item">
+          <b>${escapeHtml(v.name)}</b><span>${Number(v.count) || 0} 人</span>
+          ${v.note ? `<em>${escapeHtml(v.note)}</em>` : ''}
+        </div>`).join('')}</div>
+      <p class="gb-picker-hint">来访登记仅统计人数，不计入礼金金额与人均。</p>
+    </div>` : ''}`
   const actions = [{ text: '关闭', class: 'border themed-button-secondary px-4 py-2 rounded' }]
   if (category !== 'custom') {
     actions.push({
