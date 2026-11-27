@@ -20,7 +20,7 @@
 <script setup>
 import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import { state as st, setBodyTheme } from './store.js'
-import { eventTheme } from './lib/content.js'
+import { eventTheme, themeForCategory } from './lib/content.js'
 import ActivityBar from './components/ActivityBar.vue'
 import AuthGate from './components/AuthGate.vue'
 import FamilyGate from './components/FamilyGate.vue'
@@ -84,7 +84,7 @@ watch(
   () => [st.route, st.currentEvent?.id, st.currentEvent?.theme, st.homeCategory],
   () => {
     if (st.route === 'main' && st.currentEvent) setBodyTheme(eventTheme(st.currentEvent, st.homeCategory))
-    else setBodyTheme(st.homeCategory === 'white' ? 'theme-solemn' : 'theme-festive')
+    else setBodyTheme(themeForCategory(st.homeCategory))
   },
   { immediate: true },
 )

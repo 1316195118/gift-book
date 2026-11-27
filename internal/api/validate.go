@@ -221,13 +221,13 @@ func validateEventBody(body map[string]any, existing map[string]any) error {
 	}
 	if raw, ok := body["theme"]; ok && raw != nil {
 		theme, _ := raw.(string)
-		if theme != "theme-festive" && theme != "theme-solemn" {
+		if theme != "theme-festive" && theme != "theme-solemn" && theme != "theme-custom" {
 			return fmt.Errorf("无效的主题")
 		}
 	}
 	if raw, ok := body["category"]; ok && raw != nil {
 		category, _ := raw.(string)
-		if category != "red" && category != "white" {
+		if category != "red" && category != "white" && category != "custom" {
 			return fmt.Errorf("无效的分类")
 		}
 	}

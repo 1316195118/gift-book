@@ -129,6 +129,58 @@ export const UX_COPY = {
   },
 }
 
+// 自定义分类只替换业务称谓，能力与红事一致；不出现贺礼、奠仪或喜庆纹样。
+UX_COPY.custom = {
+  ...UX_COPY.festive,
+  entryTitle: '收款录入',
+  entrySub: '每一笔收款，都清楚留痕',
+  nameLabel: '付款人 / 对象',
+  namePlaceholder: '请输入付款人或参与人',
+  amountLabel: '收款金额',
+  remarksPlaceholder: '事由、用途或补充说明',
+  bookTitle: '收款簿',
+  bookType: '收 款',
+  emptyHint: '本页还没有记录，录入第一笔收款即可开始。',
+  bookNote: '点击姓名查看详情与修改记录；点击金额可播报。窄屏可左右滑动查看完整收款簿。多人同时登记时，账簿会自动更新。',
+  recordNoun: '收款',
+  peopleNoun: '付款人',
+  totalLabel: '收款总额 / 元',
+  giversLabel: '付款人数',
+  detailTitle: '收款明细',
+  fileSuffix: '收款明细',
+  recordsLabel: '收款记录',
+  setupSub: '填写账簿信息，创建后即可登记自定义收款',
+  locationLabel: '地点 / 渠道',
+  namePh: '例如：秋季活动收款',
+  locationPh: '例如：线上 / 小区活动室',
+  notePh: '选填，如：班费、会费或活动款',
+  pwdHint: '密码用于 AES 加密收款数据，遗忘将无法恢复。留空也能正常使用，只是任何拿到地址的人都能打开这本账簿 —— 建议设置。',
+  stepScene: '班费、会费、活动或营业款，使用通用自定义模板',
+  stepEntry: '录入收款，随时打印或导出 Excel',
+  statsTitle: '收款统计详情',
+  statsGivers: '总付款人数',
+  statsTotal: '总收款金额',
+  confirmGuestLabel: '付款人 / 对象',
+  remarksTip: '建议备注事由、用途或联系方式',
+  historyWarning: '警告：此条收款数据存在修改，请自行核验。',
+  qrTip: '付款人扫码即可进入登记页',
+  exportEmpty: '当前账簿还没有任何收款记录。',
+  printTotalGivers: '付款总人数',
+  printTotalAmount: '收款总金额',
+  appendixTitle: '附录：收款备注',
+  historyNote: '收款记录只改不删，每次纠错都会保留原始快照。',
+  voiceSample: '张三交来款项五百元整',
+  voiceAddPrefix: '收款',
+  speechHint: '只有大于或等于此金额的收款才会被播报。设置为 0 则全部播报。',
+  deleteSingleNote: '单条收款记录不支持删除，只能修改；整本账簿删除是唯一会丢数据的方式，请确认确实不再需要。',
+  helpIntro: '用自定义模板建立账簿，登记红白事之外的收款；多台设备可以同时录入。',
+  helpStep1: '首页选择「自定义」：使用通用模板，填写适合本次收款的事由名称。',
+  helpStep2: '填写名称、起止时间与地点；管理密码可选填，建议设置以便加密收款数据。',
+  helpStep3: '输入付款人或对象、金额、收款方式与备注，核对后保存。',
+  helpStep4: '导出 Excel、PDF 或 Word，也可打印 A4 明细；统计与导出使用同一口径。',
+  helpTip: '自定义账簿与礼簿使用同一套本地加密、自动备份和多人协作能力；数据保存在你的部署环境中。',
+}
+
 export const CATEGORY_TEXT = {
   red: {
     title: '把每一份心意，记得清清楚楚',
@@ -148,6 +200,15 @@ export const CATEGORY_TEXT = {
     go: '选择场景并创建',
     theme: 'theme-solemn',
   },
+  custom: {
+    title: '每一笔收款，都有清楚的去向',
+    sub: '自定义账簿用于红白事之外的收款登记，名称、时间和统计口径都由你决定。',
+    kicker: '其 他',
+    cardTitle: '自定义',
+    cardDesc: '班费 · 会费 · 活动款 · 营业款 · 其他收款',
+    go: '创建自定义账簿',
+    theme: 'theme-custom',
+  },
 }
 
 export const RED_TEMPLATES = [
@@ -166,6 +227,10 @@ export const WHITE_TEMPLATES = [
   { key: 'reburial', name: '迁坟', glyph: '迁', sub: '迁坟 / 安葬', desc: '迁坟、安葬仪式奠仪登记。' },
 ]
 
+export const CUSTOM_TEMPLATES = [
+  { key: 'custom', name: '通用登记', glyph: '记', sub: '自定义事由', desc: '班费、会费、活动款、营业款及其他非红白事收款，可自行填写模板名称。' },
+]
+
 export const BLESSINGS = {
   wedding: '良缘永结 · 礼记长存',
   birthday: '福寿绵长 · 心意入簿',
@@ -177,6 +242,7 @@ export const BLESSINGS = {
   memorial: '追思故人 · 感念深情',
   anniversary: '岁月流转 · 思念长存',
   reburial: '敬记心意 · 慎终追远',
+  custom: '事事有据 · 笔笔清楚',
 }
 
 // 封面样式（全部自绘）：模板只决定文字，样式只决定外观。
@@ -209,11 +275,16 @@ export const COVER_STYLES = [
   { id: 'qiulu', name: '清露', theme: 'white', frame: 'none', corners: 'floral', medallion: true, tassel: false, layout: 'center' },
   { id: 'qiusheng', name: '秋声', theme: 'white', frame: 'strip', corners: 'chrysanthemum', medallion: true, tassel: false, layout: 'vertical' },
   { id: 'huaien', name: '怀恩', theme: 'white', frame: 'double', corners: 'moon', medallion: false, tassel: false, layout: 'center' },
+  { id: 'custom-paper', name: '素笺通用', theme: 'custom', frame: 'single', corners: 'scroll', medallion: true, tassel: false, layout: 'center', weave: true },
+  { id: 'custom-bamboo', name: '青竹通用', theme: 'custom', frame: 'double', corners: 'pine', medallion: true, tassel: false, layout: 'vertical', weave: false },
+  { id: 'custom-cloud', name: '行云通用', theme: 'custom', frame: 'thick', corners: 'cloud', medallion: false, tassel: false, layout: 'center', weave: true },
+  { id: 'custom-silk', name: '素绸通用', theme: 'custom', frame: 'none', corners: 'vine', medallion: true, tassel: false, layout: 'center', weave: false },
 ]
 
 export const TEMPLATE_DEFAULT_STYLE = {
   wedding: 'shuangxi', birthday: 'lihe', fullmoon: 'manyue', housewarming: 'wujia', school: 'xieshi',
   funeral: 'sujuan', baishi: 'baiju', memorial: 'liantai', anniversary: 'changsi', reburial: 'songbai',
+  custom: 'custom-paper',
 }
 
 export const COVER_CORNERS = {
@@ -241,6 +312,7 @@ export const COVER_MOTIFS = {
   memorial: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M43 114h34M49 114c0-22 2-38 2-51M71 114c0-18-2-36-2-51"/><path d="M51 63c-8-16-2-28 7-35 0 10 5 16 11 21M66 49c9-13 7-26-1-35-2 12-8 18-14 23"/><path d="M33 122h54"/></svg>',
   anniversary: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="60" cy="77" r="38"/><circle cx="60" cy="77" r="28"/><circle cx="60" cy="77" r="18"/><path d="M60 39v12M60 103v12M22 77h12M86 77h12M33 50l9 9M78 95l9 9M33 104l9-9M78 59l9-9"/></svg>',
   reburial: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 112 24-36 15 18 19-36 22 32 16-20 10 42"/><path d="m24 112 18-20 16 20M58 112l15-20 17 20M18 127h84"/><path d="M38 54c9-8 19-9 28-3 9-6 19-5 26 2"/></svg>',
+  custom: '<svg class="cover-motif" viewBox="0 0 120 160" fill="none" stroke="currentColor" aria-hidden="true"><path d="M24 34h72v92H24Z"/><path d="M36 51h48M36 67h48M36 83h48M36 99h30"/><path d="M13 48c8-5 11-15 8-25M107 48c-8-5-11-15-8-25"/><path d="M17 125c14-8 24-6 32 4 8-10 18-12 32-4"/></svg>',
 }
 
 export const COVER_TASSEL = '<svg class="cover-tassel" viewBox="0 0 24 64" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" aria-hidden="true"><path d="M12 0v18"/><path d="M9 22l3-4 3 4-3 4z"/><path d="M12 30v6"/><path d="M8 38c0 8 1 16 4 24M16 38c0 8-1 16-4 24M12 38v24" opacity=".75"/></svg>'
@@ -248,6 +320,7 @@ export const COVER_TASSEL = '<svg class="cover-tassel" viewBox="0 0 24 64" fill=
 export function isSolemnEvent(ev, homeCategory = 'red') {
   if (!ev) return homeCategory === 'white'
   const template = String(ev.template || '').trim()
+  if (ev.category === 'custom' || ev.theme === 'theme-custom') return false
   const whiteKeys = new Set(WHITE_TEMPLATES.flatMap((item) => [item.key, item.name]))
   const redKeys = new Set(RED_TEMPLATES.flatMap((item) => [item.key, item.name]))
   if (ev.theme === 'theme-solemn') return true
@@ -258,29 +331,48 @@ export function isSolemnEvent(ev, homeCategory = 'red') {
 }
 
 export function categoryForEvent(ev, homeCategory = 'red') {
+  if (ev?.category === 'custom' || ev?.theme === 'theme-custom') return 'custom'
+  if (ev?.category === 'white' || ev?.theme === 'theme-solemn') return 'white'
+  if (ev?.category === 'red' || ev?.theme === 'theme-festive') return 'red'
+  // 新建、预览和测试可能只传模板键，还没有落库的 category/theme。
+  if (String(ev?.template || '').trim() === 'custom') return 'custom'
+  if (homeCategory === 'custom') return 'custom'
   return isSolemnEvent(ev, homeCategory) ? 'white' : 'red'
 }
 
 export function eventTheme(ev, homeCategory = 'red') {
-  return isSolemnEvent(ev, homeCategory) ? 'theme-solemn' : 'theme-festive'
+  const category = categoryForEvent(ev, homeCategory)
+  return category === 'white' ? 'theme-solemn' : category === 'custom' ? 'theme-custom' : 'theme-festive'
+}
+
+export function themeForCategory(category = 'red') {
+  return category === 'white' ? 'theme-solemn' : category === 'custom' ? 'theme-custom' : 'theme-festive'
 }
 
 export function copyOf(ev, homeCategory = 'red') {
-  const solemn = ev ? isSolemnEvent(ev, homeCategory) : homeCategory === 'white'
-  return solemn ? UX_COPY.solemn : UX_COPY.festive
+  const category = ev ? categoryForEvent(ev, homeCategory) : homeCategory
+  return UX_COPY[category] || UX_COPY.festive
 }
 
 export function templatesFor(category) {
-  return category === 'white' ? WHITE_TEMPLATES : RED_TEMPLATES
+  if (category === 'white') return WHITE_TEMPLATES
+  if (category === 'custom') return CUSTOM_TEMPLATES
+  return RED_TEMPLATES
 }
 
 export function getCoverTemplate(ev = {}, homeCategory = 'red') {
-  const list = isSolemnEvent(ev, homeCategory) ? WHITE_TEMPLATES : RED_TEMPLATES
-  return list.find((t) => t.key === ev.template || t.name === ev.template) || list[0]
+  const category = categoryForEvent(ev, homeCategory)
+  const list = templatesFor(category)
+  const matched = list.find((t) => t.key === ev.template || t.name === ev.template)
+  if (matched) return matched
+  if (category === 'custom' && String(ev.template || '').trim()) {
+    return { ...CUSTOM_TEMPLATES[0], name: String(ev.template).trim() }
+  }
+  return list[0]
 }
 
 export function getCoverStyle(ev = {}, homeCategory = 'red') {
-  const theme = isSolemnEvent(ev, homeCategory) ? 'white' : 'red'
+  const theme = categoryForEvent(ev, homeCategory)
   const list = COVER_STYLES.filter((item) => item.theme === theme)
   const wanted = ev.coverStyle || TEMPLATE_DEFAULT_STYLE[getCoverTemplate(ev, homeCategory).key]
   return list.find((item) => item.id === wanted) || list[0]

@@ -2,7 +2,7 @@
 import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender } from './modal.js'
 import { openCrossSummary } from './cross-summary.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { categoryForEvent, copyOf } from './content.js'
 import { formatCurrency, formatDateTime, escapeHtml } from './crypto.js'
 import { computeStats } from './stats-core.js'
 import { openAnnualReport } from './insights.js'
@@ -14,29 +14,34 @@ export function duplicateGroups(gifts = st.gifts) {
   gifts.forEach((gift) => {
     const data = gift?.data
     if (!data || data.kind === 'blank' || !data.name) return
-    const list = map.get(data.name) || []
-    list.push({ amount: Number(data.amount) || 0, timestamp: data.timestamp, remarks: data.remarks || '' })
-    map.set(data.name, list)
+    const remarks = String(data.remarks || '').trim()
+    // 同名但一笔有备注、一笔无备注时，往往是同一姓名下的两种业务记录；
+    // 分开核对，避免把有意区分的信息报成重复录入。
+    const key = `${data.name}\u0000${remarks ? 'remark' : 'plain'}`
+    const group = map.get(key) || { name: data.name, hasRemarks: Boolean(remarks), list: [] }
+    group.list.push({ amount: Number(data.amount) || 0, timestamp: data.timestamp, remarks })
+    map.set(key, group)
   })
-  return [...map.entries()]
-    .filter(([, list]) => list.length > 1)
-    .sort((a, b) => b[1].length - a[1].length)
+  return [...map.values()]
+    .filter((group) => group.list.length > 1)
+    .sort((a, b) => b.list.length - a.list.length)
 }
 
 export function openDuplicateNames() {
   const groups = duplicateGroups()
   if (!groups.length) return
+  const copy = copyOf(st.currentEvent, st.homeCategory)
   const html = `
     <div class="gb-dup-names">
-      <p class="gb-picker-intro">共 <b>${groups.length}</b> 组同名记录。同名不一定是重复录入，请对照金额与时间核对。</p>
+      <p class="gb-picker-intro">共 <b>${groups.length}</b> 组同名记录。同名不一定是重复录入，请对照金额与时间核对；有备注与无备注的记录分开统计。</p>
       <div class="gb-dup-list">
-        ${groups.map(([name, list]) => `
+        ${groups.map((group) => `
           <div class="gb-dup-group">
-            <div class="gb-dup-head"><b>${escapeHtml(name)}</b><span>${list.length} 笔 · 合计 ${formatCurrency(list.reduce((sum, item) => sum + item.amount, 0))}</span></div>
-            <ul>${list.map((item) => `<li>${formatCurrency(item.amount)}<span>${formatDateTime(item.timestamp)}</span>${item.remarks ? `<em>${escapeHtml(item.remarks)}</em>` : ''}</li>`).join('')}</ul>
+            <div class="gb-dup-head"><b>${escapeHtml(group.name)}</b><span>${group.list.length} 笔 · 合计 ${formatCurrency(group.list.reduce((sum, item) => sum + item.amount, 0))}</span></div>
+            <ul>${group.list.map((item) => `<li>${formatCurrency(item.amount)}<span>${formatDateTime(item.timestamp)}</span>${item.remarks ? `<em>${escapeHtml(item.remarks)}</em>` : '<em>无备注</em>'}</li>`).join('')}</ul>
           </div>`).join('')}
       </div>
-      <p class="gb-picker-hint">统计金额按每一条记录累加；「送礼人数」按姓名去重，所以同名记录会影响笔数与金额，但不会重复增加人数。</p>
+      <p class="gb-picker-hint">统计金额按每一条记录累加；「${escapeHtml(copy.peopleNoun)}」按姓名去重，所以同名记录会影响笔数与金额，但不会重复增加人数。</p>
     </div>`
   openModal('同名记录', { type: 'html', html }, [{ text: '关闭', class: 'modal-btn-ghost' }], { size: 'large', dismissable: true })
 }
@@ -44,13 +49,16 @@ export function openDuplicateNames() {
 export function openStats() {
   const stats = computeStats(st.gifts)
   const copy = copyOf(st.currentEvent, st.homeCategory)
-  const solemn = isSolemnEvent(st.currentEvent, st.homeCategory)
-  // 白事不提供回礼功能：不展示「人情往来」。
-  const returnSection = solemn ? '' : `<div class="stats-block"><h4 class="font-semibold mb-2">人情往来</h4><ul class="space-y-2">
+  const category = categoryForEvent(st.currentEvent, st.homeCategory)
+  // 回礼只属于红事；白事与自定义收款不展示人情往来。
+  const returnSection = category === 'red' ? `<div class="stats-block"><h4 class="font-semibold mb-2">人情往来</h4><ul class="space-y-2">
           <li class="stat-line"><span>已回礼</span> <span>${formatCurrency(stats.totalReturned)}（${stats.returnedCount} 笔）</span></li>
           <li class="stat-line"><span>未回礼</span> <span>${stats.recordCount - stats.returnedCount} 笔</span></li>
           <li class="stat-line"><span>净人情</span> <span>${formatCurrency(stats.totalAmount - stats.totalReturned)}</span></li>
-        </ul></div>`
+        </ul></div>` : ''
+  const annualReport = category === 'red'
+    ? `<div class="stats-block"><h4 class="font-semibold mb-2">年度报告</h4><button type="button" id="annual-report-btn" class="gb-link-btn">生成人情往来年度报告 →</button></div>`
+    : ''
   const html = `
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 stats-body">
       <div id="grid-container" class="md:col-span-3"></div>
@@ -62,10 +70,10 @@ export function openStats() {
         ${returnSection}
         <div class="stats-block"><h4 class="font-semibold mb-2">概览</h4><ul class="space-y-2">
           <li class="stat-line"><span>记录笔数</span> <span>${stats.recordCount} 笔</span></li>
-          <li class="stat-line"><span>人均礼金</span> <span>${formatCurrency(stats.average)}</span></li>
+          <li class="stat-line"><span>人均${escapeHtml(copy.recordNoun)}</span> <span>${formatCurrency(stats.average)}</span></li>
         </ul></div>
         <div class="stats-block"><h4 class="font-semibold mb-2">同名记录</h4>${duplicateGroups().length ? `<button type="button" id="dup-names-btn" class="gb-link-btn">检查同名（${duplicateGroups().length} 组）</button>` : '<p class="text-sm text-gray-500">没有同名记录。</p>'}</div>
-        <div class="stats-block"><h4 class="font-semibold mb-2">年度报告</h4><button type="button" id="annual-report-btn" class="gb-link-btn">生成人情往来年度报告 →</button></div>
+        ${annualReport}
         <div class="stats-block"><h4 class="font-semibold mb-2">金额 Top 5</h4><ul class="space-y-2">${stats.topGivers.map(([name, amount], i) => `<li class="stat-line"><span>${i + 1}. ${escapeHtml(name)}</span> <span>${formatCurrency(amount)}</span></li>`).join('') || '<li class="empty">暂无数据</li>'}</ul></div>
       </div>
     </div>
@@ -74,17 +82,18 @@ export function openStats() {
       <div class="stats-chart"><h4>按关系</h4><div class="bar-chart" id="stats-by-relation-chart"></div></div>
       <div class="stats-chart"><h4>按录入日期（近 14 天）</h4><div class="bar-chart" id="stats-by-day-chart"></div></div>
     </div>`
-  openModal(copy.statsTitle, { type: 'html', html }, [
-    { text: '关闭', class: 'border themed-button-secondary px-4 py-2 rounded' },
-    {
+  const actions = [{ text: '关闭', class: 'border themed-button-secondary px-4 py-2 rounded' }]
+  if (category !== 'custom') {
+    actions.push({
       text: '跨账簿汇总',
       class: 'themed-button-primary px-4 py-2 rounded',
       handler: () => {
         closeModal()
         setTimeout(() => openCrossSummary(), 80)
       },
-    },
-  ], { size: 'large' })
+    })
+  }
+  openModal(copy.statsTitle, { type: 'html', html }, actions, { size: 'large' })
   // 弹窗内容由 Vue 在下一帧挂载，等它进入 DOM 后再填充图表与表格。
   const rows = st.gifts.map((g) => [g.data.name, Number(g.data.amount), g.data.remarks || '无', g.data.type, g.data.relation || '未分类', formatDateTime(g.data.timestamp)])
   afterModalRender(() => {
@@ -93,7 +102,7 @@ export function openStats() {
       closeModal()
       setTimeout(() => openAnnualReport(), 120)
     })
-    const table = renderStatsTable(document.getElementById('grid-container'), ['姓名', '金额 (元)', '备注', '收款类型', '关系', '录入时间'], rows)
+    const table = renderStatsTable(document.getElementById('grid-container'), [copy.nameLabel || '姓名', '金额 (元)', '备注', '收款方式', '关系', '录入时间'], rows)
     renderCharts(stats, table)
   })
 }

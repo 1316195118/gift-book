@@ -37,16 +37,15 @@
 <script setup>
 import { computed } from 'vue'
 import { state as st } from '../store.js'
-import { templatesFor } from '../lib/content.js'
+import { templatesFor, themeForCategory } from '../lib/content.js'
 import { renderCoverMarkup } from '../lib/cover.js'
 import { showHome, showSetup } from '../bootstrap.js'
 
 const templates = computed(() => templatesFor(st.homeCategory))
-const isSolemn = computed(() => st.homeCategory === 'white')
 
 const coverFor = (key) =>
   renderCoverMarkup(
-    { theme: isSolemn.value ? 'theme-solemn' : 'theme-festive', template: key },
+    { theme: themeForCategory(st.homeCategory), template: key },
     true,
     st.homeCategory,
   )

@@ -4,7 +4,7 @@ import { state as st } from '../store.js'
 import { openModal, closeModal, afterModalRender, alert as showAlert } from './modal.js'
 import { escapeHtml, formatCurrency, formatDate, formatDateTime, safeFileName } from './crypto.js'
 import { XlsxLite as XlsxLiteEngine } from './xlsx-lite.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { categoryForEvent, copyOf } from './content.js'
 import { appendReturn, hasReturned } from './return-gift.js'
 import { isArchived } from './archive.js'
 import { updateWithHistory, GiftUpdateError } from './ledger-actions.js'
@@ -24,8 +24,8 @@ function pendingGifts() {
 export function openPendingReturns() {
   const ev = st.currentEvent
   if (!ev) return
-  if (isSolemnEvent(ev, st.homeCategory)) {
-    return showAlert('不支持', '白事账簿不提供回礼功能，也就没有未回礼名单。')
+  if (categoryForEvent(ev, st.homeCategory) !== 'red') {
+    return showAlert('不支持', '回礼功能只用于红事人情往来；白事和自定义收款账簿没有未回礼名单。')
   }
   const copy = copyOf(ev, st.homeCategory)
   const all = pendingGifts()

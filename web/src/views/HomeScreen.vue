@@ -2,10 +2,11 @@
   <div id="home-screen" class="home-screen-wrap">
     <div class="home-inner">
       <header class="home-topbar">
-        <div class="home-brand"><span class="seal">礼</span><span>电子礼簿</span></div>
+        <div class="home-brand"><span class="seal">{{ isCustom ? '记' : '礼' }}</span><span>{{ isCustom ? '电子账簿' : '电子礼簿' }}</span></div>
         <div class="cat-switch" id="cat-switch" role="tablist" aria-label="事项分类">
           <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'red' }" role="tab" :aria-selected="st.homeCategory === 'red'" data-cat="red" @click="onSwitchCategory('red')">红事</button>
           <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'white' }" role="tab" :aria-selected="st.homeCategory === 'white'" data-cat="white" @click="onSwitchCategory('white')">白事</button>
+          <button type="button" class="cat-btn" :class="{ active: st.homeCategory === 'custom' }" role="tab" :aria-selected="st.homeCategory === 'custom'" data-cat="custom" @click="onSwitchCategory('custom')">自定义</button>
         </div>
         <div class="home-top-actions">
           <button type="button" class="home-help-btn" id="home-settings-btn" @click="showHomeSettings">设置</button>
@@ -30,18 +31,18 @@
       </section>
 
       <div class="choice-grid">
-        <div class="choice-card" id="home-main-card" role="button" tabindex="0" :aria-label="`选择${isSolemn ? '白事' : '红事'}场景并创建礼簿`" @click="showTemplates(st.homeCategory)" @keydown.enter.prevent="showTemplates(st.homeCategory)" @keydown.space.prevent="showTemplates(st.homeCategory)">
+        <div class="choice-card" id="home-main-card" role="button" tabindex="0" :aria-label="`选择${categoryLabel}场景并创建账簿`" @click="showTemplates(st.homeCategory)" @keydown.enter.prevent="showTemplates(st.homeCategory)" @keydown.space.prevent="showTemplates(st.homeCategory)">
           <div class="hero-book-art" aria-hidden="true">
             <div class="book">
               <div class="book-pages"></div>
               <div class="book-cover">
                 <div class="book-stitch"></div>
                 <div class="book-frame">
-                  <span class="book-edition">{{ isSolemn ? '肃 穆 礼 记' : '喜 事 礼 记' }}</span>
-                  <span class="book-seal">{{ isSolemn ? '奠' : '囍' }}</span>
-                  <span class="book-title">礼簿</span>
+                  <span class="book-edition">{{ isSolemn ? '肃 穆 礼 记' : isCustom ? '通 用 记 录' : '喜 事 礼 记' }}</span>
+                  <span class="book-seal">{{ isSolemn ? '奠' : isCustom ? '记' : '囍' }}</span>
+                  <span class="book-title">{{ isCustom ? '账簿' : '礼簿' }}</span>
                   <span class="book-rule"></span>
-                  <span class="book-sub">{{ isSolemn ? '肃 · 穆 · 记' : '壹 · 叁' }}</span>
+                  <span class="book-sub">{{ isSolemn ? '肃 · 穆 · 记' : isCustom ? '事 · 有 · 据' : '壹 · 叁' }}</span>
                 </div>
               </div>
             </div>
@@ -91,7 +92,7 @@
             v-for="ev in recentEvents"
             :key="ev.id"
             class="recent-item"
-            :class="isSolemnEvent(ev) ? 'white' : 'red'"
+            :class="categoryForEvent(ev)"
             @pointerenter="preloadMainView"
           >
             <button
@@ -150,7 +151,7 @@
 <script setup>
 import { computed, reactive, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { state as st } from '../store.js'
-import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, copyOf, isSolemnEvent } from '../lib/content.js'
+import { CATEGORY_TEXT, RED_TEMPLATES, WHITE_TEMPLATES, CUSTOM_TEMPLATES, copyOf, categoryForEvent } from '../lib/content.js'
 import { ceremonyLabel, daysUntilText } from '../lib/ceremony.js'
 import { showTemplates, showSetup, showHelpDialog, openEvent, showLicense } from '../lib/actions.js'
 import { switchCategory } from '../lib/actions.js'
@@ -170,16 +171,16 @@ const masked = reactive(new Set())
 const catText = computed(() => CATEGORY_TEXT[st.homeCategory])
 const copy = computed(() => copyOf(null, st.homeCategory))
 const isSolemn = computed(() => st.homeCategory === 'white')
+const isCustom = computed(() => st.homeCategory === 'custom')
+const categoryLabel = computed(() => st.homeCategory === 'white' ? '白事' : st.homeCategory === 'custom' ? '自定义' : '红事')
 
 const homeCount = computed(() => {
-  const wantSolemn = st.homeCategory === 'white'
-  return Object.values(st.cachedEvents || {}).filter((ev) => isSolemnEvent(ev, st.homeCategory) === wantSolemn).length
+  return Object.values(st.cachedEvents || {}).filter((ev) => categoryForEvent(ev, st.homeCategory) === st.homeCategory).length
 })
 
 const recentEvents = computed(() => {
-  const wantSolemn = st.homeCategory === 'white'
   return Object.values(st.cachedEvents || {})
-    .filter((ev) => isSolemnEvent(ev, st.homeCategory) === wantSolemn)
+    .filter((ev) => categoryForEvent(ev, st.homeCategory) === st.homeCategory)
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
     .slice(0, 12)
 })
@@ -218,8 +219,8 @@ const ceremonyTitle = (ev) => {
 // 卡片标签显示创建时选的模板类型（婚宴/寿宴/满月酒…），老账簿没有模板时退回红事/白事
 const templateLabel = (ev) => {
   const raw = String(ev.template || '').trim()
-  if (!raw) return isSolemnEvent(ev, st.homeCategory) ? '白事' : '红事'
-  const hit = [...RED_TEMPLATES, ...WHITE_TEMPLATES].find((t) => t.key === raw || t.name === raw)
+  if (!raw) return categoryLabel.value
+  const hit = [...RED_TEMPLATES, ...WHITE_TEMPLATES, ...CUSTOM_TEMPLATES].find((t) => t.key === raw || t.name === raw)
   return hit ? hit.name : raw
 }
 

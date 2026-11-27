@@ -4,7 +4,7 @@ import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, confirm as showConfirm } from './modal.js'
 import { safeImport } from './lazy.js'
 import { showTemplates, showSetup, showHome, loadEvents, startSession, endSession } from '../bootstrap.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { copyOf, eventTheme } from './content.js'
 import { getHomeCategory, setHomeCategory } from './prefs.js'
 import { readCache, cacheLedgerGifts } from './offline.js'
 import { LedgerCrypto } from './crypto.js'
@@ -21,7 +21,7 @@ export function toggleLargeText() {
 
 export function switchCategory(next) {
   if (next === st.homeCategory) return
-  const label = next === 'white' ? '白事' : '红事'
+  const label = next === 'white' ? '白事' : next === 'custom' ? '自定义' : '红事'
   showConfirm('切换分类', `确定切换到「${label}」吗？\n切换后首页配色和最近账簿会随之变化。`, async () => {
     setHomeCategory(next)
     st.homeCategory = next
@@ -155,7 +155,6 @@ export async function openEvent(eventOrId) {
     startSession()
     return
   }
-  const solemn = isSolemnEvent(event, st.homeCategory)
   openModal(
     '',
     {
@@ -171,7 +170,7 @@ export async function openEvent(eventOrId) {
     },
     [{ text: '取消', class: 'modal-btn-ghost' }],
     // 手机没有 ESC：解锁窗必须能点 ×、点「取消」或点遮罩退出，避免不输密码就被困住。
-    { size: 'unlock', theme: solemn ? 'theme-solemn' : 'theme-festive', dismissable: true },
+    { size: 'unlock', theme: eventTheme(event, st.homeCategory), dismissable: true },
   )
 }
 

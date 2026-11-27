@@ -4,7 +4,7 @@ import { state as st, hashPassword, NO_PASSWORD_KEY, rememberLedgerKey, touchSes
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
 import { safeImport } from './lazy.js'
-import { copyOf, isSolemnEvent, getCoverTemplate, RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
+import { categoryForEvent, copyOf, isSolemnEvent, getCoverTemplate, RELATION_OPTIONS, RELATION_FALLBACK } from './content.js'
 import { stampSeal } from './stamp.js'
 import { amountToChinese, formatCurrency } from './crypto.js'
 import { sha256Hex } from './crypto.js'
@@ -346,9 +346,9 @@ export function openGiftDetails(index) {
   const warning = hasHistory ? `<div class="modal-notice modal-notice-warn">${copy.historyWarning}</div>` : ''
   const returns = returnRecordsOf(data)
   const returnTotal = totalReturnedOf(data)
-  const solemn = isSolemnEvent(st.currentEvent, st.homeCategory)
-  // 白事不提供回礼功能：整个回礼区块不渲染。
-  const returnBlock = solemn ? '' : `<div class="p-2 hover:bg-gray-50 rounded">
+  const category = categoryForEvent(st.currentEvent, st.homeCategory)
+  // 回礼只属于红事；白事与自定义收款不渲染整个回礼区块。
+  const returnBlock = category === 'red' ? `<div class="p-2 hover:bg-gray-50 rounded">
         <div class="flex justify-between items-start"><strong>回礼:</strong><button class="text-sm text-blue-600 hover:underline px-2 py-1" data-edit="return">登记一次</button></div>
         ${returns.length
           ? `<div class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">
@@ -356,7 +356,7 @@ export function openGiftDetails(index) {
               <ul class="mt-1 space-y-1">${returns.map((r, i) => `<li class="flex items-center justify-between gap-2 text-sm"><span>${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-CN') : '—'} · ${formatCurrency(r.amount)}${r.note ? ` · ${escapeHtml(r.note)}` : ''}</span><button type="button" class="text-xs text-red-600 hover:underline" data-remove-return="${i}">撤销</button></li>`).join('')}</ul>
             </div>`
           : '<p class="pl-2 mt-1 text-gray-700 bg-gray-50 p-2 rounded">未回礼</p>'}
-      </div>`
+      </div>` : ''
   const details = `
     <div class="space-y-4 text-left h-full flex flex-col" data-details-index="${index}">
       <h4 class="font-bold text-lg border-b pb-2 mb-2">当前记录信息</h4>

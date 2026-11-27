@@ -37,11 +37,11 @@
         <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14v16H5z"/><path d="M8 8l1.6 8 1.4-5 1.4 5L14 8"/></svg></span>
         <span class="export-text"><b>Word 文档</b><small>明细 + 备注 + 修改记录</small></span>
       </button>
-      <button v-if="!content.solemn" type="button" class="export-option" @click="pick('returns')">
+      <button v-if="content.returnEnabled" type="button" class="export-option" @click="pick('returns')">
         <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9h11a4 4 0 0 1 0 8H9"/><path d="m8 6 3 3-3 3"/></svg></span>
         <span class="export-text"><b>回礼明细</b><small>已回礼的人与金额</small></span>
       </button>
-      <button v-if="!content.solemn" type="button" class="export-option" @click="pick('pending')">
+      <button v-if="content.returnEnabled" type="button" class="export-option" @click="pick('pending')">
         <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h10M4 18h10"/><path d="m16 16 2 2 3-4"/></svg></span>
         <span class="export-text"><b>未回礼名单</b><small>勾选后批量登记回礼</small></span>
       </button>
@@ -50,7 +50,7 @@
         <span class="export-text"><b>批量导入 CSV</b><small>从名单批量录入</small></span>
       </button>
     </div>
-    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。点「选择记录」可先{{ content.solemn ? '按姓名、关系' : '按姓名、关系或回礼状态' }}筛出要导出的记录，{{ content.solemn ? '三种' : '四种' }}导出都按这个范围计算合计。<template v-if="!content.solemn">「回礼明细」只列已登记回礼的人；「未回礼名单」可一次给多人登记回礼。</template></p>
+    <p class="unlock-note">Excel / PDF / Word 都直接下载。PDF 为 A4 横向、含封面与竖排版式；Word 为 A4 纵向，含明细、备注汇总与修改记录。点「选择记录」可先{{ content.returnEnabled ? '按姓名、关系或回礼状态' : '按姓名、关系' }}筛出要导出的记录，{{ content.returnEnabled ? '四种' : '三种' }}导出都按这个范围计算合计。<template v-if="content.returnEnabled">「回礼明细」只列已登记回礼的人；「未回礼名单」可一次给多人登记回礼。</template></p>
   </div>
 
   <div v-else-if="content.type === 'html'" v-html="content.html"></div>

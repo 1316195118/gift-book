@@ -112,6 +112,7 @@
 }
 
 body.theme-solemn .gb-celebrate,
+body.theme-custom .gb-celebrate,
 body[data-occasion="white"] .gb-celebrate { display: none !important; }
 
 .gb-celebrate-mark {

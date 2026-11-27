@@ -10,7 +10,28 @@ describe('同名记录检查', () => {
       { data: { name: '', amount: 0, kind: 'blank' } },
     ])
     expect(groups).toHaveLength(1)
-    expect(groups[0][0]).toBe('张三')
-    expect(groups[0][1]).toHaveLength(2)
+    expect(groups[0].name).toBe('张三')
+    expect(groups[0].list).toHaveLength(2)
+  })
+
+  it('同名记录中，有备注和无备注的分开核对', () => {
+    const groups = duplicateGroups([
+      { data: { name: '王五', amount: 10 } },
+      { data: { name: '王五', amount: 20 } },
+      { data: { name: '王五', amount: 30, remarks: '班费' } },
+      { data: { name: '王五', amount: 40, remarks: '活动款' } },
+    ])
+
+    expect(groups).toHaveLength(2)
+    expect(groups.find((group) => !group.hasRemarks).list).toHaveLength(2)
+    expect(groups.find((group) => group.hasRemarks).list).toHaveLength(2)
+  })
+
+  it('同名但一笔有备注、一笔无备注时不报同名', () => {
+    const groups = duplicateGroups([
+      { data: { name: '赵六', amount: 10 } },
+      { data: { name: '赵六', amount: 20, remarks: '活动款' } },
+    ])
+    expect(groups).toHaveLength(0)
   })
 })

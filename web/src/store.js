@@ -55,7 +55,7 @@ export const state = reactive({
 
 export const st = state
 
-export const CATEGORY_LABEL = { red: '红事', white: '白事' }
+export const CATEGORY_LABEL = { red: '红事', white: '白事', custom: '自定义' }
 
 const ROUTE_DEPTH = { home: 0, template: 1, setup: 2, main: 3 }
 let themeTimer = null
@@ -69,16 +69,17 @@ export function setRoute(route) {
 }
 
 export function setHomeCategoryState(cat) {
-  state.homeCategory = cat === 'white' ? 'white' : 'red'
+  state.homeCategory = cat === 'white' || cat === 'custom' ? cat : 'red'
 }
 
 export function setBodyTheme(themeName) {
-  const theme = themeName === 'theme-solemn' ? 'theme-solemn' : 'theme-festive'
+  const theme = ['theme-solemn', 'theme-custom'].includes(themeName) ? themeName : 'theme-festive'
   const changed = !document.body.classList.contains(theme)
   document.body.classList.toggle('theme-solemn', theme === 'theme-solemn')
   document.body.classList.toggle('theme-festive', theme === 'theme-festive')
-  document.body.dataset.theme = theme === 'theme-solemn' ? 'solemn' : 'festive'
-  document.body.dataset.occasion = theme === 'theme-solemn' ? 'white' : 'red'
+  document.body.classList.toggle('theme-custom', theme === 'theme-custom')
+  document.body.dataset.theme = theme.replace('theme-', '')
+  document.body.dataset.occasion = theme === 'theme-solemn' ? 'white' : theme === 'theme-custom' ? 'custom' : 'red'
   if (changed) {
     document.documentElement.classList.add('theme-shifting')
     clearTimeout(themeTimer)

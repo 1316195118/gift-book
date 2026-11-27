@@ -6,7 +6,7 @@ import {
 } from './store.js'
 import { api, setAuthGateHandler, setFamilyGateHandler, setLedgerKeyResolver, ApiError } from './lib/api.js'
 import { cacheEventList, readCache, queueFor, cacheLedgerGifts, cacheLedgerVerifier, setCacheFamily } from './lib/offline.js'
-import { categoryForEvent, eventTheme, isSolemnEvent } from './lib/content.js'
+import { categoryForEvent, eventTheme, isSolemnEvent, themeForCategory } from './lib/content.js'
 import { getHomeCategory, setHomeCategory, readLocked, isLargeText, saveLargeText } from './lib/prefs.js'
 import { ledgerKeyForEvent } from './store.js'
 import { startNetworkMonitor } from './lib/network.js'
@@ -139,7 +139,7 @@ export function showHome({ reload = true } = {}) {
   st.currentPage = 1
   setHomeCategoryState(getHomeCategory())
   setRoute('home')
-  setBodyTheme(getHomeCategory() === 'white' ? 'theme-solemn' : 'theme-festive')
+  setBodyTheme(themeForCategory(getHomeCategory()))
   if (reload) loadEvents()
 }
 
@@ -149,7 +149,7 @@ export function showTemplates(category) {
     setHomeCategoryState(category)
   }
   setRoute('template')
-  setBodyTheme(getHomeCategory() === 'white' ? 'theme-solemn' : 'theme-festive')
+  setBodyTheme(themeForCategory(getHomeCategory()))
 }
 
 export function showSetup({ template = null } = {}) {
@@ -160,7 +160,7 @@ export function showSetup({ template = null } = {}) {
   clearSession()
   st.setupTemplate = template
   setRoute('setup')
-  setBodyTheme(getHomeCategory() === 'white' ? 'theme-solemn' : 'theme-festive')
+  setBodyTheme(themeForCategory(getHomeCategory()))
   loadEvents()
 }
 

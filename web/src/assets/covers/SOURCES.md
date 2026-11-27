@@ -23,6 +23,11 @@
 | `white-chrysanthemum-v2.webp` | 月白宣纸、层叠白菊、墨叶、湖石与竹影，用于肃穆奠仪 |
 | `white-pine-mist.webp` | 月白绢面、远山松柏与淡墨竹影，用于追思和纪念 |
 
+`red-wedding-phoenix-warm.webp` 与 `red-house-lattice-warm.webp` 是在对应原始
+底图上做的暖色暗部修正版：只把中性黑灰暗部重映射为深朱红和胭脂红，保留原有
+花鸟、窗棂、纸纹与金色纹样。生产代码使用这两张修正版，避免缩略封面出现突兀
+黑块；原始生成图继续作为母版保留。
+
 `white-chrysanthemum-v2.webp` 的生成提示词：
 
 > 原创竖版中国礼簿封面底图，3:4 构图。月白宣纸与素绢叠裱，细密纸纤维、

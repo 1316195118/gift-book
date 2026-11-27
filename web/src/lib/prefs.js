@@ -6,7 +6,8 @@ const CATEGORY_KEY = 'giftbook_category'
 
 export const getHomeCategory = () => {
   try {
-    return localStorage.getItem(CATEGORY_KEY) === 'white' ? 'white' : 'red'
+    const value = localStorage.getItem(CATEGORY_KEY)
+    return value === 'white' || value === 'custom' ? value : 'red'
   } catch {
     return 'red'
   }
@@ -14,7 +15,7 @@ export const getHomeCategory = () => {
 
 export const setHomeCategory = (cat) => {
   try {
-    localStorage.setItem(CATEGORY_KEY, cat === 'white' ? 'white' : 'red')
+    localStorage.setItem(CATEGORY_KEY, cat === 'white' || cat === 'custom' ? cat : 'red')
   } catch {
     /* 隐私模式或禁用存储时只影响本机偏好，不阻断进入 */
   }

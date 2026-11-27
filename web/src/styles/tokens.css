@@ -73,7 +73,8 @@
    ========================================================================== */
 
 :root,
-body.theme-festive {
+body.theme-festive,
+#print-view.theme-festive {
   --paper: #faf4e9;
   --paper-deep: #f3e9d7;
   --surface: #fffdf7;
@@ -161,7 +162,8 @@ body.theme-festive {
    没有红，没有金，没有任何喜庆元素
    ========================================================================== */
 
-body.theme-solemn {
+body.theme-solemn,
+#print-view.theme-solemn {
   --paper: #f2f3f2;
   --paper-deep: #e8eae9;
   --surface: #fbfcfb;
@@ -239,10 +241,90 @@ body.theme-solemn {
   --hero-book-spine: #cdd3d2;
 }
 
+/* ==========================================================================
+   自定义 · 米白宣纸 / 松烟墨 / 青绿 / 黄铜
+   用于红白事之外的通用收款项，不借用喜字、奠字或红金配色
+   ========================================================================== */
+
+body.theme-custom,
+#print-view.theme-custom {
+  --paper: #f6f3e9;
+  --paper-deep: #ebe5d6;
+  --surface: #fffcf4;
+  --surface-sunken: #f1ecdf;
+
+  --ink: #1f2824;
+  --ink-2: #46524b;
+  --muted: #5f6b63;
+  --faint: #65716a;
+  --faint-deco: #9aa59d;
+  --placeholder: #606d65;
+
+  --line: #ddd8c9;
+  --line-strong: #c7c0ae;
+
+  --accent: #3f6655;
+  --accent-hover: #315545;
+  --accent-press: #254536;
+  --accent-ink: #fbfdf9;
+  --accent-soft: #e8f0e9;
+  --accent-soft-2: #d5e3d8;
+
+  --gold: #9a8254;
+  --gold-bright: #bfa875;
+  --gold-soft: #eee7d5;
+  --gold-text: #6e5d35;
+
+  --azure: #456d67;
+  --azure-soft: #e5efec;
+  --azure-line: #c7d8d2;
+
+  --ok: #416b52;
+  --ok-soft: #eaf1eb;
+  --warn: #806126;
+  --warn-soft: #f5efdf;
+  --danger: #8a4b3e;
+  --danger-soft: #f4e9e5;
+
+  --shadow-1: 0 1px 2px rgb(35 46 39 / .06);
+  --shadow-2: 0 8px 26px rgb(35 46 39 / .08);
+  --shadow-3: 0 28px 70px rgb(24 35 29 / .2);
+  --ring: 0 0 0 3px rgb(63 102 85 / .16);
+
+  --selection: rgb(63 102 85 / .16);
+
+  --fleck-1: rgb(154 130 84 / .32);
+  --fleck-2: rgb(191 168 117 / .24);
+  --fleck-3: rgb(63 102 85 / .08);
+  --paper-glow: rgb(154 130 84 / .14);
+  --paper-glow-2: rgb(63 102 85 / .035);
+
+  --print-paper: #fffdf7;
+  --print-ink: #19221d;
+  --print-ink-2: #354139;
+  --print-faint: #6f796f;
+  --print-title: #315545;
+  --print-rule: rgb(49 85 69 / .4);
+  --print-rule-strong: rgb(49 85 69 / .5);
+  --print-band: #edf2ed;
+
+  --hero-book: #3f5b4d;
+  --hero-book-2: #2e463b;
+  --hero-book-page: #f4eedf;
+  --hero-book-edge: #d4c9b4;
+  --hero-book-line: rgb(218 199 159 / .54);
+  --hero-book-ink: #f1e5cb;
+  --hero-book-spine: #263d32;
+}
+
 /* 旧变量名统一接到新令牌，避免历史规则取到过期值 */
 :root,
 body.theme-festive,
-body.theme-solemn {
+body.theme-solemn,
+body.theme-custom,
+#print-view.theme-festive,
+#print-view.theme-solemn,
+#print-view.theme-custom {
   --accent-2: var(--accent-hover);
   --ink-soft: var(--ink-2);
   --border: var(--line);

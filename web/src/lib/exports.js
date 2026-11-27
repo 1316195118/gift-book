@@ -1,7 +1,7 @@
 // 导出：Excel 明细、PDF 礼簿（A4 横向）、Word 文档（A4 纵向）。
 import { state as st } from '../store.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
-import { COVER_STYLES, copyOf, getCoverStyle, isSolemnEvent } from './content.js'
+import { COVER_STYLES, copyOf, getCoverStyle, categoryForEvent, eventTheme, isSolemnEvent } from './content.js'
 import { renderCoverMarkup } from './cover.js'
 import { amountToChinese, formatCurrency, escapeHtml, formatDate, formatDateTime, safeFileName } from './crypto.js'
 import { buildPrintPages, prepareForPrint, PDF_PAGE_W_PT, PDF_PAGE_H_PT, collectPrintCss, rasterizePrintPage, buildPdfBlob, downloadBlob, printOptionsCss } from './printing.js'
@@ -27,13 +27,15 @@ function returnsEmptyMessage(copy) {
 const XLSX_THEMES = {
   festive: { accent: 'FFAB2B21', soft: 'FFF9EAE4', paper: 'FFFAF4E9', line: 'FFE9DDC7', ink: 'FF241C14' },
   solemn: { accent: 'FF33475A', soft: 'FFEAEEF2', paper: 'FFF2F3F2', line: 'FFDDE1E1', ink: 'FF1A1F21' },
+  custom: { accent: 'FF3F6655', soft: 'FFE8F0E9', paper: 'FFF6F3E9', line: 'FFDDD8C9', ink: 'FF1F2824' },
 }
-const xlsxTheme = (ev) => (isSolemnEvent(ev, st.homeCategory) ? XLSX_THEMES.solemn : XLSX_THEMES.festive)
+const xlsxTheme = (ev) => XLSX_THEMES[categoryForEvent(ev, st.homeCategory)] || XLSX_THEMES.festive
 
 export function openExport() {
   const ev = st.currentEvent
   if (!ev) return
   const copy = copyOf(ev, st.homeCategory)
+  const category = categoryForEvent(ev, st.homeCategory)
   const info = scopeInfo()
   openModal(
     '',
@@ -44,6 +46,7 @@ export function openExport() {
       recordsLabel: copy.recordsLabel,
       bookTitle: copy.bookTitle,
       solemn: isSolemnEvent(ev, st.homeCategory),
+      returnEnabled: category === 'red',
       scopeLabel: info.label,
       scopeActive: info.active,
       onPick: (format) => {
@@ -67,7 +70,7 @@ export function openExport() {
       },
     },
     [],
-    { size: 'unlock', theme: isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive', dismissable: true },
+    { size: 'unlock', theme: eventTheme(ev, st.homeCategory), dismissable: true },
   )
 }
 
@@ -212,8 +215,8 @@ function returnsMetaLine(ev, list, total, copy) {
 export function openReturnsExport() {
   const ev = st.currentEvent
   if (!ev) return
-  if (isSolemnEvent(ev, st.homeCategory)) {
-    return showAlert('不支持', '白事账簿不提供回礼功能，无需导出回礼明细。')
+  if (categoryForEvent(ev, st.homeCategory) !== 'red') {
+    return showAlert('不支持', '回礼明细只用于红事人情往来；白事和自定义收款账簿无需导出回礼。')
   }
   const copy = copyOf(ev, st.homeCategory)
   const data = collectReturns()
@@ -253,9 +256,12 @@ export function openReturnsExport() {
 // Excel：封面页 + 明细（主题配色）。
 export function exportReturnsExcel() {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
+  const emptyCopy = copyOf(data?.ev || st.currentEvent, st.homeCategory)
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(emptyCopy))
   const { ev, list, total: totalReturned } = data
   const copy = copyOf(ev, st.homeCategory)
+  const category = categoryForEvent(ev, st.homeCategory)
+  if (category !== 'red') return showAlert('不支持', '回礼明细只用于红事人情往来。')
   const style = { title: 1, meta: 2, head: 3, center: 4, text: 5, money: 6, total: 7 }
   const metaLine = returnsMetaLine(ev, list, totalReturned, copy)
 
@@ -286,7 +292,6 @@ export function exportReturnsExcel() {
   rowHeights[lastDataRow + 1] = 24
 
   const theme = xlsxTheme(ev)
-  const solemn = isSolemnEvent(ev, st.homeCategory)
   const coverRows = []
   const coverHeights = {}
   const pushCover = (text, styleIdx, height) => {
@@ -297,7 +302,7 @@ export function exportReturnsExcel() {
   pushCover('', 11, 24)
   pushCover('', 11, 30)
   pushCover(ev.name, 12, 56)
-  pushCover(`${solemn ? '白事 · 奠仪' : '红事 · 贺礼'} · 回礼明细`, 13, 34)
+  pushCover('红事 · 人情往来 · 回礼明细', 13, 34)
   pushCover('', 11, 16)
   pushCover(startText ? `时间：${startText}` : '', 14, 28)
   pushCover(ev.location ? `地点：${ev.location}` : '', 14, 28)
@@ -336,12 +341,13 @@ export function exportReturnsExcel() {
 // Word：A4 纵向，封面头 + 表格 + 合计。
 export function exportReturnsWord() {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
+  const emptyCopy = copyOf(data?.ev || st.currentEvent, st.homeCategory)
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(emptyCopy))
   const { ev, list, total } = data
   const copy = copyOf(ev, st.homeCategory)
-  const solemn = isSolemnEvent(ev, st.homeCategory)
-  const primary = solemn ? '#33475a' : '#ab2b21'
-  const bg = solemn ? '#eef0f3' : '#f9eae4'
+  if (categoryForEvent(ev, st.homeCategory) !== 'red') return showAlert('不支持', '回礼明细只用于红事人情往来。')
+  const primary = '#ab2b21'
+  const bg = '#f9eae4'
   const rows = list
     .map(
       (r, i) =>
@@ -364,7 +370,7 @@ export function exportReturnsWord() {
     .totals { margin-top: 12px; font-size: 10.5pt; text-align: right; }
     .note { margin-top: 10px; font-size: 8.5pt; color: #777; }
   </style></head><body>
-    <div class="doc-head"><div class="kicker">${solemn ? '白 事 · 奠 仪' : '红 事 · 贺 礼'} · 回 礼</div>
+    <div class="doc-head"><div class="kicker">红 事 · 人 情 往 来 · 回 礼</div>
     <h1>${escapeHtml(ev.name)} 回礼明细</h1>
     <div class="meta">${escapeHtml(returnsMetaLine(ev, list, total, copy))}</div></div>
     <table><thead><tr><th style="width:6%">序号</th><th style="width:12%">姓名</th><th style="width:9%">关系</th><th style="width:11%">原礼金</th><th style="width:12%">回礼金额</th><th style="width:8%">次数</th><th style="width:14%">最近回礼</th><th>备注</th><th style="width:7%">类型</th></tr></thead><tbody>${rows}</tbody></table>
@@ -379,10 +385,12 @@ const RETURNS_PER_PAGE = 16
 
 export async function exportReturnsPdf({ coverStyle = '' } = {}) {
   const data = collectReturns()
-  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(copy))
+  const emptyCopy = copyOf(data?.ev || st.currentEvent, st.homeCategory)
+  if (!data?.list.length) return showAlert('无法导出', returnsEmptyMessage(emptyCopy))
   const { ev, list, total } = data
   const copy = copyOf(ev, st.homeCategory)
-  const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'
+  if (categoryForEvent(ev, st.homeCategory) !== 'red') return showAlert('不支持', '回礼明细只用于红事人情往来。')
+  const themeClass = eventTheme(ev, st.homeCategory)
   const totalPages = Math.max(1, Math.ceil(list.length / RETURNS_PER_PAGE))
   const printView = document.createElement('div')
   printView.id = 'print-view'
@@ -440,9 +448,9 @@ export function exportToWord() {
   const ev = st.currentEvent
   const copy = copyOf(ev, st.homeCategory)
   if (!scopeGifts().length) return showAlert('无法导出', emptyMessage(copy))
-  const solemn = isSolemnEvent(ev, st.homeCategory)
-  const primary = solemn ? '#374151' : '#a3261e'
-  const bg = solemn ? '#eef0f3' : '#fbeceb'
+  const category = categoryForEvent(ev, st.homeCategory)
+  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#315545' : '#a3261e'
+  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#edf2ed' : '#fbeceb'
   const dateStr = formatDate(ev.startDateTime)
   const stats = computeLedgerStats(scopeGifts())
   const displayId = ev.displayId ? `No.${ev.displayId}` : ''
@@ -473,7 +481,7 @@ export function exportToWord() {
     ? `<h2>附：修改记录</h2><table class="appendix"><thead><tr><th style="width:8%">序号</th><th style="width:16%">姓名</th><th>修改内容</th><th style="width:22%">修改时间</th></tr></thead><tbody>${historyItems.map((item) => `<tr><td class="c">${item.index}</td><td class="name">${escapeHtml(item.name)}</td><td class="remark">${escapeHtml(item.log)}</td><td class="time">${escapeHtml(item.when)}</td></tr>`).join('')}</tbody></table><p class="note">共 ${historyItems.length} 条修改留痕。${copy.historyNote}</p>`
     : ''
 
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${escapeHtml(ev.name)}${copy.detailTitle}</title><style>@page { size: A4 portrait; margin: 1.8cm 1.6cm; } body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; } .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; } .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; } .doc-head h1 { font-family: "KaiTi", "STKaiti", serif; font-size: 24pt; color: ${primary}; margin: 6px 0 6px; } .doc-head .meta { font-size: 9pt; color: #666; } table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; } th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; } th { background: ${bg}; color: ${primary}; font-weight: bold; font-family: "KaiTi", serif; letter-spacing: .5px; } tr { page-break-inside: avoid; } tr:nth-child(even) td { background: #fafafa; } td.c { text-align: center; } td.num { text-align: center; white-space: nowrap; } td.num.small { font-size: 8pt; } td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; } td.name .late { display: block; font-size: 8pt; font-weight: bold; color: ${primary}; line-height: 1.2; } td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; } td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; } td.remark { text-align: left; word-break: break-word; } h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; } .appendix { font-size: 10pt; } .totals { margin-top: 12px; font-size: 10.5pt; } .totals b { color: ${primary}; font-size: 12pt; } .note { margin-top: 8px; font-size: 8.5pt; color: #777; } .foot { margin-top: 18px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 8.5pt; color: #888; }</style></head><body><div class="doc-head"><div class="kicker">${solemn ? '白 事 · 奠 仪' : '红 事 · 贺 礼'}</div><h1>${escapeHtml(ev.name)} ${copy.detailTitle}</h1><div class="meta">${escapeHtml(metaLine)}</div></div><table><thead><tr><th style="width:5%">序号</th><th style="width:11%">姓名</th><th style="width:11%">金额</th><th style="width:24%">大写金额</th><th style="width:8%">收款方式</th><th style="width:8%">关系</th><th>备注</th><th style="width:15%">录入时间</th></tr></thead><tbody>${rows}</tbody></table><div class="totals">${copy.printTotalGivers}：<b>${stats.totalGivers}</b> 位　${copy.printTotalAmount}：<b>${formatCurrency(stats.totalAmount)}</b></div>${historySection}<div class="foot">本文件由${solemn ? '电子奠仪簿' : '电子礼簿'}导出 · ${new Date().toLocaleString('zh-CN', { hour12: false })}</div></body></html>`
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${escapeHtml(ev.name)}${copy.detailTitle}</title><style>@page { size: A4 portrait; margin: 1.8cm 1.6cm; } body { font-family: "SimSun", "Songti SC", serif; font-size: 10.5pt; color: #222; line-height: 1.5; } .doc-head { border-bottom: 2px solid ${primary}; padding-bottom: 10px; margin-bottom: 16px; } .doc-head .kicker { font-size: 8.5pt; letter-spacing: 4px; color: ${primary}; } .doc-head h1 { font-family: "KaiTi", "STKaiti", serif; font-size: 24pt; color: ${primary}; margin: 6px 0 6px; } .doc-head .meta { font-size: 9pt; color: #666; } table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; } th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: middle; } th { background: ${bg}; color: ${primary}; font-weight: bold; font-family: "KaiTi", serif; letter-spacing: .5px; } tr { page-break-inside: avoid; } tr:nth-child(even) td { background: #fafafa; } td.c { text-align: center; } td.num { text-align: center; white-space: nowrap; } td.num.small { font-size: 8pt; } td.name { text-align: center; word-break: break-all; white-space: normal; line-height: 1.35; } td.name .late { display: block; font-size: 8pt; font-weight: bold; color: ${primary}; line-height: 1.2; } td.cap { font-size: 8.5pt; color: #444; line-height: 1.4; word-break: break-all; white-space: normal; } td.time { font-size: 8.5pt; color: #555; white-space: nowrap; text-align: center; } td.remark { text-align: left; word-break: break-word; } h2 { font-family: "KaiTi", serif; font-size: 15pt; color: ${primary}; margin: 20px 0 8px; padding-left: 9px; border-left: 4px solid ${primary}; } .appendix { font-size: 10pt; } .totals { margin-top: 12px; font-size: 10.5pt; } .totals b { color: ${primary}; font-size: 12pt; } .note { margin-top: 8px; font-size: 8.5pt; color: #777; } .foot { margin-top: 18px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 8.5pt; color: #888; }</style></head><body><div class="doc-head"><div class="kicker">${category === 'white' ? '白 事 · 奠 仪' : category === 'custom' ? '自 定 义 · 收 款' : '红 事 · 贺 礼'}</div><h1>${escapeHtml(ev.name)} ${copy.detailTitle}</h1><div class="meta">${escapeHtml(metaLine)}</div></div><table><thead><tr><th style="width:5%">序号</th><th style="width:11%">姓名</th><th style="width:11%">金额</th><th style="width:24%">大写金额</th><th style="width:8%">收款方式</th><th style="width:8%">关系</th><th>备注</th><th style="width:15%">录入时间</th></tr></thead><tbody>${rows}</tbody></table><div class="totals">${copy.printTotalGivers}：<b>${stats.totalGivers}</b> 位　${copy.printTotalAmount}：<b>${formatCurrency(stats.totalAmount)}</b></div>${historySection}<div class="foot">本文件由${category === 'white' ? '电子奠仪簿' : category === 'custom' ? '自定义收款账簿' : '电子礼簿'}导出 · ${new Date().toLocaleString('zh-CN', { hour12: false })}</div></body></html>`
   const blob = new Blob(['﻿', html], { type: 'application/msword' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
@@ -494,7 +502,7 @@ export async function exportLedgerPdf({ coverStyle = '' } = {}) {
   const printView = buildPrintPages(scopeGifts(), { ...ev, coverStyle: selectedCover })
   if (!printView) return
   const pages = Array.from(printView.querySelectorAll('.print-page'))
-  const themeClass = isSolemnEvent(ev, st.homeCategory) ? 'theme-solemn' : 'theme-festive'
+  const themeClass = eventTheme(ev, st.homeCategory)
   const progress = showPdfProgress(pages.length)
   try {
     const css = collectPrintCss() + '\n' + printOptionsCss()
@@ -518,9 +526,8 @@ export async function exportLedgerPdf({ coverStyle = '' } = {}) {
 function openPdfCoverPicker(onConfirm) {
   const ev = st.currentEvent
   if (!ev) return
-  const solemn = isSolemnEvent(ev, st.homeCategory)
   const copy = copyOf(ev, st.homeCategory)
-  const styles = COVER_STYLES.filter((style) => style.theme === (solemn ? 'white' : 'red'))
+  const styles = COVER_STYLES.filter((style) => style.theme === categoryForEvent(ev, st.homeCategory))
   let selected = getCoverStyle(ev, st.homeCategory).id
   const cards = styles.map((style) => `
     <button
@@ -538,7 +545,7 @@ function openPdfCoverPicker(onConfirm) {
       <div class="pdf-cover-intro">
         <div>
           <h3>为这次 PDF 选一套封面</h3>
-          <p>与创建账簿时是同一套红事 / 白事封面。这里的选择只用于本次导出，不会改动账簿当前封面。</p>
+          <p>与创建账簿时是同一套封面。这里的选择只用于本次导出，不会改动账簿当前封面。</p>
         </div>
         <span class="pdf-cover-count">${styles.length} 款</span>
       </div>
@@ -567,7 +574,7 @@ function openPdfCoverPicker(onConfirm) {
         },
       },
     ],
-    { size: 'large', theme: solemn ? 'theme-solemn' : 'theme-festive', dismissable: true },
+    { size: 'large', theme: eventTheme(ev, st.homeCategory), dismissable: true },
   )
   afterModalRender(() => {
     const preview = document.getElementById('pdf-cover-preview')

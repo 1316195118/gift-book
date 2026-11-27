@@ -2,11 +2,11 @@
 import { state as st, updateSessionEvent, clearSession } from '../store.js'
 import { api, ApiError } from './api.js'
 import { openModal, closeModal, alert as showAlert, afterModalRender } from './modal.js'
-import { copyOf } from './content.js'
+import { categoryForEvent, copyOf } from './content.js'
 import { formatCurrency, escapeHtml } from './crypto.js'
 import { loadEvents, showHome } from '../bootstrap.js'
 import { verifyLedgerPassword, ledgerKeyOf } from './actions.js'
-import { buildVoiceGroups, voiceHint, previewVoice } from './voice.js'
+import { buildVoiceGroups, voiceHint, previewVoice, resolveVoice } from './voice.js'
 import { getVoiceOptions, saveVoiceOptions, qrStorageKey } from './prefs.js'
 import { soundEnabled, setSoundEnabled, playTap } from './sound.js'
 import { motionPreference, setMotionPreference } from './feedback.js'
@@ -44,6 +44,7 @@ export function openSettings({ section = 'general' } = {}) {
   bindFeedbackPrefs()
   selectedPerPage = Number(ev.perPage) === 8 || Number(ev.perPage) === 10 ? Number(ev.perPage) : 12
   const copy = copyOf(ev, st.homeCategory)
+  const category = categoryForEvent(ev, st.homeCategory)
   const startDate = ev.startDateTime ? ev.startDateTime.slice(0, 10) : ''
   const startTime = ev.startDateTime ? ev.startDateTime.slice(11, 16) : ''
   const endDate = ev.endDateTime ? ev.endDateTime.slice(0, 10) : ''
@@ -111,7 +112,7 @@ export function openSettings({ section = 'general' } = {}) {
         </div>
         <div class="event-settings-grid grid grid-cols-2 gap-3">
           <div class="field">
-            ${label('edit-ceremony-date', ceremonyName + '（选填）', '', '这是婚礼 / 殡期本身的时间，会显示在账簿卡片上；上面控制「什么时候可以录入」的起止时间不需要改。')}
+            ${label('edit-ceremony-date', ceremonyName + '（选填）', '', category === 'custom' ? '用于记录事项或收款的业务日期，会显示在账簿卡片上；上面控制「什么时候可以录入」的起止时间不需要改。' : '这是婚礼 / 殡期本身的时间，会显示在账簿卡片上；上面控制「什么时候可以录入」的起止时间不需要改。')}
             <input type="date" id="edit-ceremony-date" value="${ceremony.date}" />
           </div>
           <div class="field">
@@ -197,7 +198,7 @@ export function openSettings({ section = 'general' } = {}) {
         </div>
         <div class="voice-toggle-row">
           <div>
-            <div class="voice-toggle-main">始终播放完整动效${hintIcon('忽略系统「减弱动态效果」，落印、建簿动效与点击涟漪照常播放；白事不出现任何喜庆元素。')}</div>
+            <div class="voice-toggle-main">始终播放完整动效${hintIcon('忽略系统「减弱动态效果」，落印、建簿动效与点击涟漪照常播放；白事和自定义账簿不出现任何喜庆元素。')}</div>
           </div>
           <label class="switch"><input type="checkbox" id="edit-motion-full" ${motionPreference() === 'full' ? 'checked' : ''} /><span class="switch-track" aria-hidden="true"></span></label>
         </div>
@@ -297,7 +298,19 @@ export function openSettings({ section = 'general' } = {}) {
       })
     })
     document.getElementById('preview-edit-voice-btn')?.addEventListener('click', () => {
-      previewVoice(document.getElementById('edit-event-voice').value, copy.voiceSample)
+      const voiceName = document.getElementById('edit-event-voice').value
+      const match = resolveVoice(voiceName)
+      if (match.status === 'unsupported') {
+        showAlert('无法试听', '当前浏览器不支持语音播报。')
+        return
+      }
+      if (match.status === 'missing') {
+        showAlert('该音色尚未安装', match.message)
+        return
+      }
+      if (!previewVoice(voiceName, copy.voiceSample)) {
+        showAlert('无法试听', '语音服务暂时不可用，请稍后再试。')
+      }
     })
     document.getElementById('edit-qr-btn')?.addEventListener('click', () => {
       closeModal()

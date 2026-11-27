@@ -44,8 +44,8 @@
             </button>
             <button id="guest-profile-btn" class="main-tool" type="button" title="查看来宾在本会话已解锁账簿中的往来" @click="openGuestProfiles">档案</button>
             <button type="button" class="main-tool large-text-toggle" :aria-pressed="st.largeText" @click="onToggleLargeText">{{ st.largeText ? '标准' : '大字' }}</button>
-            <button id="print-btn" class="main-tool" type="button" title="打印礼簿（可选字号与页边距）" @click="openPrint">打印</button>
-            <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? '扫描礼簿' : '当前部署未内置 OCR'" @click="openOcr">扫描礼簿</button>
+            <button id="print-btn" class="main-tool" type="button" :title="`打印${copy.bookTitle}（可选字号与页边距）`" @click="openPrint">打印</button>
+            <button id="ocr-btn" class="main-tool" type="button" :disabled="!st.ocrAvailable || readOnly" :title="st.ocrAvailable ? `扫描${copy.bookTitle}` : '当前部署未内置 OCR'" @click="openOcr">{{ canReturn ? '扫描礼簿' : '扫描' }}</button>
             <button id="export-btn" class="main-tool main-tool-primary" type="button" title="导出 Excel / PDF / Word" @click="openExport">导出</button>
           </div>
         </div>
@@ -65,7 +65,7 @@
       </div>
 
       <div class="ledger-layout">
-        <section id="entry-panel" class="entry-panel" aria-label="礼金录入">
+        <section id="entry-panel" class="entry-panel" :aria-label="copy.entryTitle">
           <div class="entry-heading">
             <h2>
               <span>{{ copy.entryTitle }}</span>
@@ -171,13 +171,13 @@
                 <option v-for="t in ['现金', '支付宝', '微信', '其他']" :key="t" :value="t">{{ t }}</option>
               </select>
             </label>
-            <label class="search-flag" title="只看还没有回礼的记录"><input v-model="searchUnreturned" type="checkbox" />只看未回礼</label>
+            <label v-if="canReturn" class="search-flag" title="只看还没有回礼的记录"><input v-model="searchUnreturned" type="checkbox" />只看未回礼</label>
             <small>金额可填区间，如 100-500</small>
           </div>
 
           <div class="ledger-summary" aria-live="polite" :aria-busy="!st.giftsLoaded">
             <div class="summary-card primary"><span>{{ copy.totalLabel }}</span><span :class="{ 'summary-loading-value': !st.giftsLoaded }">{{ st.giftsLoaded ? formatCurrency(displayTotal) : '读取中…' }}</span></div>
-            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span :class="{ 'summary-loading-value': !st.giftsLoaded }">{{ st.giftsLoaded ? stats.totalGivers : '读取中…' }}</span><small v-if="st.giftsLoaded" class="summary-sub">{{ stats.recordCount }} 笔 · 人均 {{ formatCurrency(stats.average) }}</small></div>
+            <div class="summary-card"><span>{{ copy.giversLabel }}</span><span :class="{ 'summary-loading-value': !st.giftsLoaded }">{{ st.giftsLoaded ? stats.totalGivers : '读取中…' }}</span><small v-if="st.giftsLoaded" class="summary-sub">{{ stats.recordCount }} 笔 · 人均{{ copy.recordNoun }} {{ formatCurrency(stats.average) }}</small></div>
             <div v-if="pages > 1" class="summary-card"><span>本页小计 / 元</span><span>{{ formatCurrency(subtotal) }}</span></div>
           </div>
 
@@ -267,7 +267,7 @@ import { computed, ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } 
 import { state as st, updateSessionEvent } from '../store.js'
 import { api } from '../lib/api.js'
 import { openModal } from '../lib/modal.js'
-import { copyOf } from '../lib/content.js'
+import { categoryForEvent, copyOf } from '../lib/content.js'
 import { formatCurrency, formatDate } from '../lib/crypto.js'
 import { showHome, syncEventTotal, loadGiftsForCurrentEvent, loadEvents, setSyncStatus } from '../bootstrap.js'
 import { versionLabel, toggleLargeText, showChangelog, showNetworkDetails, verifyLedgerPassword } from '../lib/actions.js'
@@ -370,6 +370,7 @@ watch(
 )
 
 const copy = computed(() => copyOf(st.currentEvent, st.homeCategory))
+const canReturn = computed(() => categoryForEvent(st.currentEvent, st.homeCategory) === 'red')
 const version = computed(() => versionLabel())
 const queueCount = computed(() => queueFor(st.currentEvent?.id).length)
 const items = computed(() => pageItems())

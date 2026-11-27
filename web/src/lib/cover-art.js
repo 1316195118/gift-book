@@ -1,6 +1,6 @@
-import redWeddingPhoenix from '../assets/covers/red-wedding-phoenix.webp'
+import redWeddingPhoenix from '../assets/covers/red-wedding-phoenix-warm.webp'
 import redLongevityPine from '../assets/covers/red-longevity-pine.webp'
-import redHouseLattice from '../assets/covers/red-house-lattice.webp'
+import redHouseLattice from '../assets/covers/red-house-lattice-warm.webp'
 import redPeonyBrocade from '../assets/covers/red-peony-brocade.webp'
 import whiteChrysanthemum from '../assets/covers/white-chrysanthemum-v2.webp'
 import whitePineMist from '../assets/covers/white-pine-mist.webp'
@@ -70,6 +70,10 @@ export const COVER_STYLE_ARTWORK = {
   qiulu: { art: 'chrysanthemum', panel: 'blossom', ornament: 'dew' },
   qiusheng: { art: 'chrysanthemum', panel: 'vertical', ornament: 'wind' },
   huaien: { art: 'mist', panel: 'ribbon', ornament: 'moon' },
+  'custom-paper': { art: 'mist', panel: 'plain', ornament: 'paper' },
+  'custom-bamboo': { art: 'mist', panel: 'vertical', ornament: 'bamboo' },
+  'custom-cloud': { art: 'lattice', panel: 'gold', ornament: 'cloud' },
+  'custom-silk': { art: 'mist', panel: 'ribbon', ornament: 'silk' },
 }
 
 export function coverArtworkFor(style = {}) {

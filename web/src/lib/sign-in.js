@@ -1,6 +1,6 @@
 // 签到表 / 席位表：按姓氏排序生成 A4 纵向表格，用隐藏 iframe 打印（无弹窗拦截、不污染主文档）。
 import { state as st } from '../store.js'
-import { copyOf, isSolemnEvent } from './content.js'
+import { categoryForEvent, copyOf } from './content.js'
 import { escapeHtml, formatDate } from './crypto.js'
 import { alert as showAlert } from './modal.js'
 
@@ -22,7 +22,8 @@ export function buildSignInPages(list, { eventName, dateStr, location, total, th
       .map((g, i) => `<tr><td class="c">${p * PER_PAGE + i + 1}</td><td class="c name">${escapeHtml(g.data.name)}</td><td class="c">${escapeHtml(g.data.relation || '—')}</td><td class="sign"></td></tr>`)
       .join('')
     const meta = [dateStr, location, `共 ${total} 人`].filter(Boolean).join('　·　')
-    pages.push(`<section class="sheet-page"><header><div class="kicker">${theme === 'solemn' ? '奠仪簿' : '礼金簿'}</div><h1>${escapeHtml(eventName)} · 签到表</h1><p class="meta">${escapeHtml(meta)}</p></header><table><thead><tr><th style="width:10%">序号</th><th style="width:24%">姓名</th><th style="width:18%">关系</th><th>签名</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="c">（无记录）</td></tr>'}</tbody></table><footer>第 ${p + 1} / ${pageCount} 页</footer></section>`)
+    const kicker = theme === 'white' ? '奠仪簿' : theme === 'custom' ? '收款登记' : '礼金簿'
+    pages.push(`<section class="sheet-page"><header><div class="kicker">${kicker}</div><h1>${escapeHtml(eventName)} · ${theme === 'custom' ? '对象名单' : '签到表'}</h1><p class="meta">${escapeHtml(meta)}</p></header><table><thead><tr><th style="width:10%">序号</th><th style="width:24%">姓名</th><th style="width:18%">关系</th><th>签名</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="c">（无记录）</td></tr>'}</tbody></table><footer>第 ${p + 1} / ${pageCount} 页</footer></section>`)
   }
   return pages
 }
@@ -33,11 +34,11 @@ export function openSignInSheet() {
   const copy = copyOf(ev, st.homeCategory)
   const list = sortForSignIn(st.gifts)
   if (!list.length) return showAlert('无法生成签到表', `当前账簿还没有${copy.recordNoun}记录。`)
-  const solemn = isSolemnEvent(ev, st.homeCategory)
-  const primary = solemn ? '#374151' : '#a3261e'
-  const bg = solemn ? '#eef0f3' : '#f7efee'
+  const category = categoryForEvent(ev, st.homeCategory)
+  const primary = category === 'white' ? '#374151' : category === 'custom' ? '#315545' : '#a3261e'
+  const bg = category === 'white' ? '#eef0f3' : category === 'custom' ? '#edf2ed' : '#f7efee'
   const dateStr = formatDate(ev.startDateTime) || '未设置'
-  const pages = buildSignInPages(list, { eventName: ev.name, dateStr, location: ev.location, total: list.length, theme: solemn ? 'solemn' : 'festive' })
+  const pages = buildSignInPages(list, { eventName: ev.name, dateStr, location: ev.location, total: list.length, theme: category })
   const css = `
     @page { size: A4 portrait; margin: 14mm; }
     * { box-sizing: border-box; }

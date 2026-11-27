@@ -4,7 +4,7 @@ import { reactive } from 'vue'
 import { state as st } from '../store.js'
 import { openModal, afterModalRender } from './modal.js'
 import { escapeHtml, formatCurrency, formatDate } from './crypto.js'
-import { isSolemnEvent, RELATION_OPTIONS } from './content.js'
+import { categoryForEvent, RELATION_OPTIONS } from './content.js'
 import { hasReturned } from './return-gift.js'
 
 const PAGE = 40
@@ -46,7 +46,7 @@ export function openScopePicker(onDone) {
   const selected = new Set(exportScope.mode === 'selected' ? exportScope.ids.map(String) : [])
   const filter = { keyword: '', relation: '', returned: '' }
   let shown = PAGE
-  const solemn = isSolemnEvent(ev, st.homeCategory)
+  const canReturn = categoryForEvent(ev, st.homeCategory) === 'red'
   const relations = [...new Set([...RELATION_OPTIONS, ...all.map((g) => g.data?.relation).filter(Boolean)])]
 
   const html = `
@@ -54,7 +54,7 @@ export function openScopePicker(onDone) {
       <div class="gb-picker-filters">
         <input type="search" id="gb-scope-keyword" placeholder="按姓名 / 备注查找" autocomplete="off" />
         <select id="gb-scope-relation"><option value="">全部关系</option>${relations.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}</select>
-        ${solemn ? '' : '<select id="gb-scope-returned"><option value="">全部回礼状态</option><option value="yes">已回礼</option><option value="no">未回礼</option></select>'}
+        ${canReturn ? '<select id="gb-scope-returned"><option value="">全部回礼状态</option><option value="yes">已回礼</option><option value="no">未回礼</option></select>' : ''}
       </div>
       <div class="gb-picker-tools">
         <span id="gb-scope-count" class="gb-picker-count"></span>
@@ -103,7 +103,7 @@ export function openScopePicker(onDone) {
         const when = formatDate(data.timestamp)
         return `<div class="gb-pick-row" data-row-id="${id}">
           <input type="checkbox" data-scope-id="${id}" ${selected.has(String(gift.id)) ? 'checked' : ''} aria-label="选择 ${escapeHtml(data.name || '')}" />
-          <div class="gb-pick-main"><span class="gb-pick-name">${escapeHtml(data.name || '（无名）')}</span><span class="gb-pick-meta">${escapeHtml(data.relation || '未分类')} · ${escapeHtml(data.type || '')} · ${escapeHtml(when)}${hasReturned(data) && !solemn ? ' · 已回礼' : ''}</span></div>
+          <div class="gb-pick-main"><span class="gb-pick-name">${escapeHtml(data.name || '（无名）')}</span><span class="gb-pick-meta">${escapeHtml(data.relation || '未分类')} · ${escapeHtml(data.type || '')} · ${escapeHtml(when)}${hasReturned(data) && canReturn ? ' · 已回礼' : ''}</span></div>
           <span class="gb-pick-amount">${formatCurrency(Number(data.amount) || 0)}</span>
         </div>`
       })

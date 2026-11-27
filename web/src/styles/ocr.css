@@ -96,6 +96,7 @@
 /* ---------- Camera capture & edge alignment (shared markup, theme via tokens) ---------- */
 body.theme-festive { --scan-line: #f6cf7c; --scan-ready: #ffe3a3; --scan-glow: rgb(246 190 90 / 35%); }
 body.theme-solemn { --scan-line: #e2ebe6; --scan-ready: #ffffff; --scan-glow: rgb(214 230 222 / 32%); }
+body.theme-custom { --scan-line: #c8d9cb; --scan-ready: #eef5ef; --scan-glow: rgb(111 151 126 / 32%); }
 .paper-ocr .ocr-primary { background: var(--accent); color: #fffaf0; border-color: var(--accent); }
 .paper-ocr .ocr-primary:hover:not(:disabled) { background: var(--accent-hover); color: #fff; }
 .paper-ocr #ocr-choose { background: var(--surface); color: var(--ink); border-color: var(--line); }

@@ -115,6 +115,19 @@ func TestValidateEventBodyAcceptsRealisticPayload(t *testing.T) {
 	}
 }
 
+func TestValidateEventBodyAcceptsCustomTemplate(t *testing.T) {
+	body := map[string]any{
+		"name":       "秋季活动收款",
+		"theme":      "theme-custom",
+		"category":   "custom",
+		"coverStyle": "custom-paper",
+		"template":   "活动收款",
+	}
+	if err := validateEventBody(body, nil); err != nil {
+		t.Fatalf("custom template rejected: %v", err)
+	}
+}
+
 func TestValidateImageChecksRealFormatAndDimensions(t *testing.T) {
 	valid := testPNGDataURL(t, 640, 480)
 	if !validImage(valid) {

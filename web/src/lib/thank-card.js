@@ -1,7 +1,7 @@
 // 答谢卡：把一笔礼金生成一张可保存的图片，红事朱砂、白事素青。
 // 纯 Canvas 2D 手绘，不依赖截图库，离线可用。
 import { openModal, closeModal } from './modal.js'
-import { copyOf } from './content.js'
+import { categoryForEvent, copyOf } from './content.js'
 import { formatCurrency } from './crypto.js'
 import { state as st } from '../store.js'
 import { ceremonyText } from './ceremony.js'
@@ -27,10 +27,15 @@ function wrapText(ctx, text, maxWidth) {
 
 function drawCard(canvas, gift) {
   const ctx = canvas.getContext('2d')
-  const solemn = st.homeCategory === 'white'
-  const ink = solemn ? '#1F2E33' : '#4A2C1A'
-  const accent = solemn ? '#3A5560' : '#A43A2B'
-  const paper = solemn ? '#F3F2EC' : '#FBF7EE'
+  const event = st.currentEvent || {}
+  const category = categoryForEvent(event, st.homeCategory)
+  const solemn = category === 'white'
+  const custom = category === 'custom'
+  const copy = copyOf(event, st.homeCategory)
+  const ink = solemn ? '#1F2E33' : custom ? '#1F2824' : '#4A2C1A'
+  const accent = solemn ? '#3A5560' : custom ? '#315545' : '#A43A2B'
+  const paper = solemn ? '#F3F2EC' : custom ? '#F6F3E9' : '#FBF7EE'
+  const muted = solemn ? '#54656B' : custom ? '#52655B' : '#8A5A3C'
 
   ctx.fillStyle = paper
   ctx.fillRect(0, 0, W, H)
@@ -43,21 +48,20 @@ function drawCard(canvas, gift) {
   ctx.strokeRect(40, 40, W - 80, H - 80)
 
   // 顶部：账簿名 / 事由
-  const event = st.currentEvent || {}
-  const title = String(event.name || copyOf(event, st.homeCategory).bookTitle || '礼簿')
+  const title = String(event.name || copy.bookTitle || '账簿')
   ctx.fillStyle = ink
   ctx.textAlign = 'center'
   ctx.font = '600 40px KaiTi, STKaiti, serif'
   ctx.fillText(title, W / 2, 118)
   ctx.font = '24px KaiTi, STKaiti, serif'
-  ctx.fillStyle = solemn ? '#54656B' : '#8A5A3C'
+  ctx.fillStyle = muted
   const ceremony = ceremonyText(event) || ''
   ctx.fillText(ceremony, W / 2, 168)
 
   // 中间：答谢语
   ctx.fillStyle = ink
   ctx.font = '500 44px KaiTi, STKaiti, serif'
-  ctx.fillText(solemn ? '聊表寸心 · 恕不成谢' : '衷心感谢 光临致贺', W / 2, 340)
+  ctx.fillText(solemn ? '聊表寸心 · 恕不成谢' : custom ? '款项已登记 · 感谢配合' : '衷心感谢 光临致贺', W / 2, 340)
 
   // 宾客名
   const name = String(gift?.data?.name || '')
@@ -69,16 +73,16 @@ function drawCard(canvas, gift) {
   // 礼金
   ctx.fillStyle = ink
   ctx.font = '28px KaiTi, STKaiti, serif'
-  ctx.fillText('礼金', W / 2, 560 + nameLines.length * 80 - 30)
+  ctx.fillText(custom ? copy.recordNoun : '礼金', W / 2, 560 + nameLines.length * 80 - 30)
   ctx.font = '600 48px KaiTi, STKaiti, serif'
   ctx.fillStyle = accent
   ctx.fillText(formatCurrency(gift?.data?.amount), W / 2, 620 + nameLines.length * 80 - 30)
 
   // 落款 + 印章
-  ctx.fillStyle = solemn ? '#54656B' : '#8A5A3C'
+  ctx.fillStyle = muted
   ctx.font = '26px KaiTi, STKaiti, serif'
   const date = new Date()
-  ctx.fillText(`谨记于 ${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`, W / 2, H - 120)
+  ctx.fillText(`${custom ? '记录于' : '谨记于'} ${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`, W / 2, H - 120)
 
   const sealSize = 92
   const sealX = W - 130
@@ -91,7 +95,7 @@ function drawCard(canvas, gift) {
   ctx.fillStyle = '#FBF7EE'
   ctx.font = '600 56px KaiTi, STKaiti, serif'
   ctx.textAlign = 'center'
-  ctx.fillText(solemn ? '奠' : '谢', sealX + sealSize / 2, sealY + sealSize / 2 + 20)
+  ctx.fillText(solemn ? '奠' : custom ? '记' : '谢', sealX + sealSize / 2, sealY + sealSize / 2 + 20)
 }
 
 export function openThankCard(gift) {

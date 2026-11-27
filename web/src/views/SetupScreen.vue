@@ -3,7 +3,7 @@
     <div id="setup-screen">
       <div class="setup-head">
         <button type="button" class="back-link" @click="showHome">← 返回首页</button>
-        <div class="setup-badge">{{ isSolemn ? '白 事' : '红 事' }}</div>
+        <div class="setup-badge">{{ isSolemn ? '白 事' : isCustom ? '自 定 义' : '红 事' }}</div>
       </div>
       <h1 class="setup-title">创建新账簿</h1>
       <p class="setup-sub" id="setup-sub">{{ copy.setupSub }}</p>
@@ -26,6 +26,11 @@
           <div class="setup-field">
             <label class="setup-label" for="event-name">账簿名称 <span class="req">*</span></label>
             <input v-model="form.name" type="text" id="event-name" :placeholder="copy.namePh" required class="setup-input" />
+          </div>
+          <div v-if="isCustom" class="setup-field">
+            <label class="setup-label" for="event-template-name">自定义模板名称</label>
+            <input v-model="form.templateName" type="text" id="event-template-name" placeholder="例如：班费 / 活动收款 / 营业款" maxlength="40" class="setup-input" />
+            <p class="setup-hint">它会显示在首页账簿标签和封面题签上；不改动账簿名称。</p>
           </div>
 
           <div class="setup-grid2">
@@ -148,16 +153,16 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted, watch } from 'vue'
+import { computed, reactive, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { state as st, hashPassword, NO_PASSWORD_HASH, NO_PASSWORD_KEY, LedgerCrypto } from '../store.js'
-import { copyOf, isSolemnEvent, templatesFor, COVER_STYLES, TEMPLATE_DEFAULT_STYLE } from '../lib/content.js'
+import { copyOf, categoryForEvent, templatesFor, themeForCategory, COVER_STYLES, TEMPLATE_DEFAULT_STYLE } from '../lib/content.js'
 import { renderCoverMarkup } from '../lib/cover.js'
 import { api, ApiError } from '../lib/api.js'
 import { showHome, loadEvents, startSession } from '../bootstrap.js'
 import { openEvent } from '../lib/actions.js'
 import { alert as showAlert } from '../lib/modal.js'
 import { maybePromptAutoBackup } from '../lib/autobackup-prompt.js'
-import { buildVoiceGroups, voiceHint, previewVoice } from '../lib/voice.js'
+import { buildVoiceGroups, voiceHint, previewVoice, resolveVoice } from '../lib/voice.js'
 import { celebrate, solemnAck } from '../lib/feedback.js'
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024
@@ -166,6 +171,7 @@ const copy = computed(() => copyOf(null, st.homeCategory))
 // 管理密码的说明收进「?」：既保留首次使用的解释，又不让表单多两行文字。
 const pwdHelp = computed(() => `${copy.value.pwdHint} 创建后可在同一网络下多人同时登记，改动会自动同步到各设备。`)
 const isSolemn = computed(() => st.homeCategory === 'white')
+const isCustom = computed(() => st.homeCategory === 'custom')
 const templates = computed(() => templatesFor(st.homeCategory))
 
 const form = reactive({
@@ -179,6 +185,7 @@ const form = reactive({
   password: '',
   passwordConfirm: '',
   voiceName: '',
+  templateName: '',
 })
 
 const selectedTemplate = ref(st.setupTemplate || null)
@@ -188,16 +195,17 @@ const submitting = ref(false)
 const selectedExisting = ref('')
 const moreDetails = ref(null)
 
-const { groups: voiceGroups, usable } = buildVoiceGroups()
-const voiceHintText = ref(voiceHint(usable))
+const initialVoices = buildVoiceGroups()
+const voiceGroups = ref(initialVoices.groups)
+const voiceHintText = ref(voiceHint(initialVoices.usable))
+let stopVoiceObserver = () => {}
 
 const existingOptions = computed(() => {
-  const wantSolemn = st.homeCategory === 'white'
-  return Object.values(st.cachedEvents || {}).filter((ev) => isSolemnEvent(ev, st.homeCategory) === wantSolemn)
+  return Object.values(st.cachedEvents || {}).filter((ev) => categoryForEvent(ev, st.homeCategory) === st.homeCategory)
 })
 
 const coverStyles = computed(() =>
-  COVER_STYLES.filter((item) => item.theme === (isSolemn.value ? 'white' : 'red')),
+  COVER_STYLES.filter((item) => item.theme === st.homeCategory),
 )
 
 const templateKey = computed(() => {
@@ -210,8 +218,8 @@ const previewCover = computed(() =>
   renderCoverMarkup(
     {
       name: form.name.trim() || '账簿名称',
-      theme: isSolemn.value ? 'theme-solemn' : 'theme-festive',
-      template: templateKey.value,
+      theme: themeForCategory(st.homeCategory),
+      template: isCustom.value ? (form.templateName.trim() || '通用登记') : templateKey.value,
       coverStyle: selectedStyle.value || TEMPLATE_DEFAULT_STYLE[templateKey.value],
       startDateTime: form.startDate ? `${form.startDate}T${form.startTime || '00:00'}` : '',
       location: form.location.trim(),
@@ -224,8 +232,8 @@ const previewCover = computed(() =>
 const coverFor = (styleId) =>
   renderCoverMarkup(
     {
-      theme: isSolemn.value ? 'theme-solemn' : 'theme-festive',
-      template: templateKey.value,
+      theme: themeForCategory(st.homeCategory),
+      template: isCustom.value ? (form.templateName.trim() || '通用登记') : templateKey.value,
       coverStyle: styleId || selectedStyle.value || TEMPLATE_DEFAULT_STYLE[templateKey.value],
     },
     true,
@@ -252,7 +260,8 @@ function initFromTemplate() {
   const key = st.setupTemplate
   if (!key) return
   const template = templates.value.find((t) => t.key === key)
-  if (template) form.name = template.name
+  if (template) form.name = key === 'custom' ? '自定义账簿' : template.name
+  if (key === 'custom' && !form.templateName) form.templateName = '通用登记'
   selectedStyle.value = TEMPLATE_DEFAULT_STYLE[key] || ''
 }
 
@@ -275,8 +284,17 @@ function onCoverFile(event) {
 }
 
 function preview() {
-  if (!previewVoice(form.voiceName, copy.value.voiceSample)) {
+  const match = resolveVoice(form.voiceName)
+  if (match.status === 'unsupported') {
     showAlert('无法试听', '当前浏览器不支持语音播报。')
+    return
+  }
+  if (match.status === 'missing') {
+    showAlert('该音色尚未安装', match.message)
+    return
+  }
+  if (!previewVoice(form.voiceName, copy.value.voiceSample)) {
+    showAlert('无法试听', '语音服务暂时不可用，请稍后再试。')
   }
 }
 
@@ -313,10 +331,13 @@ async function submit() {
       endDateTime,
       passwordHash: form.password ? hashPassword(form.password) : NO_PASSWORD_HASH,
       ...(form.password ? { kdf: LedgerCrypto.newKdfParams() } : {}),
-      theme: isSolemn.value ? 'theme-solemn' : 'theme-festive',
+      theme: themeForCategory(st.homeCategory),
+      category: st.homeCategory,
       voiceName: form.voiceName,
       coverImage: coverPreview.value || null,
-      template: templates.value.find((t) => t.key === templateKey.value)?.name || null,
+      template: isCustom.value
+        ? (form.templateName.trim() || '通用登记')
+        : (templates.value.find((t) => t.key === templateKey.value)?.name || null),
       coverStyle: selectedStyle.value || null,
       location: form.location.trim(),
       note: form.note.trim(),
@@ -325,9 +346,9 @@ async function submit() {
     const result = await api.createEvent(payload)
     st.currentEvent = result.data
     st.currentPassword = form.password || NO_PASSWORD_KEY
-    // 喜字只属于红事；白事、创建失败一律不触发，celebrate 内部还会再判一次减动效。
+    // 喜字只属于红事；白事、自定义账簿和创建失败一律不触发。
     if (isSolemn.value) solemnAck()
-    else celebrate('囍')
+    else if (!isCustom.value) celebrate('囍')
     startSession()
     // 账簿已创建，进入页面不必等待整套账簿列表重拉；列表在后台更新。
     void loadEvents()
@@ -348,5 +369,17 @@ onMounted(() => {
   setDefaultTimes()
   initFromTemplate()
   loadEvents()
+  if ('speechSynthesis' in window) {
+    const refreshVoices = () => {
+      const next = buildVoiceGroups()
+      voiceGroups.value = next.groups
+      voiceHintText.value = voiceHint(next.usable)
+    }
+    refreshVoices()
+    window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices)
+    stopVoiceObserver = () => window.speechSynthesis.removeEventListener?.('voiceschanged', refreshVoices)
+  }
 })
+
+onBeforeUnmount(() => stopVoiceObserver())
 </script>

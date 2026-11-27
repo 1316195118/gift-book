@@ -12,7 +12,15 @@ export function describeVoice(voice) {
   const lang = String(voice.lang || '')
   const hit = LedgerVoiceCatalog?.lookup({ name: raw, lang }) || null
   if (hit) {
-    return { id: hit.id, name: hit.name, tone: hit.tone, region: hit.region, gentle: Boolean(hit.gentle), rank: hit.rank }
+    return {
+      id: hit.id,
+      name: hit.name,
+      tone: hit.tone,
+      region: hit.region,
+      gender: hit.gender || '',
+      gentle: Boolean(hit.gentle),
+      rank: hit.rank,
+    }
   }
   const chineseName = raw.replace(/^Microsoft\s+/i, '').replace(/\s*-\s*Chinese.*$/i, '').trim()
   const looksChinese = /[一-龥]/.test(chineseName)
@@ -109,34 +117,91 @@ export function voiceHint(usable) {
   return `内置 ${VOICE_MANIFEST.length} 个音色（普通话 + ${regionCount - 1} 个地区，男女各一），本机可用 ${usable.length} 个${
     dialects.length
       ? `，含方言：${dialects.join('、')}`
-      : '；方言音色选中后需系统装有对应语音包，否则用默认发音'
+      : '；标为“待安装”的音色需先在系统中安装对应语音包'
   }`
 }
 
 export function pendingVoiceHint(option) {
-  return `「${String(option.label).replace('（待安装）', '')}」本机尚未安装，先用默认发音代替；在系统里装好该语音包后自动生效。`
+  return `「${String(option.label).replace('（待安装）', '')}」本机尚未安装；试听会提示安装，不会用其他性别或默认声线代替。`
+}
+
+function normalizedVoiceName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/microsoft|voice|语音|音色/g, '')
+    .replace(/[\s\-_—·()（）[\]【】,，.。]/g, '')
+}
+
+function catalogEntryFor(voiceName) {
+  const raw = String(voiceName || '').trim()
+  if (!raw) return null
+  const direct = VOICE_MANIFEST.find((item) => item.name === raw || item.id === raw)
+  if (direct) return direct
+  const normalized = normalizedVoiceName(raw)
+  return VOICE_MANIFEST.find((item) => {
+    if (normalizedVoiceName(item.name) === normalized || normalizedVoiceName(item.id) === normalized) return true
+    return (item.keys || []).some((key) => normalizedVoiceName(key) === normalized)
+  }) || null
+}
+
+/**
+ * 将账簿保存的音色值解析成本机真实 SpeechSynthesisVoice。
+ * 只接受同名或目录别名，任何缺失都必须明确返回未安装，不能悄悄退回默认女声。
+ */
+export function resolveVoice(voiceName, voices = null) {
+  const requested = String(voiceName || '').trim()
+  if (!requested) return { voice: null, status: 'default', requested, message: '' }
+  if (!('speechSynthesis' in window)) {
+    return { voice: null, status: 'unsupported', requested, message: '当前浏览器不支持语音播报。' }
+  }
+  const list = Array.isArray(voices) ? voices : (speechSynthesis.getVoices() || [])
+  const direct = list.find((voice) => String(voice.name || '') === requested)
+    || list.find((voice) => normalizedVoiceName(voice.name) === normalizedVoiceName(requested))
+  if (direct) return { voice: direct, status: 'ready', requested, message: '' }
+
+  const catalog = catalogEntryFor(requested)
+  if (catalog) {
+    const byCatalog = list.find((voice) => describeVoice(voice).id === catalog.id)
+    if (byCatalog) return { voice: byCatalog, status: 'ready', requested, message: '' }
+    return {
+      voice: null,
+      status: 'missing',
+      requested,
+      catalog,
+      message: `本机尚未安装「${catalog.name} · ${catalog.tone}」语音包，因此不会用其他音色代替。请先在系统“语音/讲述人”设置中安装该音色，或改选“本机可用”的音色。`,
+    }
+  }
+  return {
+    voice: null,
+    status: 'missing',
+    requested,
+    message: `本机找不到「${requested}」音色，因此不会用默认女声代替。请改选“本机可用”中的音色。`,
+  }
 }
 
 export function speakText(text, voiceName) {
-  if (!('speechSynthesis' in window)) return
+  if (!('speechSynthesis' in window)) return false
+  const match = resolveVoice(voiceName)
+  if (voiceName && !match.voice) return false
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'zh-CN'
   const options = getVoiceOptions()
   utterance.rate = options.rate
   utterance.volume = options.volume
-  if (voiceName) {
-    const voices = speechSynthesis.getVoices()
-    const selected = voices.find((voice) => voice.name === voiceName)
-    if (selected) utterance.voice = selected
+  if (match.voice) {
+    utterance.voice = match.voice
+    utterance.lang = match.voice.lang || utterance.lang
   }
   speechSynthesis.speak(utterance)
+  return true
 }
 
 export function previewVoice(voiceName, sample) {
   if (!('speechSynthesis' in window)) return false
+  const match = resolveVoice(voiceName)
+  if (voiceName && !match.voice) return false
   speechSynthesis.cancel()
-  speakText(sample, voiceName)
-  return true
+  return speakText(sample, voiceName)
 }
 
 export { readVoiceCache }

@@ -18,8 +18,8 @@ export function stampSeal(glyph = '礼') {
   const host = document.querySelector('.entry-panel')
   if (!host) return
 
-  const festive = document.body.dataset.occasion !== 'white' &&
-    !document.body.classList.contains('theme-solemn')
+  const festive = document.body.dataset.occasion === 'red' &&
+    document.body.classList.contains('theme-festive')
 
   host.querySelector('.entry-stamp')?.remove()
 

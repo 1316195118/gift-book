@@ -199,6 +199,27 @@ for (const [name, width, height] of viewports) {
     const templateArtLoaded = await page.locator('.tpl-card .cover-art').evaluateAll((images) =>
       images.length === 5 && images.every((image) => image.complete && image.naturalWidth > 0))
     check(`${name} 模板原创底图已解码`, templateArtLoaded)
+    const templateLayout = await page.locator('.tpl-card').evaluateAll((cards) =>
+      cards.map((card) => {
+        const cover = card.querySelector('.ledger-cover')
+        const medallion = cover.querySelector('.cover-medallion')
+        const topLabel = cover.querySelector('.cover-toplabel')
+        const coverBox = cover.getBoundingClientRect()
+        const medallionBox = medallion?.getBoundingClientRect()
+        return {
+          text: card.querySelector('h3')?.textContent?.trim() || '',
+          topLabelHidden: !topLabel || getComputedStyle(topLabel).display === 'none',
+          medallionTopRatio: medallionBox ? medallionBox.top - coverBox.top : null,
+          coverHeight: coverBox.height,
+        }
+      }))
+    check(
+      `${name} 模板文字与圆章不贴顶`,
+      templateLayout.every((item) =>
+        item.topLabelHidden
+        && (item.medallionTopRatio === null || item.medallionTopRatio >= item.coverHeight * 0.18)),
+      templateLayout.map((item) => `${item.text}:${item.medallionTopRatio === null ? '无圆章' : Math.round(item.medallionTopRatio)}`).join(' / '),
+    )
     const templateBack = page.getByRole('button', { name: '返回首页' })
     const templateBackBox = await templateBack.boundingBox()
     check(

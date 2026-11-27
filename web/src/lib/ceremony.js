@@ -16,6 +16,7 @@ const LABELS = {
 export function ceremonyLabel(event, category) {
   const key = String(event?.template || '')
   if (LABELS[key]) return LABELS[key]
+  if (category === 'custom' || event?.category === 'custom' || event?.theme === 'theme-custom') return '事项日期'
   return category === 'white' ? '仪式时间' : '婚礼时间'
 }
 

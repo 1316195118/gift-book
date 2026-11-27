@@ -4,7 +4,7 @@
     <div
       id="modal"
       class="modal-card"
-      :class="{ 'modal-large': modal.size === 'large', 'modal-unlock': modal.size === 'unlock', 'theme-solemn': modal.theme === 'theme-solemn', 'theme-festive': modal.theme === 'theme-festive' }"
+      :class="{ 'modal-large': modal.size === 'large', 'modal-unlock': modal.size === 'unlock', 'theme-solemn': modal.theme === 'theme-solemn', 'theme-festive': modal.theme === 'theme-festive', 'theme-custom': modal.theme === 'theme-custom' }"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="modal.title ? 'modal-title' : undefined"
