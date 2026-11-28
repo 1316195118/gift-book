@@ -1,4 +1,9 @@
 // 设备级偏好（语音、大字、打印、锁定），全部存本地，不涉及账簿数据。
+function markPrefsChanged() {
+  // 用事件解耦，避免 prefs ↔ 同步模块的循环依赖。
+  try { window.dispatchEvent(new CustomEvent('gb-prefs-changed')) } catch { /* SSR/测试 */ }
+}
+
 const VOICE_OPTIONS_KEY = 'giftbook_voice_options.v1'
 const LARGE_TEXT_KEY = 'giftbook_large_text.v1'
 const PRINT_OPTIONS_KEY = 'giftbook_print_options.v1'
@@ -18,6 +23,7 @@ export const getHomeCategory = () => {
 export const setHomeCategory = (cat) => {
   try {
     localStorage.setItem(CATEGORY_KEY, cat === 'white' || cat === 'custom' ? cat : 'red')
+    markPrefsChanged()
   } catch {
     /* 隐私模式或禁用存储时只影响本机偏好，不阻断进入 */
   }
@@ -43,6 +49,7 @@ export function saveEnabledCategories(categories) {
   const next = normalizeEnabledCategories(categories)
   try {
     localStorage.setItem(ENABLED_CATEGORIES_KEY, JSON.stringify(next))
+    markPrefsChanged()
   } catch {
     /* 隐私模式或禁用存储时只在本次页面内生效 */
   }
@@ -70,6 +77,7 @@ export function getVoiceOptions() {
 export function saveVoiceOptions(options) {
   try {
     localStorage.setItem(VOICE_OPTIONS_KEY, JSON.stringify(options))
+    markPrefsChanged()
   } catch {
     /* 忽略 */
   }
@@ -86,6 +94,7 @@ export const isLargeText = () => {
 export function saveLargeText(on) {
   try {
     localStorage.setItem(LARGE_TEXT_KEY, on ? '1' : '0')
+    markPrefsChanged()
   } catch {
     /* 忽略 */
   }
@@ -112,6 +121,7 @@ export function getPrintOptions() {
 export function savePrintOptions(options) {
   try {
     localStorage.setItem(PRINT_OPTIONS_KEY, JSON.stringify(options))
+    markPrefsChanged()
   } catch {
     /* 忽略 */
   }
@@ -180,6 +190,7 @@ export function motionPreference() {
 export function setMotionPreference(value) {
   const next = value === 'full' || value === 'reduce' ? value : 'system'
   try { localStorage.setItem(MOTION_KEY, next) } catch { /* 忽略 */ }
+  markPrefsChanged()
   applyMotionClass()
   return next
 }
@@ -211,4 +222,5 @@ export function soundEnabled() {
 
 export function setSoundEnabled(on) {
   try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off') } catch { /* 忽略 */ }
+  markPrefsChanged()
 }

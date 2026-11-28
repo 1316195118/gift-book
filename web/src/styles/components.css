@@ -1843,6 +1843,9 @@ body.theme-solemn #modal-container {
 .cover-edit-preview {
   width: 100%;
   max-width: 180px;
+  /* HTML 的 width/height 属性会固定渲染高度（842px），必须让 CSS 接管并按比例缩放。 */
+  height: auto;
+  aspect-ratio: 595 / 842;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
 }

@@ -260,6 +260,8 @@ export const api = {
   auditLog: (limit = 400) => apiRequest(`/api/audit?limit=${encodeURIComponent(limit)}`),
 
   familyLogin: (payload) => apiRequest('/api/family/login', 'POST', payload, { skipAuthRedirect: true }),
+  familyPreferences: () => apiRequest('/api/family/preferences'),
+  saveFamilyPreferences: (prefs) => apiRequest('/api/family/preferences', 'PUT', { preferences: prefs }),
 
   familyLogout: () => apiRequest('/api/family/logout', 'POST', {}),
 

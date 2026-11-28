@@ -137,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/family/self", s.open(s.handleFamilySelfUpdate))
 	mux.HandleFunc("GET /api/families", s.open(s.handleListFamilies))
 	mux.HandleFunc("GET /api/families/activity", s.open(s.handleFamilyActivity))
+	mux.HandleFunc("GET /api/family/preferences", s.open(s.handleFamilyPreferences))
+	mux.HandleFunc("PUT /api/family/preferences", s.open(s.handleFamilyPreferencesSave))
 	mux.HandleFunc("POST /api/families", s.open(s.handleCreateFamily))
 	mux.HandleFunc("POST /api/families/import", s.open(s.handleImportFamilyBackup))
 	mux.HandleFunc("GET /api/families/open", s.open(s.handleOpenFamilies))

@@ -2039,6 +2039,8 @@ body.theme-solemn .hero-book-art .book {
 /* 三块汇总：总额用朱砂挑出来，另外两块用赤金细边收口 */
 .summary-card {
   position: relative;
+  /* 预留加载前后高度，避免「读取中」→金额+小字时卡片变高推动下方内容。 */
+  min-height: 84px;
   padding: var(--sp-4) var(--sp-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-md);

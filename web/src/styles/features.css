@@ -1194,6 +1194,8 @@
 
 .gb-guest-card {
   width: min(420px, 100%);
+  /* 预留表单高度，避免异步 info 返回后整卡从 200px 跳到 500px。 */
+  min-height: 460px;
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
@@ -1751,7 +1753,11 @@
 .book-skeleton {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
+  /* 贴近真实礼簿高度（姓名行150+类型行40+金额行238），
+     避免加载完成后下方说明与页脚突然下移 140–200px。 */
+  min-height: 380px;
   padding: 14px 12px;
 }
 
@@ -3474,3 +3480,8 @@
 .gb-visit-stats-item b { font-size: var(--fs-sm); color: var(--ink); }
 .gb-visit-stats-item span { font-size: var(--fs-sm); color: var(--accent); font-variant-numeric: tabular-nums; }
 .gb-visit-stats-item em { font-size: var(--fs-xs); color: var(--muted); font-style: normal; }
+
+/* 移动端礼簿更矮，骨架同步收缩，保持加载前后高度接近。 */
+@media (max-width: 640px) {
+  .book-skeleton { min-height: 330px; }
+}

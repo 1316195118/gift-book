@@ -68,6 +68,9 @@ export async function bootstrap({ skipAuth = false } = {}) {
     const me = result.me
     st.family = me.data || null
     st.familyGate = false
+    // 拉取家庭级偏好（分类、大字、动效、音效等），覆盖本机缓存。
+    // 动态导入避免初始化期的循环依赖；失败时保持本机偏好。
+    import('./lib/family-prefs.js').then((m) => m.pullFamilyPrefs()).catch(() => {})
     // 离线缓存与待补传队列按家庭分键，避免换家庭后读到上一家的数据。
     setCacheFamily(st.family?.id)
     // 有本机列表时先秒开首页，再让网络请求在后台刷新。
