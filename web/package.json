@@ -1,7 +1,7 @@
 {
   "name": "giftbook-web",
   "private": true,
-  "version": "2.4.69",
+  "version": "2.4.70",
   "license": "MIT",
   "type": "module",
   "scripts": {

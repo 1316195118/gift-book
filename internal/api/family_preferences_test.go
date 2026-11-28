@@ -10,15 +10,13 @@ import (
 func TestFamilyPreferencesRoundTrip(t *testing.T) {
 	env := newEnv(t)
 	cookie := env.loginFamily(t, "", store.DefaultFamilyID)
-	// 默认：三类全开
+	// 首次读取应为空：服务端没有权威副本，前端以本机为准并上传。
 	res, payload := env.do(t, "GET", "/api/family/preferences", nil, map[string]string{"Cookie": cookie})
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("读取偏好失败: %d %v", res.StatusCode, payload)
 	}
-	data := payload["data"].(map[string]any)
-	cats := data["enabledCategories"].([]any)
-	if len(cats) != 3 {
-		t.Fatalf("默认应有 3 个分类: %v", cats)
+	if payload["data"] != nil {
+		t.Fatalf("首次读取应返回空数据，实际 %v", payload["data"])
 	}
 
 	// 关闭自定义分类
@@ -35,8 +33,8 @@ func TestFamilyPreferencesRoundTrip(t *testing.T) {
 		t.Fatalf("保存偏好失败: %d %v", res.StatusCode, payload)
 	}
 	res, payload = env.do(t, "GET", "/api/family/preferences", nil, map[string]string{"Cookie": cookie})
-	data = payload["data"].(map[string]any)
-	cats = data["enabledCategories"].([]any)
+	data := payload["data"].(map[string]any)
+	cats := data["enabledCategories"].([]any)
 	if len(cats) != 2 || cats[0] != "red" || cats[1] != "white" {
 		t.Fatalf("分类偏好未生效: %v", cats)
 	}

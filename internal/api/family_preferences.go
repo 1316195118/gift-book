@@ -125,10 +125,13 @@ func clampPreferenceNumber(raw any, min, max, fallback float64) float64 {
 	return n
 }
 
+// readFamilyPreferences 返回家庭偏好；尚未保存过偏好时返回 nil，
+// 表示「服务端没有权威副本」，前端应保留本机设置并主动上传，
+// 否则首次登录会用默认值覆盖用户刚做的选择（如切到白事）。
 func readFamilyPreferences(families map[string]store.Record, familyID string) store.Record {
 	rec, exists := families[familyID]
-	if !exists {
-		return sanitizeFamilyPreferences(nil)
+	if !exists || rec["preferences"] == nil {
+		return nil
 	}
 	return sanitizeFamilyPreferences(rec["preferences"])
 }

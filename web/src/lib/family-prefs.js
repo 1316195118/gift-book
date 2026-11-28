@@ -67,7 +67,13 @@ export async function pullFamilyPrefs() {
   applying = true
   try {
     const result = await api.familyPreferences()
-    await apply(result.data)
+    if (result.data && Object.keys(result.data).length > 0) {
+      await apply(result.data)
+    } else {
+      // 服务端还没有偏好：以本机为准，主动上传一次作为初始副本。
+      const prefs = await collect()
+      await api.saveFamilyPreferences(prefs)
+    }
   } catch {
     // 离线或服务端无此接口：保持本机偏好。
   } finally {

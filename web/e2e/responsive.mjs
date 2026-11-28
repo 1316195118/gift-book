@@ -409,6 +409,20 @@ for (const [name, width, height] of [['small-phone', 320, 568], ['desktop', 1440
   const page = await context.newPage()
   try {
     await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+    // 偏好已改为家庭级同步：仅预设 localStorage 会被服务端权威副本覆盖。
+    // 这里先把服务端偏好设为白事再刷新，模拟「该家庭已选白事」的真实设备。
+    await page.evaluate(async () => {
+      await fetch('/api/family/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: {
+          enabledCategories: ['red', 'white', 'custom'], homeCategory: 'white',
+          largeText: false, motion: 'system', sound: false,
+          voiceRate: 1, voiceVolume: 1, print: { fontSize: 'normal', margin: 'normal', appendix: true },
+        } }),
+      })
+    })
+    await page.reload({ waitUntil: 'networkidle' })
     await dismissLightModals(page)
     await ensureTemplateScreen(page)
     const whiteTemplates = await page.locator('.tpl-card .ledger-cover').evaluateAll((nodes) => nodes.map((node) => [
