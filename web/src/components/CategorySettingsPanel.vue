@@ -45,6 +45,7 @@
 </template>
 
 <script setup>
+import { flushFamilyPrefsSync } from '../lib/family-prefs.js'
 import { ref } from 'vue'
 import { state as st } from '../store.js'
 import { CATEGORY_KEYS, setHomeCategory, saveEnabledCategories } from '../lib/prefs.js'
@@ -74,6 +75,8 @@ function save() {
     setHomeCategory(switchedTo)
     st.homeCategory = switchedTo
   }
+  // 立即同步到服务端：用户可能保存后马上刷新，不能等防抖定时器。
+  flushFamilyPrefsSync()
   closeModal()
   notify.success(
     '分类显示已保存',

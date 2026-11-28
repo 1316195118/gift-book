@@ -83,18 +83,27 @@ export async function pullFamilyPrefs() {
 }
 
 /** 本地偏好变更后调用：防抖写回服务端。 */
+async function doSync() {
+  if (!familyId() || pulling) return
+  try {
+    const prefs = await collect()
+    await api.saveFamilyPreferences(prefs)
+  } catch {
+    // 同步失败不影响本机使用；下次变更会重试。
+  }
+}
+
 export function scheduleFamilyPrefsSync() {
   if (!familyId()) return
   clearTimeout(syncTimer)
-  syncTimer = setTimeout(async () => {
-    if (!familyId() || pulling) return
-    try {
-      const prefs = await collect()
-      await api.saveFamilyPreferences(prefs)
-    } catch {
-      // 同步失败不影响本机使用；下次变更会重试。
-    }
-  }, 400)
+  syncTimer = setTimeout(doSync, 400)
+}
+
+/** 用户点「保存」时调用：立即写回服务端，避免保存后立刻刷新丢失设置。 */
+export function flushFamilyPrefsSync() {
+  if (!familyId()) return
+  clearTimeout(syncTimer)
+  return doSync()
 }
 
 // prefs.js 通过事件通知偏好变更，避免模块间循环依赖。
