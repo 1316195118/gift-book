@@ -1,6 +1,7 @@
 // 本地生产构建的首屏性能快照。使用独立浏览器上下文，避免 Service Worker 命中旧缓存。
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { setFamilyCategory } from './prefs-helper.mjs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:18199'
@@ -28,7 +29,6 @@ for (const profile of [
   })
   await context.addInitScript(() => {
     try {
-      localStorage.setItem('giftbook_category', 'red')
       localStorage.setItem('giftbook-backup-prompted', '1')
     } catch { /* ignore */ }
     window.__gbPerf = { lcp: 0, cls: 0 }
@@ -45,6 +45,7 @@ for (const profile of [
   const page = await context.newPage()
   await page.bringToFront()
   await page.goto(BASE + '/', { waitUntil: 'load' })
+  await setFamilyCategory(page, 'red')
   await page.locator('#home-main-card').waitFor({ state: 'visible' })
   await page.waitForTimeout(1200)
   // 无头浏览器在完全不可见的上下文里可能延迟生成 Paint Timing；截图会强制合成首帧。

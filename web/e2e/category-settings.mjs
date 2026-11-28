@@ -2,6 +2,7 @@
 // 用法：先启动隔离实例，再 BASE_URL=http://127.0.0.1:18199 node e2e/category-settings.mjs
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { setFamilyCategory } from './prefs-helper.mjs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:18199'
@@ -91,11 +92,7 @@ try {
   await page.locator('.gb-category-settings').waitFor({ state: 'hidden' })
   check('恢复全部显示后三个分类重新出现', (await page.locator('.cat-switch .cat-btn').count()) === 3)
 
-  await page.evaluate(() => {
-    localStorage.setItem('giftbook_enabled_categories.v1', '["red","white","custom"]')
-    localStorage.setItem('giftbook_category', 'white')
-  })
-  await page.reload({ waitUntil: 'networkidle' })
+  await setFamilyCategory(page, 'white')
   await dismissLightModals(page)
   check('准备隐藏当前白事分类', (await page.locator('body').getAttribute('data-occasion')) === 'white')
   await openCategorySettings(page)

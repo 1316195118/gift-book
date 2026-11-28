@@ -2,6 +2,7 @@
 // 用法：先启动隔离实例，再 BASE_URL=http://127.0.0.1:18199 node e2e/custom-template.mjs
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { setFamilyCategory } from './prefs-helper.mjs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:18199'
@@ -73,6 +74,7 @@ page.on('console', (message) => {
 
 try {
   await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+  await setFamilyCategory(page, 'custom')
   await dismissLightModals(page)
   await page.locator('#home-main-card').waitFor({ state: 'visible' })
 
